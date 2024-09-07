@@ -7,18 +7,15 @@ import {
   createArvoEventFactory,
   exceptionToSpan,
 } from 'arvo-core';
-import {
-  IArvoEventHandler,
-  ArvoEventHandlerFunction,
-} from './types';
+import { IArvoEventHandler, ArvoEventHandlerFunction } from './types';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { CloudEventContextSchema } from 'arvo-core/dist/ArvoEvent/schema';
 
 /**
  * Represents an event handler for Arvo contracts.
- * 
+ *
  * @template TContract - The type of ArvoContract this handler is associated with.
- * 
+ *
  * @remarks
  * This class is the core component for handling Arvo events. It encapsulates the logic
  * for executing event handlers, managing telemetry, and ensuring proper contract validation.
@@ -38,11 +35,11 @@ export default class ArvoEventHandler<TContract extends ArvoContract> {
 
   /**
    * Creates an instance of ArvoEventHandler.
-   * 
+   *
    * @param param - The configuration parameters for the event handler.
-   * 
+   *
    * @throws {Error} Throws an error if the provided source is invalid.
-   * 
+   *
    * @remarks
    * The constructor validates the source parameter against the CloudEventContextSchema.
    * If no source is provided, it defaults to the contract's accepted event type.
@@ -52,23 +49,25 @@ export default class ArvoEventHandler<TContract extends ArvoContract> {
     this.executionunits = param.executionunits;
     this._handler = param.handler;
     if (param.source) {
-      const {error} = CloudEventContextSchema
-        .pick({source: true})
-        .safeParse({source: param.source})
+      const { error } = CloudEventContextSchema.pick({
+        source: true,
+      }).safeParse({ source: param.source });
       if (error) {
-        throw new Error(`The provided 'source' is not a valid string. Error: ${error.message}`)
+        throw new Error(
+          `The provided 'source' is not a valid string. Error: ${error.message}`,
+        );
       }
     }
-    this.source = param.source || this.contract.accepts.type
+    this.source = param.source || this.contract.accepts.type;
   }
 
   /**
    * Executes the event handler for a given event.
-   * 
+   *
    * @param event - The event to handle.
    * @param telemetry - Optional telemetry context for tracing and monitoring.
    * @returns A promise that resolves to the resulting ArvoEvent.
-   * 
+   *
    * @remarks
    * This method performs the following steps:
    * 1. Creates an OpenTelemetry span for the execution.
@@ -76,7 +75,7 @@ export default class ArvoEventHandler<TContract extends ArvoContract> {
    * 3. Executes the handler function.
    * 4. Creates and returns the result event.
    * 5. Handles any errors and creates an error event if necessary.
-   * 
+   *
    * All telemetry data is properly set and propagated throughout the execution.
    */
   public async execute(
@@ -94,9 +93,14 @@ export default class ArvoEventHandler<TContract extends ArvoContract> {
       async (telemetryContext) => {
         const eventFactory = createArvoEventFactory(this.contract);
         try {
-          const inputEventValidation = this.contract.validateInput(event.type, event.data)
+          const inputEventValidation = this.contract.validateInput(
+            event.type,
+            event.data,
+          );
           if (!inputEventValidation.success) {
-            throw new Error(`Invalid event payload: ${inputEventValidation.error}`)
+            throw new Error(
+              `Invalid event payload: ${inputEventValidation.error}`,
+            );
           }
           const { __extensions, ...handlerResult } = await this._handler({
             event: event,

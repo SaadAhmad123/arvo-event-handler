@@ -14,9 +14,7 @@
   "exclude": ["node_modules", "tests"],
   "typedocOptions": {
     "entryPoints": ["src/index.ts"],
-    "projectDocuments": [
-      "CHANGELOG.md"
-    ],
+    "projectDocuments": ["CHANGELOG.md"],
     "plugin": ["typedoc-plugin-zod"],
     "out": "docs"
   }

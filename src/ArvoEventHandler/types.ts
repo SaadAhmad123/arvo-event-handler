@@ -32,14 +32,14 @@ export type ArvoEventHandlerFunctionOutput<TContract extends ArvoContract> = {
     CreateArvoEvent<z.infer<TContract['emits'][K]>, K & string>,
     'subject' | 'source' | 'executionunits'
   > & {
-    /** 
+    /**
      * An optional override for the execution units of this specific event.
-     * 
+     *
      * @remarks
      * Execution units represent the computational cost or resources required to process this event.
      * If not provided, the default value defined in the handler's constructor will be used.
      */
-    executionunits?: number
+    executionunits?: number;
     /** Optional extensions for the event. */
     __extensions?: Record<string, string | number | boolean>;
   };
@@ -67,12 +67,12 @@ export interface IArvoEventHandler<TContract extends ArvoContract> {
    * When provided, this value will be used as the source for emitted events
    * instead of the `contract.accepts.type`. Use this very carefully as it may
    * reduce system transparency and make event tracking more difficult.
-   * 
+   *
    * It's recommended to rely on the default source (`contract.accepts.type`)
    * whenever possible to maintain consistent and traceable event chains.
    */
-  source?: string
-  
+  source?: string;
+
   /**
    * The contract for the handler defining its input and outputs as well as the description.
    */
@@ -89,5 +89,5 @@ export interface IArvoEventHandler<TContract extends ArvoContract> {
    * @param params - The input parameters for the handler function.
    * @returns A promise of object containing the created ArvoEvent and optional extensions.
    */
-  handler: ArvoEventHandlerFunction<TContract>
+  handler: ArvoEventHandlerFunction<TContract>;
 }
