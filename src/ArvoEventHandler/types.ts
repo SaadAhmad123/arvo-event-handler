@@ -3,35 +3,55 @@ import {
   ArvoEvent,
   ResolveArvoContractRecord,
   TelemetryContext,
-  ArvoContractRecord,
   CreateArvoEvent,
-  createContractualArvoEvent,
 } from 'arvo-core';
-import { ExtractEventType } from 'arvo-core/dist/ArvoContract';
 import { z } from 'zod';
 
 /**
  * Represents the input for an ArvoEvent handler function.
  * @template TAccepts - The type of ArvoContractRecord that the handler accepts.
  */
-export type ArvoEventHandlerFunctionInput<
-  T extends string,
-  TAccepts extends ArvoContractRecord,
-  TEmits extends ArvoContractRecord,
-> = {
-  /** The ArvoContract object */
-  contract: ArvoContract<T, TAccepts, TEmits>
+export type ArvoEventHandlerFunctionInput<TContract extends ArvoContract> = {
   /** The ArvoEvent object. */
-  event: ArvoEvent<ResolveArvoContractRecord<TAccepts>, Record<string, any>, TAccepts['type']>;
+  event: ArvoEvent<
+    ResolveArvoContractRecord<TContract['accepts']>,
+    Record<string, any>,
+    TContract['accepts']['type']
+  >;
+
   /** The telemetry context. */
   telemetry: TelemetryContext;
 };
 
-export type ArvoEventHandlerFunctionOutput = {
-  event: ArvoEvent;
-  extensions?: Record<string, any>;
-} | null;
+/**
+ * Represents the output of an ArvoEvent handler function.
+ * @template TContract - The type of ArvoContract that the handler is associated with.
+ */
+export type ArvoEventHandlerFunctionOutput<TContract extends ArvoContract> = {
+  [K in keyof TContract['emits']]: Omit<
+    CreateArvoEvent<z.infer<TContract['emits'][K]>, K & string>,
+    'subject' | 'source' | 'executionunits'
+  > & {
+    /** 
+     * An optional override for the execution units of this specific event.
+     * 
+     * @remarks
+     * Execution units represent the computational cost or resources required to process this event.
+     * If not provided, the default value defined in the handler's constructor will be used.
+     */
+    executionunits?: number
+    /** Optional extensions for the event. */
+    __extensions?: Record<string, string | number | boolean>;
+  };
+}[keyof TContract['emits']];
 
+/**
+ * Defines the structure of an ArvoEvent handler function.
+ * @template TContract - The type of ArvoContract that the handler is associated with.
+ */
+export type ArvoEventHandlerFunction<TContract extends ArvoContract> = (
+  params: ArvoEventHandlerFunctionInput<TContract>,
+) => Promise<ArvoEventHandlerFunctionOutput<TContract>>;
 
 /**
  * Interface for an ArvoEvent handler.
@@ -39,15 +59,24 @@ export type ArvoEventHandlerFunctionOutput = {
  * @template TAccepts - The type of ArvoContractRecord that the handler accepts.
  * @template TEmits - The type of ArvoContractRecord that the handler emits.
  */
-export interface IArvoEventHandler<
-  T extends string = string,
-  TAccepts extends ArvoContractRecord = ArvoContractRecord,
-  TEmits extends ArvoContractRecord = ArvoContractRecord,
-> {
+export interface IArvoEventHandler<TContract extends ArvoContract> {
+  /**
+   * An override source for emitted events.
+   * @deprecated This field is deprecated and should be used with caution.
+   * @remarks
+   * When provided, this value will be used as the source for emitted events
+   * instead of the `contract.accepts.type`. Use this very carefully as it may
+   * reduce system transparency and make event tracking more difficult.
+   * 
+   * It's recommended to rely on the default source (`contract.accepts.type`)
+   * whenever possible to maintain consistent and traceable event chains.
+   */
+  source?: string
+  
   /**
    * The contract for the handler defining its input and outputs as well as the description.
    */
-  contract: ArvoContract<T, TAccepts, TEmits>;
+  contract: TContract;
 
   /**
    * The default execution cost of the function.
@@ -58,13 +87,7 @@ export interface IArvoEventHandler<
   /**
    * The functional handler of the event which takes the input, performs an action, and returns the result.
    * @param params - The input parameters for the handler function.
-   * @returns A promise or object containing the created ArvoEvent and optional extensions.
+   * @returns A promise of object containing the created ArvoEvent and optional extensions.
    */
-  handler: (params: ArvoEventHandlerFunctionInput<T, TAccepts, TEmits>) => (Promise<ArvoEventHandlerFunctionOutput> | ArvoEventHandlerFunctionOutput);
-
-  /**
-   * Optional flag to disable routing metadata for the ArvoEvent.
-   * If set to true, the 'to' and 'redirectto' fields will be forced to null.
-   */
-  disableRouting?: boolean;
+  handler: ArvoEventHandlerFunction<TContract>
 }
