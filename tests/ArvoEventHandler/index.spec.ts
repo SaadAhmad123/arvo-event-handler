@@ -161,6 +161,35 @@ describe('ArvoEventHandler', () => {
     })
   });
 
+  it('should validate the input and throw error on invalid', async () => {
+    const tracer = trace.getTracer('test-tracer')
+    await tracer.startActiveSpan('test', async (span) => {
+      const otelHeaders = currentOpenTelemetryHeaders()
+      const mockEvent = createArvoEvent({
+        type: 'com.hello.world',
+        to: 'com.hello.world',
+        source: 'com.test.env',
+        subject: 'test-subject',
+        data: {
+          name: "Saad",
+        },
+        traceparent: otelHeaders.traceparent || undefined,
+        tracestate: otelHeaders.tracestate || undefined,
+      })
+      const handler = new ArvoEventHandler({
+        contract: mockContract,
+        executionunits: 100,
+        handler: async () => {},
+      });
+      // @ts-ignore
+      const result = await handler.execute(mockEvent);
+      expect(result).toBeDefined();
+      expect(result?.type).toBe('sys.com.hello.world.error');
+      expect(result?.data.errorMessage.includes("Invalid event payload")).toBe(true);
+      span.end()
+    })
+  });
+
   it('should use custom executionunits if provided in handler result', async () => {
     const handler = createArvoEventHandler({
       contract: mockContract,
@@ -178,4 +207,14 @@ describe('ArvoEventHandler', () => {
     const result = await handler.execute(mockEvent);
     expect(result?.executionunits).toBe(200);
   });
+
+  it('should allow to discover the system error message', () => {
+    const handler = new ArvoEventHandler({
+      contract: mockContract,
+      executionunits: 100,
+      handler: mockHandlerFunction,
+    });
+
+    expect(handler.systemErrorSchema.type).toBe(`sys.${handler.contract.accepts.type}.error`)
+  })
 });
