@@ -1,15 +1,19 @@
 import {
   ArvoContract,
   ArvoEvent,
+  ArvoExecution,
+  ArvoExecutionSpanKind,
+  OpenInference,
+  OpenInferenceSpanKind,
   ResolveArvoContractRecord,
-  TelemetryContext,
-  createOtelSpan,
   createArvoEventFactory,
+  currentOpenTelemetryHeaders,
   exceptionToSpan,
 } from 'arvo-core';
 import { IArvoEventHandler, ArvoEventHandlerFunction } from './types';
-import { SpanStatusCode } from '@opentelemetry/api';
 import { CloudEventContextSchema } from 'arvo-core/dist/ArvoEvent/schema';
+import { ArvoEventHandlerTracer, extractContext } from '../OpenTelemetry';
+import { context, Span, SpanKind, SpanOptions, SpanStatusCode, trace } from '@opentelemetry/api';
 
 /**
  * Represents an event handler for Arvo contracts.
@@ -30,6 +34,10 @@ export default class ArvoEventHandler<TContract extends ArvoContract> {
 
   /** The source identifier for events produced by this handler */
   readonly source: string;
+
+  readonly openInferenceSpanKind: OpenInferenceSpanKind = OpenInferenceSpanKind.CHAIN
+  readonly arvoExecutionSpanKind: ArvoExecutionSpanKind = ArvoExecutionSpanKind.EVENT_HANDLER
+  readonly openTelemetrySpanKind: SpanKind = SpanKind.INTERNAL
 
   private readonly _handler: ArvoEventHandlerFunction<TContract>;
 
@@ -59,6 +67,9 @@ export default class ArvoEventHandler<TContract extends ArvoContract> {
       }
     }
     this.source = param.source || this.contract.accepts.type;
+    this.arvoExecutionSpanKind = param.spanKind?.arvoExecution || this.arvoExecutionSpanKind
+    this.openInferenceSpanKind = param.spanKind?.openInference || this.openInferenceSpanKind
+    this.openTelemetrySpanKind = param.spanKind?.openTelemetry || this.openTelemetrySpanKind
   }
 
   /**
@@ -84,64 +95,80 @@ export default class ArvoEventHandler<TContract extends ArvoContract> {
       Record<string, any>,
       TContract['accepts']['type']
     >,
-    telemetry?: TelemetryContext,
   ): Promise<ArvoEvent> {
-    return await createOtelSpan(
-      telemetry || 'Execute ArvoEvent Handler',
-      `ArvoEventHandler<${this.contract.uri}>.execute<${event.type}>`,
-      { attributes: event.otelAttributes },
-      async (telemetryContext) => {
-        const eventFactory = createArvoEventFactory(this.contract);
-        try {
-          const inputEventValidation = this.contract.validateInput(
-            event.type,
-            event.data,
+    const spanName: string = `ArvoEventHandler<${this.contract.uri}>.execute<${event.type}>`
+    const spanOptions: SpanOptions = {
+      kind: this.openTelemetrySpanKind,
+      attributes: {
+        [OpenInference.ATTR_SPAN_KIND]: this.openInferenceSpanKind,
+        [ArvoExecution.ATTR_SPAN_KIND]: this.arvoExecutionSpanKind,
+      }
+    }
+    let span: Span;
+    if (event.traceparent) {
+      const inheritedContext = extractContext(event.traceparent, event.tracestate)
+      span = ArvoEventHandlerTracer.startSpan(spanName, spanOptions, inheritedContext)
+    }
+    else {
+      span = ArvoEventHandlerTracer.startSpan(spanName, spanOptions)
+    }
+    const eventFactory = createArvoEventFactory(this.contract);
+    return await context.with(trace.setSpan(context.active(), span), async () => {
+      const otelSpanHeaders = currentOpenTelemetryHeaders()
+      try {
+        span.setStatus({code: SpanStatusCode.OK })
+        Object.entries(event.otelAttributes).forEach(([key, value]) => span.setAttribute(`to_process.${key}`, value))
+        const inputEventValidation = this.contract.validateInput(
+          event.type,
+          event.data,
+        );
+        if (!inputEventValidation.success) {
+          throw new Error(
+            `Invalid event payload: ${inputEventValidation.error}`,
           );
-          if (!inputEventValidation.success) {
-            throw new Error(
-              `Invalid event payload: ${inputEventValidation.error}`,
-            );
-          }
-          const { __extensions, ...handlerResult } = await this._handler({
-            event: event,
-            telemetry: telemetryContext,
-          });
-          const result = eventFactory.emits(
-            {
-              ...handlerResult,
-              source: this.source,
-              subject: event.subject,
-              to: handlerResult.to || event.source,
-              executionunits:
-                handlerResult.executionunits || this.executionunits,
-            },
-            __extensions,
-            telemetryContext,
-          );
-          telemetryContext.span.setAttributes(result.otelAttributes);
-          telemetryContext.span.setStatus({ code: SpanStatusCode.OK });
-          return result;
-        } catch (e) {
-          const result = eventFactory.systemError(
-            {
-              source: this.source,
-              subject: event.subject,
-              to: event.source,
-              error: e as Error,
-              executionunits: this.executionunits,
-            },
-            {},
-            telemetryContext,
-          );
-          telemetryContext.span.setStatus({
-            code: SpanStatusCode.ERROR,
-            message: (e as Error).message,
-          });
-          exceptionToSpan(telemetryContext.span, 'CRITICAL', e as Error);
-          telemetryContext.span.setAttributes(result.otelAttributes);
-          return result;
         }
-      },
-    );
+        const { __extensions, ...handlerResult } = await this._handler({
+          event: event,
+        });
+        const result = eventFactory.emits(
+          {
+            ...handlerResult,
+            traceparent: otelSpanHeaders.traceparent || undefined,
+            tracestate: otelSpanHeaders.tracestate || undefined,
+            source: this.source,
+            subject: event.subject,
+            to: handlerResult.to || event.source,
+            executionunits:
+              handlerResult.executionunits || this.executionunits,
+          },
+          __extensions,
+        );
+        span.setAttributes(result.otelAttributes)
+        Object.entries(result.otelAttributes).forEach(([key, value]) => span.setAttribute(`to_emit.${key}`, value))
+        return result;
+      } catch (error) {
+        exceptionToSpan(error as Error)
+        span.setStatus({
+          code: SpanStatusCode.ERROR,
+          message: (error as Error).message,
+        });
+        const result = eventFactory.systemError(
+          {
+            source: this.source,
+            subject: event.subject,
+            to: event.source,
+            error: error as Error,
+            executionunits: this.executionunits,
+            traceparent: otelSpanHeaders.traceparent || undefined,
+            tracestate: otelSpanHeaders.tracestate || undefined,
+          },
+          {},
+        );
+        Object.entries(result.otelAttributes).forEach(([key, value]) => span.setAttribute(`to_emit.${key}`, value))
+        return result;
+      } finally {
+        span.end()
+      }
+    })
   }
 }

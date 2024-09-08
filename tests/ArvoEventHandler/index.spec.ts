@@ -3,6 +3,7 @@ import {
   createArvoContract,
   createArvoEvent,
   createArvoEventFactory,
+  currentOpenTelemetryHeaders,
 } from 'arvo-core';
 import { telemetrySdkStart, telemetrySdkStop } from '../utils';
 import { z } from 'zod';
@@ -11,8 +12,18 @@ import {
   ArvoEventHandlerFunction,
   createArvoEventHandler,
 } from '../../src';
+import { trace } from '@opentelemetry/api';
 
 describe('ArvoEventHandler', () => {
+
+  beforeAll(() => {
+    telemetrySdkStart();
+  });
+
+  afterAll(() => {
+    telemetrySdkStop();
+  });
+
   const mockContract = createArvoContract({
     uri: '#/test/ArvoEventHandler',
     accepts: {
@@ -42,7 +53,7 @@ describe('ArvoEventHandler', () => {
 
   const mockHandlerFunction: ArvoEventHandlerFunction<
     typeof mockContract
-  > = async ({ event, telemetry }) => {
+  > = async ({ event }) => {
     return {
       type: 'evt.hello.world.success',
       data: {
@@ -50,14 +61,7 @@ describe('ArvoEventHandler', () => {
       },
     };
   };
-
-  beforeAll(() => {
-    telemetrySdkStart();
-  });
-
-  afterAll(() => {
-    telemetrySdkStop();
-  });
+  
 
   it('should create an instance with default source', () => {
     const handler = new ArvoEventHandler({
@@ -128,25 +132,40 @@ describe('ArvoEventHandler', () => {
   });
 
   it('should handle handler error', async () => {
-    const handler = new ArvoEventHandler({
-      contract: mockContract,
-      executionunits: 100,
-      handler: async () => {
-        throw new Error('Test error');
-      },
-    });
-
-    const result = await handler.execute(mockEvent);
-    expect(result).toBeDefined();
-    expect(result.type).toBe('sys.com.hello.world.error');
-    expect(result.data.errorMessage).toBe('Test error');
+    const tracer = trace.getTracer('test-tracer')
+    await tracer.startActiveSpan('test', async (span) => {
+      const otelHeaders = currentOpenTelemetryHeaders()
+      const mockEvent = createArvoEventFactory(mockContract).accepts({
+        to: 'com.hello.world',
+        source: 'com.test.env',
+        subject: 'test-subject',
+        data: {
+          name: "Saad",
+          age: 10,
+        },
+        traceparent: otelHeaders.traceparent || undefined,
+        tracestate: otelHeaders.tracestate || undefined,
+      })
+      const handler = new ArvoEventHandler({
+        contract: mockContract,
+        executionunits: 100,
+        handler: async () => {
+          throw new Error('Test error');
+        },
+      });
+      const result = await handler.execute(mockEvent);
+      expect(result).toBeDefined();
+      expect(result.type).toBe('sys.com.hello.world.error');
+      expect(result.data.errorMessage).toBe('Test error');
+      span.end()
+    })
   });
 
   it('should use custom executionunits if provided in handler result', async () => {
     const handler = createArvoEventHandler({
       contract: mockContract,
       executionunits: 100,
-      handler: async ({ event, telemetry }) => {
+      handler: async ({ event }) => {
         return {
           type: 'evt.hello.world.success',
           data: {

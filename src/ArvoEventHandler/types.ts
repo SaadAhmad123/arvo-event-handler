@@ -1,9 +1,11 @@
+import { SpanKind } from '@opentelemetry/api';
 import {
   ArvoContract,
   ArvoEvent,
   ResolveArvoContractRecord,
-  TelemetryContext,
   CreateArvoEvent,
+  OpenInferenceSpanKind,
+  ArvoExecutionSpanKind,
 } from 'arvo-core';
 import { z } from 'zod';
 
@@ -18,9 +20,6 @@ export type ArvoEventHandlerFunctionInput<TContract extends ArvoContract> = {
     Record<string, any>,
     TContract['accepts']['type']
   >;
-
-  /** The telemetry context. */
-  telemetry: TelemetryContext;
 };
 
 /**
@@ -90,4 +89,17 @@ export interface IArvoEventHandler<TContract extends ArvoContract> {
    * @returns A promise of object containing the created ArvoEvent and optional extensions.
    */
   handler: ArvoEventHandlerFunction<TContract>;
+
+  /** 
+   * The OpenTelemetry span kind attributes for the handler
+   * executor.
+   * @param [openInference] - The OpenInference span kind. Default is "CHAIN"
+   * @param [arvoExecution] - The ArvoExecution span kind. Default is "EVENT_HANDLER"
+   * @param [openTelemetry] - The OpenTelemetry span kind. Default is "INTERNAL"
+   */
+  spanKind?: {
+    openInference?: OpenInferenceSpanKind,
+    arvoExecution?: ArvoExecutionSpanKind,
+    openTelemetry?: SpanKind
+  }
 }
