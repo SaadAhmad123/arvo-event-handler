@@ -20,11 +20,14 @@ import ArvoEventHandler from '.';
  * const myHandler = createArvoEventHandler({
  *   contract: myContract,
  *   executionunits: 100,
- *   handler: async ({ event, telemetry }) => {
+ *   handler: async ({ event }) => {
  *     // Handler implementation
  *   }
  * });
  * ```
+ *
+ * @see {@link IArvoEventHandler} for the full configuration options
+ * @see {@link ArvoEventHandler} for the handler class implementation
  */
 export const createArvoEventHandler = <TContract extends ArvoContract>(
   param: IArvoEventHandler<TContract>,

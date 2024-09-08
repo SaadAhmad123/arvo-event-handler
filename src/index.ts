@@ -7,6 +7,14 @@ import {
 } from './ArvoEventHandler/types';
 import { createArvoEventHandler } from './ArvoEventHandler/helpers';
 import { PartialExcept } from './types';
+import MultiArvoEventHandler from './MultiArvoEventHandler';
+import {
+  MultiArvoEventHandlerFunctionInput,
+  MultiArvoEventHandlerFunctionOutput,
+  MultiArvoEventHandlerFunction,
+  IMultiArvoEventHandler
+} from './MultiArvoEventHandler/types'
+import { createMultiArvoEventHandler } from './MultiArvoEventHandler/helpers';
 
 export {
   ArvoEventHandler,
@@ -16,4 +24,10 @@ export {
   ArvoEventHandlerFunctionInput,
   ArvoEventHandlerFunction,
   PartialExcept,
+  MultiArvoEventHandler,
+  MultiArvoEventHandlerFunctionInput,
+  MultiArvoEventHandlerFunctionOutput,
+  MultiArvoEventHandlerFunction,
+  IMultiArvoEventHandler,
+  createMultiArvoEventHandler,
 };

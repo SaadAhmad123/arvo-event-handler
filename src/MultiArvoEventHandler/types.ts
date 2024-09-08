@@ -1,0 +1,75 @@
+import { SpanKind } from "@opentelemetry/api";
+import { ArvoEvent, ArvoExecutionSpanKind, CreateArvoEvent, OpenInferenceSpanKind } from "arvo-core";
+
+/**
+ * Represents the input for a Multi ArvoEvent handler function.
+ */
+export type MultiArvoEventHandlerFunctionInput = {
+  event: ArvoEvent
+}
+
+/**
+ * Represents the output of a Multi ArvoEvent handler function.
+ * @template TContract - The type of ArvoContract that the handler is associated with.
+ */
+export type MultiArvoEventHandlerFunctionOutput = Omit<
+  CreateArvoEvent<Record<string, any>, string>,
+  'subject' | 'source' | 'executionunits' | 'traceparent' | 'tracestate'
+> & {
+  /**
+   * An optional override for the execution units of this specific event.
+   *
+   * @remarks
+   * Execution units represent the computational cost or resources required to process this event.
+   * If not provided, the default value defined in the handler's constructor will be used.
+   */
+  executionunits?: number;
+  /** Optional extensions for the event. */
+  __extensions?: Record<string, string | number | boolean>;
+};
+
+/**
+ * Defines the structure of a Multi ArvoEvent handler function.
+ * @template TContract - The type of ArvoContract that the handler is associated with.
+ */
+export type MultiArvoEventHandlerFunction = (param: MultiArvoEventHandlerFunctionInput) => Promise<MultiArvoEventHandlerFunctionOutput | void>
+
+/**
+ * Interface for an Multi ArvoEvent handler.
+ */
+export interface IMultiArvoEventHandler {
+  /**
+   * The source definition of the MultiArvoEventHanlder. 
+   * 
+   * @remarks
+   * For all the events which are emitted by the handler, this will be the source
+   * field value of them all.
+   */
+  source: string;
+
+  /**
+   * The default execution cost of the function.
+   * This can represent a dollar value or some other number with a rate card.
+   */
+  executionunits: number;
+
+  /**
+   * The functional handler of the event which takes the input, performs an action, and returns the result.
+   * @param params - The input parameters for the handler function.
+   * @returns A promise of object containing the created ArvoEvent and optional extensions.
+   */
+  handler: MultiArvoEventHandlerFunction;
+
+  /** 
+   * The OpenTelemetry span kind attributes for the handler
+   * executor.
+   * @param [openInference] - The OpenInference span kind. Default is "CHAIN"
+   * @param [arvoExecution] - The ArvoExecution span kind. Default is "EVENT_HANDLER"
+   * @param [openTelemetry] - The OpenTelemetry span kind. Default is "INTERNAL"
+   */
+  spanKind?: {
+    openInference?: OpenInferenceSpanKind,
+    arvoExecution?: ArvoExecutionSpanKind,
+    openTelemetry?: SpanKind
+  }
+}

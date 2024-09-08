@@ -29,7 +29,7 @@ export type ArvoEventHandlerFunctionInput<TContract extends ArvoContract> = {
 export type ArvoEventHandlerFunctionOutput<TContract extends ArvoContract> = {
   [K in keyof TContract['emits']]: Omit<
     CreateArvoEvent<z.infer<TContract['emits'][K]>, K & string>,
-    'subject' | 'source' | 'executionunits'
+    'subject' | 'source' | 'executionunits' | 'traceparent' | 'tracestate'
   > & {
     /**
      * An optional override for the execution units of this specific event.
@@ -50,7 +50,7 @@ export type ArvoEventHandlerFunctionOutput<TContract extends ArvoContract> = {
  */
 export type ArvoEventHandlerFunction<TContract extends ArvoContract> = (
   params: ArvoEventHandlerFunctionInput<TContract>,
-) => Promise<ArvoEventHandlerFunctionOutput<TContract>>;
+) => Promise<ArvoEventHandlerFunctionOutput<TContract> | void>;
 
 /**
  * Interface for an ArvoEvent handler.

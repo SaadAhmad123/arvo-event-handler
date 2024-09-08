@@ -124,9 +124,9 @@ describe('ArvoEventHandler', () => {
     );
 
     expect(result).toBeDefined();
-    expect(result.executionunits).toBe(100);
-    expect(result.type).toBe('sys.com.hello.world.error');
-    expect(result.data.errorMessage).toBe(
+    expect(result?.executionunits).toBe(100);
+    expect(result?.type).toBe('sys.com.hello.world.error');
+    expect(result?.data.errorMessage).toBe(
       'Accept type "com.saad.invalid.test" not found in contract',
     );
   });
@@ -155,8 +155,8 @@ describe('ArvoEventHandler', () => {
       });
       const result = await handler.execute(mockEvent);
       expect(result).toBeDefined();
-      expect(result.type).toBe('sys.com.hello.world.error');
-      expect(result.data.errorMessage).toBe('Test error');
+      expect(result?.type).toBe('sys.com.hello.world.error');
+      expect(result?.data.errorMessage).toBe('Test error');
       span.end()
     })
   });
@@ -176,6 +176,6 @@ describe('ArvoEventHandler', () => {
       },
     });
     const result = await handler.execute(mockEvent);
-    expect(result.executionunits).toBe(200);
+    expect(result?.executionunits).toBe(200);
   });
 });
