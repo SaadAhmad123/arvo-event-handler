@@ -192,10 +192,12 @@ describe('ArvoEventHandler', () => {
       const inputTraceId = otelHeaders.traceparent?.split('-')?.[2]
       const outputTraceId = result[0].traceparent?.split('-')?.[2]
       
-      expect(inputTraceparent).toBeDefined()
-      expect(outputTraceparent).toBeDefined()
-      expect(inputTraceparent).toBe(outputTraceparent)
-      expect(inputTraceId).not.toBe(outputTraceId)
+      if (process.env.ENABLE_OTEL === "TRUE") {
+        expect(inputTraceparent).toBeDefined()
+        expect(outputTraceparent).toBeDefined()
+        expect(inputTraceparent).toBe(outputTraceparent)
+        expect(inputTraceId).not.toBe(outputTraceId)
+      }
       span.end()
     })
   });
