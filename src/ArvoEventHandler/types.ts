@@ -20,6 +20,9 @@ export type ArvoEventHandlerFunctionInput<TContract extends ArvoContract> = {
     Record<string, any>,
     TContract['accepts']['type']
   >;
+
+  /** The source field data of the handler */
+  source: string
 };
 
 /**

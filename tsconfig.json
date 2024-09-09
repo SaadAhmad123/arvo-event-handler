@@ -14,7 +14,11 @@
   "exclude": ["node_modules", "tests"],
   "typedocOptions": {
     "entryPoints": ["src/index.ts"],
-    "projectDocuments": ["CHANGELOG.md"],
+    "projectDocuments": [
+      "src/ArvoEventHandler/README.md",
+      "src/MultiArvoEventHandler/README.md",
+      "CHANGELOG.md"
+    ],
     "plugin": ["typedoc-plugin-zod"],
     "out": "docs"
   }

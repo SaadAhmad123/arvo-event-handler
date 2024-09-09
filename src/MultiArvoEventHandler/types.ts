@@ -5,7 +5,11 @@ import { ArvoEvent, ArvoExecutionSpanKind, CreateArvoEvent, OpenInferenceSpanKin
  * Represents the input for a Multi ArvoEvent handler function.
  */
 export type MultiArvoEventHandlerFunctionInput = {
-  event: ArvoEvent
+  /** The ArvoEvent object. */
+  event: ArvoEvent;
+
+  /** The source field data of the handler */
+  source: string
 }
 
 /**

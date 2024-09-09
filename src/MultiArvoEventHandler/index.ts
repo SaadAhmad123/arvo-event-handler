@@ -104,7 +104,7 @@ export default class MultiArvoEventHandler {
         span.setStatus({code: SpanStatusCode.OK })
         Object.entries(event.otelAttributes).forEach(([key, value]) => span.setAttribute(`to_process.0.${key}`, value))
 
-        const _handlerOutput = await this._handler({event})
+        const _handlerOutput = await this._handler({event, source: this.source})
         if (!_handlerOutput) return []
         let outputs: MultiArvoEventHandlerFunctionOutput[] = []
         if (Array.isArray(_handlerOutput)) {

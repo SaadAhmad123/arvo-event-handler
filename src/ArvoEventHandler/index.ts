@@ -133,7 +133,7 @@ export default class ArvoEventHandler<TContract extends ArvoContract> {
             `Invalid event payload: ${inputEventValidation.error}`,
           );
         }
-        const _handleOutput = await this._handler({event})
+        const _handleOutput = await this._handler({event, source: this.source})
         if (!_handleOutput) return []
         let outputs: ArvoEventHandlerFunctionOutput<TContract>[] = []
         if (Array.isArray(_handleOutput)) {
