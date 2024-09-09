@@ -7,7 +7,7 @@ group: Guides
 
 ## Overview
 
-The Arvo Event Handler is a TypeScript class designed to facilitate the handling of events as per an `ArvoContract` (see [arvo-code](https://saadahmad123.github.io/arvo-core/documents/ArvoContract.html)). It provides a robust and flexible way to create, manage, and execute event handlers for Arvo-based event driven systems.
+The Arvo Event Handler is a TypeScript class designed to facilitate the handling of events as per an `ArvoContract` (see [arvo-core](https://saadahmad123.github.io/arvo-core/documents/ArvoContract.html)). It provides a robust and flexible way to create, manage, and execute event handlers for Arvo-based event driven systems.
 
 ## Key Components
 
