@@ -1,6 +1,6 @@
 import { context, Span, SpanKind, SpanOptions, SpanStatusCode, trace } from '@opentelemetry/api';
 import { ArvoEvent, ArvoExecutionSpanKind, OpenInference, OpenInferenceSpanKind, ArvoExecution, currentOpenTelemetryHeaders, exceptionToSpan, createArvoEvent, ArvoErrorSchema } from "arvo-core";
-import { IMultiArvoEventHandler, MultiArvoEventHandlerFunction } from "./types";
+import { IMultiArvoEventHandler, MultiArvoEventHandlerFunction, MultiArvoEventHandlerFunctionOutput } from "./types";
 import { CloudEventContextSchema } from "arvo-core/dist/ArvoEvent/schema";
 import { ArvoEventHandlerTracer, extractContext } from '../OpenTelemetry';
 
@@ -64,7 +64,7 @@ export default class MultiArvoEventHandler {
    * Executes the event handler for a given event.
    * 
    * @param event - The event to handle.
-   * @returns A promise that resolves to the resulting ArvoEvent.
+   * @returns A promise that resolves to the resulting ArvoEvents.
    * 
    * @remarks
    * This method performs the following steps:
@@ -79,7 +79,7 @@ export default class MultiArvoEventHandler {
    */
   public async execute(
     event: ArvoEvent
-  ): Promise<ArvoEvent | null> {
+  ): Promise<ArvoEvent[]> {
     const spanName: string = `MutliArvoEventHandler.source<${this.source}>.execute<${event.type}>`
     const spanOptions: SpanOptions = {
       kind: this.openTelemetrySpanKind,
@@ -102,29 +102,35 @@ export default class MultiArvoEventHandler {
       const otelSpanHeaders = currentOpenTelemetryHeaders()
       try {
         span.setStatus({code: SpanStatusCode.OK })
-        Object.entries(event.otelAttributes).forEach(([key, value]) => span.setAttribute(`to_process.${key}`, value))
+        Object.entries(event.otelAttributes).forEach(([key, value]) => span.setAttribute(`to_process.0.${key}`, value))
 
-        const output = await this._handler({event})
-        if (!output) return null
+        const _handlerOutput = await this._handler({event})
+        if (!_handlerOutput) return []
+        let outputs: MultiArvoEventHandlerFunctionOutput[] = []
+        if (Array.isArray(_handlerOutput)) {
+          outputs = _handlerOutput
+        } else {
+          outputs = [_handlerOutput]
+        }
 
-        const {__extensions, ...handlerResult} = output
-
-        const result = createArvoEvent(
-          {
-            ...handlerResult,
-            traceparent: otelSpanHeaders.traceparent || undefined,
-            tracestate: otelSpanHeaders.tracestate || undefined,
-            source: this.source,
-            subject: event.subject,
-            to: handlerResult.to || event.source,
-            executionunits:
-                handlerResult.executionunits || this.executionunits,
-          },
-          __extensions,
-        )
-        span.setAttributes(result.otelAttributes)
-        Object.entries(result.otelAttributes).forEach(([key, value]) => span.setAttribute(`to_emit.${key}`, value))
-        return result;
+        return outputs.map((output, index) => {
+          const {__extensions, ...handlerResult} = output
+          const result = createArvoEvent(
+            {
+              ...handlerResult,
+              traceparent: otelSpanHeaders.traceparent || undefined,
+              tracestate: otelSpanHeaders.tracestate || undefined,
+              source: this.source,
+              subject: event.subject,
+              to: handlerResult.to || event.source,
+              executionunits:
+                  handlerResult.executionunits || this.executionunits,
+            },
+            __extensions,
+          )
+          Object.entries(result.otelAttributes).forEach(([key, value]) => span.setAttribute(`to_emit.${index}.${key}`, value))
+          return result
+        })
       } catch (error) {
         exceptionToSpan(error as Error)
         span.setStatus({
@@ -145,8 +151,8 @@ export default class MultiArvoEventHandler {
             errorStack: (error as Error).stack || null
           }
         })
-        Object.entries(result.otelAttributes).forEach(([key, value]) => span.setAttribute(`to_emit.${key}`, value))
-        return result;
+        Object.entries(result.otelAttributes).forEach(([key, value]) => span.setAttribute(`to_emit.0.${key}`, value))
+        return [result];
       }
       finally {
         span.end()

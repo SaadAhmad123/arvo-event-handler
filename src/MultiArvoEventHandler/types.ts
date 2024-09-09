@@ -32,7 +32,7 @@ export type MultiArvoEventHandlerFunctionOutput = Omit<
  * Defines the structure of a Multi ArvoEvent handler function.
  * @template TContract - The type of ArvoContract that the handler is associated with.
  */
-export type MultiArvoEventHandlerFunction = (param: MultiArvoEventHandlerFunctionInput) => Promise<MultiArvoEventHandlerFunctionOutput | void>
+export type MultiArvoEventHandlerFunction = (param: MultiArvoEventHandlerFunctionInput) => Promise<Array<MultiArvoEventHandlerFunctionOutput> | MultiArvoEventHandlerFunctionOutput | void>
 
 /**
  * Interface for an Multi ArvoEvent handler.
