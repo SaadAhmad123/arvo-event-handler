@@ -18,6 +18,7 @@ const createTelemetrySdk = () => {
     return new NodeSDK({
       resource: telemetryResources,
       traceExporter: new GRPCTraceExporter(),
+      instrumentations: [getNodeAutoInstrumentations()],
     });
   }
   return new NodeSDK({

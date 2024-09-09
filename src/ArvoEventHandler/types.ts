@@ -50,7 +50,7 @@ export type ArvoEventHandlerFunctionOutput<TContract extends ArvoContract> = {
  */
 export type ArvoEventHandlerFunction<TContract extends ArvoContract> = (
   params: ArvoEventHandlerFunctionInput<TContract>,
-) => Promise<ArvoEventHandlerFunctionOutput<TContract> | void>;
+) => Promise<Array<ArvoEventHandlerFunctionOutput<TContract>> | ArvoEventHandlerFunctionOutput<TContract> | void>;
 
 /**
  * Interface for an ArvoEvent handler.

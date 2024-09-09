@@ -11,7 +11,7 @@ import {
   currentOpenTelemetryHeaders,
   exceptionToSpan,
 } from 'arvo-core';
-import { IArvoEventHandler, ArvoEventHandlerFunction } from './types';
+import { IArvoEventHandler, ArvoEventHandlerFunction, ArvoEventHandlerFunctionOutput } from './types';
 import { CloudEventContextSchema } from 'arvo-core/dist/ArvoEvent/schema';
 import { ArvoEventHandlerTracer, extractContext } from '../OpenTelemetry';
 import { context, Span, SpanKind, SpanOptions, SpanStatusCode, trace } from '@opentelemetry/api';
@@ -83,7 +83,7 @@ export default class ArvoEventHandler<TContract extends ArvoContract> {
    * Executes the event handler for a given event.
    *
    * @param event - The event to handle.
-   * @returns A promise that resolves to the resulting ArvoEvent.
+   * @returns A promise that resolves to the resulting ArvoEvents.
    *
    * @remarks
    * This method performs the following steps:
@@ -101,7 +101,7 @@ export default class ArvoEventHandler<TContract extends ArvoContract> {
       Record<string, any>,
       TContract['accepts']['type']
     >,
-  ): Promise<ArvoEvent | null> {
+  ): Promise<ArvoEvent[]> {
     const spanName: string = `ArvoEventHandler<${this.contract.uri}>.execute<${event.type}>`
     const spanOptions: SpanOptions = {
       kind: this.openTelemetrySpanKind,
@@ -123,8 +123,8 @@ export default class ArvoEventHandler<TContract extends ArvoContract> {
       const otelSpanHeaders = currentOpenTelemetryHeaders()
       try {
         span.setStatus({code: SpanStatusCode.OK })
-        Object.entries(event.otelAttributes).forEach(([key, value]) => span.setAttribute(`to_process.${key}`, value))
-        const inputEventValidation = this.contract.validateInput(
+        Object.entries(event.otelAttributes).forEach(([key, value]) => span.setAttribute(`to_process.0.${key}`, value))
+        const inputEventValidation = this.contract.validateAccepts(
           event.type,
           event.data,
         );
@@ -133,25 +133,33 @@ export default class ArvoEventHandler<TContract extends ArvoContract> {
             `Invalid event payload: ${inputEventValidation.error}`,
           );
         }
-        const output = await this._handler({event})
-        if (!output) return null 
-        const { __extensions, ...handlerResult } = output
-        const result = eventFactory.emits(
-          {
-            ...handlerResult,
-            traceparent: otelSpanHeaders.traceparent || undefined,
-            tracestate: otelSpanHeaders.tracestate || undefined,
-            source: this.source,
-            subject: event.subject,
-            to: handlerResult.to || event.source,
-            executionunits:
-              handlerResult.executionunits || this.executionunits,
-          },
-          __extensions,
-        );
-        span.setAttributes(result.otelAttributes)
-        Object.entries(result.otelAttributes).forEach(([key, value]) => span.setAttribute(`to_emit.${key}`, value))
-        return result;
+        const _handleOutput = await this._handler({event})
+        if (!_handleOutput) return []
+        let outputs: ArvoEventHandlerFunctionOutput<TContract>[] = []
+        if (Array.isArray(_handleOutput)) {
+          outputs = _handleOutput
+        } else {
+          outputs = [_handleOutput]
+        }
+        
+        return outputs.map((output, index) => {
+          const { __extensions, ...handlerResult } = output
+          const result = eventFactory.emits(
+            {
+              ...handlerResult,
+              traceparent: otelSpanHeaders.traceparent || undefined,
+              tracestate: otelSpanHeaders.tracestate || undefined,
+              source: this.source,
+              subject: event.subject,
+              to: handlerResult.to || event.source,
+              executionunits:
+                handlerResult.executionunits || this.executionunits,
+            },
+            __extensions,
+          );
+          Object.entries(result.otelAttributes).forEach(([key, value]) => span.setAttribute(`to_emit.${index}.${key}`, value))
+          return result
+        })
       } catch (error) {
         exceptionToSpan(error as Error)
         span.setStatus({
@@ -170,8 +178,8 @@ export default class ArvoEventHandler<TContract extends ArvoContract> {
           },
           {},
         );
-        Object.entries(result.otelAttributes).forEach(([key, value]) => span.setAttribute(`to_emit.${key}`, value))
-        return result;
+        Object.entries(result.otelAttributes).forEach(([key, value]) => span.setAttribute(`to_emit.0.${key}`, value))
+        return [result];
       } finally {
         span.end()
       }

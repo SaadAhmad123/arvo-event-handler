@@ -123,10 +123,10 @@ describe('ArvoEventHandler', () => {
       }) as any,
     );
 
-    expect(result).toBeDefined();
-    expect(result?.executionunits).toBe(100);
-    expect(result?.type).toBe('sys.com.hello.world.error');
-    expect(result?.data.errorMessage).toBe(
+    expect(result[0]).toBeDefined();
+    expect(result[0].executionunits).toBe(100);
+    expect(result[0].type).toBe('sys.com.hello.world.error');
+    expect(result[0].data.errorMessage).toBe(
       'Accept type "com.saad.invalid.test" not found in contract',
     );
   });
@@ -155,8 +155,8 @@ describe('ArvoEventHandler', () => {
       });
       const result = await handler.execute(mockEvent);
       expect(result).toBeDefined();
-      expect(result?.type).toBe('sys.com.hello.world.error');
-      expect(result?.data.errorMessage).toBe('Test error');
+      expect(result[0].type).toBe('sys.com.hello.world.error');
+      expect(result[0].data.errorMessage).toBe('Test error');
       span.end()
     })
   });
@@ -184,8 +184,18 @@ describe('ArvoEventHandler', () => {
       // @ts-ignore
       const result = await handler.execute(mockEvent);
       expect(result).toBeDefined();
-      expect(result?.type).toBe('sys.com.hello.world.error');
-      expect(result?.data.errorMessage.includes("Invalid event payload")).toBe(true);
+      expect(result[0].type).toBe('sys.com.hello.world.error');
+      expect(result[0].data.errorMessage.includes("Invalid event payload")).toBe(true);
+      
+      const inputTraceparent = otelHeaders.traceparent?.split('-')?.[1]
+      const outputTraceparent = result[0].traceparent?.split('-')?.[1]
+      const inputTraceId = otelHeaders.traceparent?.split('-')?.[2]
+      const outputTraceId = result[0].traceparent?.split('-')?.[2]
+      
+      expect(inputTraceparent).toBeDefined()
+      expect(outputTraceparent).toBeDefined()
+      expect(inputTraceparent).toBe(outputTraceparent)
+      expect(inputTraceId).not.toBe(outputTraceId)
       span.end()
     })
   });
@@ -195,17 +205,27 @@ describe('ArvoEventHandler', () => {
       contract: mockContract,
       executionunits: 100,
       handler: async ({ event }) => {
-        return {
-          type: 'evt.hello.world.success',
-          data: {
-            result: `My name is ${event.data.name}. I am ${event.data.age} years old`,
+        return [
+          {
+            type: 'evt.hello.world.success',
+            data: {
+              result: `My name is ${event.data.name}. I am ${event.data.age} years old`,
+            },
+            executionunits: 200,
           },
-          executionunits: 200,
-        };
+          {
+            type: 'evt.hello.world.success',
+            data: {
+              result: `My name is ${event.data.name}. I am ${event.data.age} years old`,
+            },
+            executionunits: 500,
+          }
+        ];
       },
     });
     const result = await handler.execute(mockEvent);
-    expect(result?.executionunits).toBe(200);
+    expect(result[0].executionunits).toBe(200);
+    expect(result[1].executionunits).toBe(500)
   });
 
   it('should allow to discover the system error message', () => {
@@ -216,5 +236,16 @@ describe('ArvoEventHandler', () => {
     });
 
     expect(handler.systemErrorSchema.type).toBe(`sys.${handler.contract.accepts.type}.error`)
+  })
+
+  it('should not return any output if the handler does not', async () => {
+    const handler = new ArvoEventHandler({
+      contract: mockContract,
+      executionunits: 100,
+      handler: async () => {},
+    });
+
+    const events = await handler.execute(mockEvent)
+    expect(events.length).toBe(0)
   })
 });
