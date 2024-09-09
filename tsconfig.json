@@ -17,7 +17,8 @@
     "projectDocuments": [
       "src/ArvoEventHandler/README.md",
       "src/MultiArvoEventHandler/README.md",
-      "CHANGELOG.md"
+      "CHANGELOG.md",
+      "LICENSE.md"
     ],
     "plugin": ["typedoc-plugin-zod"],
     "out": "docs"
