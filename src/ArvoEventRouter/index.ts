@@ -10,7 +10,7 @@ import {
 } from 'arvo-core';
 import ArvoEventHandler from '../ArvoEventHandler';
 import { IArvoEventRouter } from './types';
-import { getValueOrDefault, isNullOrUndefined } from '../utils';
+import { createHandlerErrorOutputEvent, getValueOrDefault, isNullOrUndefined } from '../utils';
 import {
   context,
   Span,
@@ -208,34 +208,15 @@ export class ArvoEventRouter {
               ),
           );
         } catch (error) {
-          exceptionToSpan(error as Error);
-          span.setStatus({
-            code: SpanStatusCode.ERROR,
-            message: (error as Error).message,
-          });
-          Object.entries(event.otelAttributes).forEach(([key, value]) =>
-            span.setAttribute(`to_process.0.${key}`, value),
-          );
-          const result = createArvoEvent({
-            type: `sys.arvo.event.router.error`,
-            source: this.source ?? `arvo.event.router`,
-            subject: event.subject,
-            // The system error must always got back to
-            // the source
-            to: event.source,
-            executionunits: this.executionunits,
-            traceparent: otelSpanHeaders.traceparent ?? undefined,
-            tracestate: otelSpanHeaders.tracestate ?? undefined,
-            data: {
-              errorName: (error as Error).name,
-              errorMessage: (error as Error).message,
-              errorStack: (error as Error).stack ?? null,
-            },
-          });
-          Object.entries(result.otelAttributes).forEach(([key, value]) =>
-            span.setAttribute(`to_emit.0.${key}`, value),
-          );
-          return [result];
+          return createHandlerErrorOutputEvent(
+            error as Error,
+            otelSpanHeaders,
+            `sys.arvo.event.router.error`,
+            this.source ?? `arvo.event.router`,
+            event,
+            this.executionunits,
+            (...args) => createArvoEvent(...args)
+          )
         } finally {
           span.end();
         }

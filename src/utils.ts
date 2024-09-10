@@ -1,7 +1,7 @@
-import { ArvoEvent, CreateArvoEvent, currentOpenTelemetryHeaders, OpenTelemetryHeaders } from "arvo-core";
+import { ArvoEvent, createArvoEvent, CreateArvoEvent, exceptionToSpan, OpenTelemetryHeaders } from "arvo-core";
 import { ArvoEventHandlerFunctionOutput } from "./ArvoEventHandler/types";
 import { MultiArvoEventHandlerFunctionOutput } from "./MultiArvoEventHandler/types";
-import { trace } from "@opentelemetry/api";
+import { SpanStatusCode, trace } from "@opentelemetry/api";
 
 /**
  * Checks if the item is null or undefined.
@@ -82,13 +82,13 @@ export function coalesceOrDefault<T>(
  * @param factory - A function to create ArvoEvents.
  * @returns An array of ArvoEvents created from the handler output.
  */
-export const eventHandlerOutputEventCreator  = (
+export const eventHandlerOutputEventCreator = (
   events: Array<ArvoEventHandlerFunctionOutput<any> | MultiArvoEventHandlerFunctionOutput>,
   otelSpanHeaders: OpenTelemetryHeaders,
   source: string,
   originalEvent: ArvoEvent,
   handlerExectionUnits: number,
-  factory: (param: CreateArvoEvent<any, any> & {to: string}, extensions?: Record<string, string | number | boolean>) => ArvoEvent<any, any, any>
+  factory: (param: CreateArvoEvent<any, any> & { to: string }, extensions?: Record<string, string | number | boolean>) => ArvoEvent<any, any, any>
 ) => {
   return events.map((item, index) => {
     const { __extensions, ...handlerResult } = item;
@@ -117,4 +117,40 @@ export const eventHandlerOutputEventCreator  = (
     );
     return result;
   });
+}
+
+export const createHandlerErrorOutputEvent = (
+  error: Error,
+  otelSpanHeaders: OpenTelemetryHeaders,
+  type: string,
+  source: string,
+  originalEvent: ArvoEvent,
+  handlerExectionUnits: number,
+  factory: (param: CreateArvoEvent<any, any> & { to: string }, extensions?: Record<string, string | number | boolean>) => ArvoEvent<any, any, any>
+) => {
+
+  exceptionToSpan(error);
+  trace.getActiveSpan()?.setStatus({
+    code: SpanStatusCode.ERROR,
+    message: error.message,
+  });
+  const result = createArvoEvent({
+    type,
+    source,
+    subject: originalEvent.subject,
+    to: originalEvent.source,
+    executionunits: handlerExectionUnits,
+    traceparent: otelSpanHeaders.traceparent ?? undefined,
+    tracestate: otelSpanHeaders.tracestate ?? undefined,
+    data: {
+      errorName: error.name,
+      errorMessage: error.message,
+      errorStack: error.stack ?? null,
+    },
+  })
+
+  Object.entries(result.otelAttributes).forEach(([key, value]) =>
+    trace.getActiveSpan()?.setAttribute(`to_emit.0.${key}`, value),
+  );
+  return [result];
 }

@@ -100,6 +100,8 @@ describe('MultiArvoEventHandler', () => {
     expect(result).toBeDefined();
     expect(result[0].type).toBe('evt.user.register.success');
     expect(result[0].executionunits).toBe(150);
+    expect(result[0].source).toBe('multi.event.handler')
+
   });
 
   it('should execute handler with invalid error and return error event', async () => {
@@ -122,6 +124,7 @@ describe('MultiArvoEventHandler', () => {
     );
     expect(result).toBeDefined();
     expect(result[0].type).toBe('sys.multi.event.handler.error');
+    expect(result[0].source).toBe('multi.event.handler')
     expect(result[0].data.errorMessage).toBe(
       cleanString(`
       Invalid event. The 'event.to' is multi.event.handler.invalid while this handler
@@ -152,6 +155,7 @@ describe('MultiArvoEventHandler', () => {
           data: {
             name: 'Saad Ahmad',
           },
+          redirectto: 'multi.event.handler.1',
           traceparent: otelHeaders.traceparent || undefined,
           tracestate: otelHeaders.tracestate || undefined,
         }),
@@ -159,6 +163,8 @@ describe('MultiArvoEventHandler', () => {
       expect(result).toBeDefined();
       expect(result.length).toBe(2);
       expect(result[0].type).toBe('notif.user.status');
+      expect(result[0].to).toBe('multi.event.handler.1');
+      expect(result[1].to).toBe('multi.event.handler.1');
       expect(result[1].type).toBe('notif.user.name');
       expect(result[0].executionunits).toBe(15);
 
