@@ -212,10 +212,8 @@ export default class ArvoEventHandler<TContract extends ArvoContract> {
                 tracestate: otelSpanHeaders.tracestate || undefined,
                 source: this.source,
                 subject: event.subject,
-                // The user should be able to override the `to` field
-                // If that is not present then the 'redirectto' field
-                // is referred to. Then, after all else, 'source' field
-                // is used as a form of reply.
+                // prioritise returned 'to', 'redirectto' and then
+                // 'source'
                 to: coalesceOrDefault(
                   [handlerResult.to, event.redirectto],
                   event.source,
