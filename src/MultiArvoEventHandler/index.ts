@@ -242,12 +242,12 @@ export default class MultiArvoEventHandler {
             // the source
             to: event.source,
             executionunits: this.executionunits,
-            traceparent: otelSpanHeaders.traceparent || undefined,
-            tracestate: otelSpanHeaders.tracestate || undefined,
+            traceparent: otelSpanHeaders.traceparent ?? undefined,
+            tracestate: otelSpanHeaders.tracestate ?? undefined,
             data: {
               errorName: (error as Error).name,
               errorMessage: (error as Error).message,
-              errorStack: (error as Error).stack || null,
+              errorStack: (error as Error).stack ?? null,
             },
           });
           Object.entries(result.otelAttributes).forEach(([key, value]) =>

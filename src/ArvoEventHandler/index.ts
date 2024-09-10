@@ -29,8 +29,6 @@ import {
 import {
   coalesce,
   coalesceOrDefault,
-  getValueOrDefault,
-  isNullOrUndefined,
 } from '../utils';
 
 /**
@@ -92,13 +90,13 @@ export default class ArvoEventHandler<TContract extends ArvoContract> {
         );
       }
     }
-    this.source = param.source || this.contract.accepts.type;
+    this.source = param.source ?? this.contract.accepts.type;
     this.arvoExecutionSpanKind =
-      param.spanKind?.arvoExecution || this.arvoExecutionSpanKind;
+      param.spanKind?.arvoExecution ?? this.arvoExecutionSpanKind;
     this.openInferenceSpanKind =
-      param.spanKind?.openInference || this.openInferenceSpanKind;
+      param.spanKind?.openInference ?? this.openInferenceSpanKind;
     this.openTelemetrySpanKind =
-      param.spanKind?.openTelemetry || this.openTelemetrySpanKind;
+      param.spanKind?.openTelemetry ?? this.openTelemetrySpanKind;
   }
 
   /**

@@ -68,7 +68,6 @@ export type ArvoEventHandlerFunction<TContract extends ArvoContract> = (
 export interface IArvoEventHandler<TContract extends ArvoContract> {
   /**
    * An override source for emitted events.
-   * @deprecated This field is deprecated and should be used with caution.
    * @remarks
    * When provided, this value will be used as the source for emitted events
    * instead of the `contract.accepts.type`. Use this very carefully as it may

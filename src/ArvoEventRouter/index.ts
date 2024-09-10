@@ -24,11 +24,8 @@ import {
 import { ArvoEventHandlerTracer, extractContext } from '../OpenTelemetry';
 import { deleteOtelHeaders } from './utils';
 import {
-  ArvoDataContentType,
   CloudEventContextSchema,
 } from 'arvo-core/dist/ArvoEvent/schema';
-import { v4 as uuid4 } from 'uuid';
-import { createTimestamp } from 'arvo-core/dist/utils';
 
 /**
  * ArvoEventRouter class handles routing of ArvoEvents to appropriate event handlers.
@@ -240,7 +237,7 @@ export class ArvoEventRouter {
           );
           const result = createArvoEvent({
             type: `sys.arvo.event.router.error`,
-            source: this.source || `arvo.event.router`,
+            source: this.source ?? `arvo.event.router`,
             subject: event.subject,
             // The system error must always got back to
             // the source
@@ -251,7 +248,7 @@ export class ArvoEventRouter {
             data: {
               errorName: (error as Error).name,
               errorMessage: (error as Error).message,
-              errorStack: (error as Error).stack || null,
+              errorStack: (error as Error).stack ?? null,
             },
           });
           Object.entries(result.otelAttributes).forEach(([key, value]) =>

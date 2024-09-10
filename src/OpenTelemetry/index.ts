@@ -15,7 +15,7 @@ export const extractContext = (
 ): Context => {
   const extractedContext = propagation.extract(context.active(), {
     traceparent,
-    tracestate: tracestate || undefined,
+    tracestate: tracestate ?? undefined,
   });
   return extractedContext;
 };
