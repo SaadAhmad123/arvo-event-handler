@@ -1,4 +1,4 @@
-import { ArvoEvent, createArvoEvent, CreateArvoEvent, exceptionToSpan, OpenTelemetryHeaders } from "arvo-core";
+import { ArvoEvent, CreateArvoEvent, exceptionToSpan, OpenTelemetryHeaders } from "arvo-core";
 import { ArvoEventHandlerFunctionOutput } from "./ArvoEventHandler/types";
 import { MultiArvoEventHandlerFunctionOutput } from "./MultiArvoEventHandler/types";
 import { SpanStatusCode, trace } from "@opentelemetry/api";
