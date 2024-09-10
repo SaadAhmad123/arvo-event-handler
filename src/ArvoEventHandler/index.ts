@@ -2,9 +2,7 @@ import {
   ArvoContract,
   ArvoErrorSchema,
   ArvoEvent,
-  ArvoExecution,
   ArvoExecutionSpanKind,
-  OpenInference,
   OpenInferenceSpanKind,
   ResolveArvoContractRecord,
   createArvoEventFactory,
@@ -17,16 +15,14 @@ import {
   ArvoEventHandlerFunctionOutput,
 } from './types';
 import { CloudEventContextSchema } from 'arvo-core/dist/ArvoEvent/schema';
-import { ArvoEventHandlerTracer, extractContext } from '../OpenTelemetry';
 import {
   context,
-  Span,
   SpanKind,
-  SpanOptions,
   SpanStatusCode,
   trace,
 } from '@opentelemetry/api';
-import { coalesce, coalesceOrDefault, eventHandlerOutputEventCreator } from '../utils';
+import { eventHandlerOutputEventCreator } from '../utils';
+import { createSpanFromEvent } from '../OpenTelemetry/utils';
 
 /**
  * Represents an event handler for Arvo contracts.
@@ -150,28 +146,17 @@ export default class ArvoEventHandler<TContract extends ArvoContract> {
       TContract['accepts']['type']
     >,
   ): Promise<ArvoEvent[]> {
-    const spanName: string = `ArvoEventHandler<${this.contract.uri}>.execute<${event.type}>`;
-    const spanOptions: SpanOptions = {
-      kind: this.openTelemetrySpanKind,
-      attributes: {
-        [OpenInference.ATTR_SPAN_KIND]: this.openInferenceSpanKind,
-        [ArvoExecution.ATTR_SPAN_KIND]: this.arvoExecutionSpanKind,
-      },
-    };
-    let span: Span;
-    if (event.traceparent) {
-      const inheritedContext = extractContext(
-        event.traceparent,
-        event.tracestate,
-      );
-      span = ArvoEventHandlerTracer.startSpan(
-        spanName,
-        spanOptions,
-        inheritedContext,
-      );
-    } else {
-      span = ArvoEventHandlerTracer.startSpan(spanName, spanOptions);
-    }
+
+    const span = createSpanFromEvent(
+      `ArvoEventHandler<${this.contract.uri}>.execute<${event.type}>`,
+      event,
+      {
+        kind: this.openTelemetrySpanKind,
+        openInference: this.openInferenceSpanKind,
+        arvoExecution: this.arvoExecutionSpanKind
+      }
+    )
+
     const eventFactory = createArvoEventFactory(this.contract);
     return await context.with(
       trace.setSpan(context.active(), span),

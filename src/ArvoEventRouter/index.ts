@@ -1,13 +1,11 @@
 import {
   ArvoContract,
   ArvoEvent,
-  ArvoExecution,
   ArvoExecutionSpanKind,
   cleanString,
   createArvoEvent,
   currentOpenTelemetryHeaders,
   exceptionToSpan,
-  OpenInference,
   OpenInferenceSpanKind,
 } from 'arvo-core';
 import ArvoEventHandler from '../ArvoEventHandler';
@@ -17,11 +15,9 @@ import {
   context,
   Span,
   SpanKind,
-  SpanOptions,
   SpanStatusCode,
   trace,
 } from '@opentelemetry/api';
-import { ArvoEventHandlerTracer, extractContext } from '../OpenTelemetry';
 import { deleteOtelHeaders } from './utils';
 import { CloudEventContextSchema } from 'arvo-core/dist/ArvoEvent/schema';
 import { createSpanFromEvent } from '../OpenTelemetry/utils';
