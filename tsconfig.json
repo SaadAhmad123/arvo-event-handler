@@ -17,6 +17,7 @@
     "projectDocuments": [
       "src/ArvoEventHandler/README.md",
       "src/MultiArvoEventHandler/README.md",
+      "src/ArvoEventRouter/README.md",
       "CHANGELOG.md",
       "LICENSE.md"
     ],

@@ -12,10 +12,18 @@ import {
   MultiArvoEventHandlerFunctionInput,
   MultiArvoEventHandlerFunctionOutput,
   MultiArvoEventHandlerFunction,
-  IMultiArvoEventHandler
-} from './MultiArvoEventHandler/types'
+  IMultiArvoEventHandler,
+} from './MultiArvoEventHandler/types';
 import { createMultiArvoEventHandler } from './MultiArvoEventHandler/helpers';
-import { isNullOrUndefined, getValueOrDefault, coalesce, coalesceOrDefault } from './utils';
+import {
+  isNullOrUndefined,
+  getValueOrDefault,
+  coalesce,
+  coalesceOrDefault,
+} from './utils';
+import { IArvoEventRouter } from './ArvoEventRouter/types';
+import { ArvoEventRouter } from './ArvoEventRouter';
+import { createArvoEventRouter } from './ArvoEventRouter/helpers';
 
 export {
   ArvoEventHandler,
@@ -35,4 +43,7 @@ export {
   getValueOrDefault,
   coalesce,
   coalesceOrDefault,
+  IArvoEventRouter,
+  ArvoEventRouter,
+  createArvoEventRouter,
 };

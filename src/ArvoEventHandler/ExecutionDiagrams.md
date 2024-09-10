@@ -1,4 +1,4 @@
-# ArvoEventHandler.execute 
+# ArvoEventHandler.execute
 
 Below are the execution flow diagrams of the execute function for the handler
 
@@ -21,23 +21,23 @@ graph TD
     K --> M[Create Result Events]
     M --> N[Set Telemetry Data]
     N --> O[Return Result Events]
-    
+
     H --> P[Create System Error Event]
     P --> Q[Set Error Telemetry Data]
     Q --> R[Return Error Event]
-    
+
     O --> S[End Span]
     R --> S
     L --> S
     S --> T[End]
-    
+
     subgraph Error Handling
     H
     P
     Q
     R
     end
-    
+
     subgraph Event Processing
     I
     J
@@ -46,7 +46,7 @@ graph TD
     N
     O
     end
-    
+
     subgraph Telemetry
     B
     D
@@ -70,7 +70,7 @@ sequenceDiagram
 
     Caller->>ArvoEventHandler: execute(event)
     ArvoEventHandler->>OpenTelemetry: Create or continue span
-    
+
     alt Event has traceparent
         ArvoEventHandler->>OpenTelemetry: Extract context
         OpenTelemetry-->>ArvoEventHandler: Inherited context
@@ -81,7 +81,7 @@ sequenceDiagram
     ArvoEventHandler->>OpenTelemetry: Set span attributes
 
     ArvoEventHandler->>ContractValidator: Validate input event
-    
+
     alt Invalid event
         ContractValidator-->>ArvoEventHandler: Validation error
         ArvoEventHandler->>OpenTelemetry: Set error status
@@ -93,7 +93,7 @@ sequenceDiagram
     else Valid event
         ContractValidator-->>ArvoEventHandler: Validation success
         ArvoEventHandler->>HandlerFunction: Execute handler
-        
+
         alt Handler execution successful
             HandlerFunction-->>ArvoEventHandler: Handler output
             ArvoEventHandler->>EventFactory: Create output event(s)
@@ -112,4 +112,3 @@ sequenceDiagram
         end
     end
 ```
-

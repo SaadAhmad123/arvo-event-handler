@@ -29,8 +29,8 @@ This package contains the event handler primitive required to enable an Arvo Eve
 
 ## Documentation & Resources
 
-| Source       | Link                                                     |
-| ------------ | -------------------------------------------------------- |
+| Source       | Link                                                              |
+| ------------ | ----------------------------------------------------------------- |
 | Package      | https://www.npmjs.com/package/arvo-event-handler?activeTab=readme |
 | Github       | https://github.com/SaadAhmad123/arvo-event-handler                |
 | Documenation | https://saadahmad123.github.io/arvo-event-handler/index.html      |
@@ -76,7 +76,6 @@ import {
 ```
 
 - Begin defining your events, contracts, and handlers using the provided classes.
-
 
 ## License
 

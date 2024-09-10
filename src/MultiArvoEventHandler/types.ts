@@ -1,5 +1,10 @@
-import { SpanKind } from "@opentelemetry/api";
-import { ArvoEvent, ArvoExecutionSpanKind, CreateArvoEvent, OpenInferenceSpanKind } from "arvo-core";
+import { SpanKind } from '@opentelemetry/api';
+import {
+  ArvoEvent,
+  ArvoExecutionSpanKind,
+  CreateArvoEvent,
+  OpenInferenceSpanKind,
+} from 'arvo-core';
 
 /**
  * Represents the input for a Multi ArvoEvent handler function.
@@ -9,8 +14,8 @@ export type MultiArvoEventHandlerFunctionInput = {
   event: ArvoEvent;
 
   /** The source field data of the handler */
-  source: string
-}
+  source: string;
+};
 
 /**
  * Represents the output of a Multi ArvoEvent handler function.
@@ -36,23 +41,29 @@ export type MultiArvoEventHandlerFunctionOutput = Omit<
  * Defines the structure of a Multi ArvoEvent handler function.
  * @template TContract - The type of ArvoContract that the handler is associated with.
  */
-export type MultiArvoEventHandlerFunction = (param: MultiArvoEventHandlerFunctionInput) => Promise<Array<MultiArvoEventHandlerFunctionOutput> | MultiArvoEventHandlerFunctionOutput | void>
+export type MultiArvoEventHandlerFunction = (
+  param: MultiArvoEventHandlerFunctionInput,
+) => Promise<
+  | Array<MultiArvoEventHandlerFunctionOutput>
+  | MultiArvoEventHandlerFunctionOutput
+  | void
+>;
 
 /**
  * Interface for an Multi ArvoEvent handler.
  */
 export interface IMultiArvoEventHandler {
-  /** 
-   * The source identifier for events produced by this handler 
-   * 
+  /**
+   * The source identifier for events produced by this handler
+   *
    * @remarks
    * The handler listens to the events with field `event.to` equal
-   * to the this `source` value. If the event does not confirm to 
+   * to the this `source` value. If the event does not confirm to
    * this, a system error event is returned
-   * 
+   *
    * For all the events which are emitted by the handler, this is
-   * the source field value of them all. 
-  */
+   * the source field value of them all.
+   */
   source: string;
 
   /**
@@ -68,7 +79,7 @@ export interface IMultiArvoEventHandler {
    */
   handler: MultiArvoEventHandlerFunction;
 
-  /** 
+  /**
    * The OpenTelemetry span kind attributes for the handler
    * executor.
    * @param [openInference] - The OpenInference span kind. Default is "CHAIN"
@@ -76,8 +87,8 @@ export interface IMultiArvoEventHandler {
    * @param [openTelemetry] - The OpenTelemetry span kind. Default is "INTERNAL"
    */
   spanKind?: {
-    openInference?: OpenInferenceSpanKind,
-    arvoExecution?: ArvoExecutionSpanKind,
-    openTelemetry?: SpanKind
-  }
+    openInference?: OpenInferenceSpanKind;
+    arvoExecution?: ArvoExecutionSpanKind;
+    openTelemetry?: SpanKind;
+  };
 }

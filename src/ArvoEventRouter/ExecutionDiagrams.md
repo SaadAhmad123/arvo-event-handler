@@ -1,4 +1,4 @@
-# ArvoEventRouter.execute 
+# ArvoEventRouter.execute
 
 Below are the execution flow diagrams of the execute function for the handler
 
@@ -69,9 +69,9 @@ sequenceDiagram
     participant EventFactory
 
     Caller->>ArvoEventRouter: execute(event)
-    
+
     ArvoEventRouter->>OpenTelemetry: Create or continue span
-    
+
     alt Event has traceparent
         ArvoEventRouter->>OpenTelemetry: Extract context
         OpenTelemetry-->>ArvoEventRouter: Inherited context
@@ -96,7 +96,7 @@ sequenceDiagram
             ArvoEventRouter-->>Caller: Return error event
         else Handler found
             ArvoEventRouter->>Handler: execute(event)
-            
+
             alt Handler execution successful
                 Handler-->>ArvoEventRouter: Results
                 ArvoEventRouter->>EventFactory: Create output event(s)

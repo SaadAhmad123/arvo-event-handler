@@ -1,13 +1,35 @@
-import { context, Span, SpanKind, SpanOptions, SpanStatusCode, trace } from '@opentelemetry/api';
-import { ArvoEvent, ArvoExecutionSpanKind, OpenInference, OpenInferenceSpanKind, ArvoExecution, currentOpenTelemetryHeaders, exceptionToSpan, createArvoEvent, ArvoErrorSchema, cleanString } from "arvo-core";
-import { IMultiArvoEventHandler, MultiArvoEventHandlerFunction, MultiArvoEventHandlerFunctionOutput } from "./types";
-import { CloudEventContextSchema } from "arvo-core/dist/ArvoEvent/schema";
+import {
+  context,
+  Span,
+  SpanKind,
+  SpanOptions,
+  SpanStatusCode,
+  trace,
+} from '@opentelemetry/api';
+import {
+  ArvoEvent,
+  ArvoExecutionSpanKind,
+  OpenInference,
+  OpenInferenceSpanKind,
+  ArvoExecution,
+  currentOpenTelemetryHeaders,
+  exceptionToSpan,
+  createArvoEvent,
+  ArvoErrorSchema,
+  cleanString,
+} from 'arvo-core';
+import {
+  IMultiArvoEventHandler,
+  MultiArvoEventHandlerFunction,
+  MultiArvoEventHandlerFunctionOutput,
+} from './types';
+import { CloudEventContextSchema } from 'arvo-core/dist/ArvoEvent/schema';
 import { ArvoEventHandlerTracer, extractContext } from '../OpenTelemetry';
 import { coalesce, coalesceOrDefault } from '../utils';
 
 /**
  * Represents a Multi ArvoEvent handler that can process multiple event types.
- * 
+ *
  * @remarks
  * Unlike ArvoEventHandler, which is bound to a specific ArvoContract and handles
  * events of a single type, MultiArvoEventHandler can handle multiple event types
@@ -15,43 +37,43 @@ import { coalesce, coalesceOrDefault } from '../utils';
  * scenarios where you need to process various event types with a single handler.
  */
 export default class MultiArvoEventHandler {
-
   /** The default execution cost associated with this handler */
   readonly executionunits: number;
 
-  /** 
-   * The source identifier for events produced by this handler 
-   * 
+  /**
+   * The source identifier for events produced by this handler
+   *
    * @remarks
    * The handler listens to the events with field `event.to` equal
-   * to the this `source` value. If the event does not confirm to 
+   * to the this `source` value. If the event does not confirm to
    * this, a system error event is returned
-   * 
+   *
    * For all the events which are emitted by the handler, this is
-   * the source field value of them all. 
-  */
+   * the source field value of them all.
+   */
   readonly source: string;
 
-  readonly openInferenceSpanKind: OpenInferenceSpanKind = OpenInferenceSpanKind.CHAIN
-  readonly arvoExecutionSpanKind: ArvoExecutionSpanKind = ArvoExecutionSpanKind.EVENT_HANDLER
-  readonly openTelemetrySpanKind: SpanKind = SpanKind.INTERNAL
-
+  readonly openInferenceSpanKind: OpenInferenceSpanKind =
+    OpenInferenceSpanKind.CHAIN;
+  readonly arvoExecutionSpanKind: ArvoExecutionSpanKind =
+    ArvoExecutionSpanKind.EVENT_HANDLER;
+  readonly openTelemetrySpanKind: SpanKind = SpanKind.INTERNAL;
 
   private readonly _handler: MultiArvoEventHandlerFunction;
 
   /**
    * Creates an instance of MultiArvoEventHandler.
-   * 
+   *
    * @param param - The configuration parameters for the event handler.
    * @throws {Error} Throws an error if the provided source is invalid.
    */
   constructor(param: IMultiArvoEventHandler) {
-    this.executionunits = param.executionunits
-    this._handler = param.handler
+    this.executionunits = param.executionunits;
+    this._handler = param.handler;
 
     const { error } = CloudEventContextSchema.pick({
-      source: true
-    }).safeParse({ source: param.source })
+      source: true,
+    }).safeParse({ source: param.source });
 
     if (error) {
       throw new Error(
@@ -60,9 +82,12 @@ export default class MultiArvoEventHandler {
     }
 
     this.source = param.source;
-    this.arvoExecutionSpanKind = param.spanKind?.arvoExecution || this.arvoExecutionSpanKind
-    this.openInferenceSpanKind = param.spanKind?.openInference || this.openInferenceSpanKind
-    this.openTelemetrySpanKind = param.spanKind?.openTelemetry || this.openTelemetrySpanKind
+    this.arvoExecutionSpanKind =
+      param.spanKind?.arvoExecution || this.arvoExecutionSpanKind;
+    this.openInferenceSpanKind =
+      param.spanKind?.openInference || this.openInferenceSpanKind;
+    this.openTelemetrySpanKind =
+      param.spanKind?.openTelemetry || this.openTelemetrySpanKind;
   }
 
   /**
@@ -83,7 +108,7 @@ export default class MultiArvoEventHandler {
    *
    * @example
    * ```typescript
-   * const handler = new MultiArvoEventHandler({ 
+   * const handler = new MultiArvoEventHandler({
    *    source: 'com.multi.handler',
    *    ...
    * });
@@ -95,7 +120,7 @@ export default class MultiArvoEventHandler {
    * All other errors thrown during the execution are returned as a system error event.
    *
    * **Routing**
-   * 
+   *
    * The routing of the resulting events is determined as follows:
    * - The `to` field of the output event is set in this priority:
    *   1. The `to` field provided by the handler result
@@ -104,7 +129,7 @@ export default class MultiArvoEventHandler {
    * - For system error events, the `to` field is always set to the `source` of the input event.
    *
    * **Telemetry**
-   * 
+   *
    * - Creates a new span for each execution as per the traceparent and tracestate field
    *   of the event. If those are not present, then a brand new span is created and distributed
    *   tracing is disabled
@@ -113,118 +138,140 @@ export default class MultiArvoEventHandler {
    * - Handles error cases and sets appropriate span status
    *
    * **Event Validation**
-   * 
+   *
    * - Checks if the event's 'to' field matches the handler's 'source'.
    * - If they don't match, an error is thrown with a descriptive message.
    * - This ensures that the handler only processes events intended for it.
-   */ 
-  public async execute(
-    event: ArvoEvent
-  ): Promise<ArvoEvent[]> {
-    const spanName: string = `MutliArvoEventHandler.source<${this.source}>.execute<${event.type}>`
+   */
+  public async execute(event: ArvoEvent): Promise<ArvoEvent[]> {
+    const spanName: string = `MutliArvoEventHandler.source<${this.source}>.execute<${event.type}>`;
     const spanOptions: SpanOptions = {
       kind: this.openTelemetrySpanKind,
       attributes: {
         [OpenInference.ATTR_SPAN_KIND]: this.openInferenceSpanKind,
         [ArvoExecution.ATTR_SPAN_KIND]: this.arvoExecutionSpanKind,
-      }
-    }
+      },
+    };
 
     let span: Span;
     if (event.traceparent) {
-      const inheritedContext = extractContext(event.traceparent, event.tracestate)
-      span = ArvoEventHandlerTracer.startSpan(spanName, spanOptions, inheritedContext)
-    }
-    else {
-      span = ArvoEventHandlerTracer.startSpan(spanName, spanOptions)
+      const inheritedContext = extractContext(
+        event.traceparent,
+        event.tracestate,
+      );
+      span = ArvoEventHandlerTracer.startSpan(
+        spanName,
+        spanOptions,
+        inheritedContext,
+      );
+    } else {
+      span = ArvoEventHandlerTracer.startSpan(spanName, spanOptions);
     }
 
-    return await context.with(trace.setSpan(context.active(), span), async () => {
-      const otelSpanHeaders = currentOpenTelemetryHeaders()
-      try {
-        span.setStatus({ code: SpanStatusCode.OK })
-        Object.entries(event.otelAttributes).forEach(([key, value]) => span.setAttribute(`to_process.0.${key}`, value))
+    return await context.with(
+      trace.setSpan(context.active(), span),
+      async () => {
+        const otelSpanHeaders = currentOpenTelemetryHeaders();
+        try {
+          span.setStatus({ code: SpanStatusCode.OK });
+          Object.entries(event.otelAttributes).forEach(([key, value]) =>
+            span.setAttribute(`to_process.0.${key}`, value),
+          );
 
-        if(event.to !== this.source) {
-          throw new Error(cleanString(`
+          if (event.to !== this.source) {
+            throw new Error(
+              cleanString(`
             Invalid event. The 'event.to' is ${event.to} while this handler 
             listens to only 'event.to' equal to ${this.source}. If this is a mistake,
             please update the 'source' field of the handler
-          `))
-        }
-
-        const _handlerOutput = await this._handler({ event, source: this.source })
-        if (!_handlerOutput) return []
-        let outputs: MultiArvoEventHandlerFunctionOutput[] = []
-        if (Array.isArray(_handlerOutput)) {
-          outputs = _handlerOutput
-        } else {
-          outputs = [_handlerOutput]
-        }
-        return outputs.map((output, index) => {
-          const { __extensions, ...handlerResult } = output
-          const result = createArvoEvent(
-            {
-              ...handlerResult,
-              traceparent: otelSpanHeaders.traceparent || undefined,
-              tracestate: otelSpanHeaders.tracestate || undefined,
-              source: this.source,
-              subject: event.subject,
-              // The user should be able to override the `to` field
-              // If that is not present then the 'redirectto' field 
-              // is referred to. Then, after all else, 'source' field
-              // is used as a form of reply. 
-              to: coalesceOrDefault([handlerResult.to, event.redirectto], event.source),
-              executionunits: coalesce(handlerResult.executionunits, this.executionunits),
-            },
-            __extensions,
-          )
-          Object.entries(result.otelAttributes).forEach(([key, value]) => span.setAttribute(`to_emit.${index}.${key}`, value))
-          return result
-        })
-      } catch (error) {
-        exceptionToSpan(error as Error)
-        span.setStatus({
-          code: SpanStatusCode.ERROR,
-          message: (error as Error).message,
-        });
-        const result = createArvoEvent({
-          type: `sys.${this.source}.error`,
-          source: this.source,
-          subject: event.subject,
-          // The system error must always got back to 
-          // the source
-          to: event.source,
-          executionunits: this.executionunits,
-          traceparent: otelSpanHeaders.traceparent || undefined,
-          tracestate: otelSpanHeaders.tracestate || undefined,
-          data: {
-            errorName: (error as Error).name,
-            errorMessage: (error as Error).message,
-            errorStack: (error as Error).stack || null
+          `),
+            );
           }
-        })
-        Object.entries(result.otelAttributes).forEach(([key, value]) => span.setAttribute(`to_emit.0.${key}`, value))
-        return [result];
-      }
-      finally {
-        span.end()
-      }
-    })
 
+          const _handlerOutput = await this._handler({
+            event,
+            source: this.source,
+          });
+          if (!_handlerOutput) return [];
+          let outputs: MultiArvoEventHandlerFunctionOutput[] = [];
+          if (Array.isArray(_handlerOutput)) {
+            outputs = _handlerOutput;
+          } else {
+            outputs = [_handlerOutput];
+          }
+          return outputs.map((output, index) => {
+            const { __extensions, ...handlerResult } = output;
+            const result = createArvoEvent(
+              {
+                ...handlerResult,
+                traceparent: otelSpanHeaders.traceparent || undefined,
+                tracestate: otelSpanHeaders.tracestate || undefined,
+                source: this.source,
+                subject: event.subject,
+                // The user should be able to override the `to` field
+                // If that is not present then the 'redirectto' field
+                // is referred to. Then, after all else, 'source' field
+                // is used as a form of reply.
+                to: coalesceOrDefault(
+                  [handlerResult.to, event.redirectto],
+                  event.source,
+                ),
+                executionunits: coalesce(
+                  handlerResult.executionunits,
+                  this.executionunits,
+                ),
+              },
+              __extensions,
+            );
+            Object.entries(result.otelAttributes).forEach(([key, value]) =>
+              span.setAttribute(`to_emit.${index}.${key}`, value),
+            );
+            return result;
+          });
+        } catch (error) {
+          exceptionToSpan(error as Error);
+          span.setStatus({
+            code: SpanStatusCode.ERROR,
+            message: (error as Error).message,
+          });
+          const result = createArvoEvent({
+            type: `sys.${this.source}.error`,
+            source: this.source,
+            subject: event.subject,
+            // The system error must always got back to
+            // the source
+            to: event.source,
+            executionunits: this.executionunits,
+            traceparent: otelSpanHeaders.traceparent || undefined,
+            tracestate: otelSpanHeaders.tracestate || undefined,
+            data: {
+              errorName: (error as Error).name,
+              errorMessage: (error as Error).message,
+              errorStack: (error as Error).stack || null,
+            },
+          });
+          Object.entries(result.otelAttributes).forEach(([key, value]) =>
+            span.setAttribute(`to_emit.0.${key}`, value),
+          );
+          return [result];
+        } finally {
+          span.end();
+        }
+      },
+    );
   }
 
   /**
    * Provides the schema for system error events.
-   * 
+   *
    * @returns An object containing the error event type and schema.
-   * 
+   *
    * @remarks
    * This getter defines the structure for system error events that may be emitted
    * when an unexpected error occurs during event handling. The error event type
    * is prefixed with 'sys.' followed by the handler's source and '.error'.
    * The schema used for these error events is the standard ArvoErrorSchema.
-   * 
+   *
    * @example
    * // If the handler's source is 'user.service'
    * // The system error event type would be 'sys.user.service.error'
@@ -232,8 +279,7 @@ export default class MultiArvoEventHandler {
   public get systemErrorSchema() {
     return {
       type: `sys.${this.source}.error`,
-      schema: ArvoErrorSchema
-    }
+      schema: ArvoErrorSchema,
+    };
   }
 }
-

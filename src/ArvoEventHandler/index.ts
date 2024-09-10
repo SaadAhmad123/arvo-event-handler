@@ -11,11 +11,27 @@ import {
   currentOpenTelemetryHeaders,
   exceptionToSpan,
 } from 'arvo-core';
-import { IArvoEventHandler, ArvoEventHandlerFunction, ArvoEventHandlerFunctionOutput } from './types';
+import {
+  IArvoEventHandler,
+  ArvoEventHandlerFunction,
+  ArvoEventHandlerFunctionOutput,
+} from './types';
 import { CloudEventContextSchema } from 'arvo-core/dist/ArvoEvent/schema';
 import { ArvoEventHandlerTracer, extractContext } from '../OpenTelemetry';
-import { context, Span, SpanKind, SpanOptions, SpanStatusCode, trace } from '@opentelemetry/api';
-import { coalesce, coalesceOrDefault, getValueOrDefault, isNullOrUndefined } from '../utils';
+import {
+  context,
+  Span,
+  SpanKind,
+  SpanOptions,
+  SpanStatusCode,
+  trace,
+} from '@opentelemetry/api';
+import {
+  coalesce,
+  coalesceOrDefault,
+  getValueOrDefault,
+  isNullOrUndefined,
+} from '../utils';
 
 /**
  * Represents an event handler for Arvo contracts.
@@ -34,18 +50,20 @@ export default class ArvoEventHandler<TContract extends ArvoContract> {
   /** The default execution cost associated with this handler */
   readonly executionunits: number;
 
-  /** 
-   * The source identifier for events produced by this handler 
-   * 
+  /**
+   * The source identifier for events produced by this handler
+   *
    * @remarks
    * For all the events which are emitted by the handler, this is
-   * the source field value of them all. 
-  */
+   * the source field value of them all.
+   */
   readonly source: string;
 
-  readonly openInferenceSpanKind: OpenInferenceSpanKind = OpenInferenceSpanKind.CHAIN
-  readonly arvoExecutionSpanKind: ArvoExecutionSpanKind = ArvoExecutionSpanKind.EVENT_HANDLER
-  readonly openTelemetrySpanKind: SpanKind = SpanKind.INTERNAL
+  readonly openInferenceSpanKind: OpenInferenceSpanKind =
+    OpenInferenceSpanKind.CHAIN;
+  readonly arvoExecutionSpanKind: ArvoExecutionSpanKind =
+    ArvoExecutionSpanKind.EVENT_HANDLER;
+  readonly openTelemetrySpanKind: SpanKind = SpanKind.INTERNAL;
 
   private readonly _handler: ArvoEventHandlerFunction<TContract>;
 
@@ -75,9 +93,12 @@ export default class ArvoEventHandler<TContract extends ArvoContract> {
       }
     }
     this.source = param.source || this.contract.accepts.type;
-    this.arvoExecutionSpanKind = param.spanKind?.arvoExecution || this.arvoExecutionSpanKind
-    this.openInferenceSpanKind = param.spanKind?.openInference || this.openInferenceSpanKind
-    this.openTelemetrySpanKind = param.spanKind?.openTelemetry || this.openTelemetrySpanKind
+    this.arvoExecutionSpanKind =
+      param.spanKind?.arvoExecution || this.arvoExecutionSpanKind;
+    this.openInferenceSpanKind =
+      param.spanKind?.openInference || this.openInferenceSpanKind;
+    this.openTelemetrySpanKind =
+      param.spanKind?.openTelemetry || this.openTelemetrySpanKind;
   }
 
   /**
@@ -99,7 +120,7 @@ export default class ArvoEventHandler<TContract extends ArvoContract> {
    * @example
    * ```typescript
    * const contract = createArvoContract({ ... })
-   * const handler = createArvoEventHandler({ 
+   * const handler = createArvoEventHandler({
    *    contract: contract,
    *    ...
    * });
@@ -110,7 +131,7 @@ export default class ArvoEventHandler<TContract extends ArvoContract> {
    * @throws All error throw during the execution are returned as a system error event
    *
    * **Routing**
-   * 
+   *
    * The routing of the resulting events is determined as follows:
    * - The `to` field of the output event is set in this priority:
    *   1. The `to` field provided by the handler result
@@ -119,7 +140,7 @@ export default class ArvoEventHandler<TContract extends ArvoContract> {
    * - For system error events, the `to` field is always set to the `source` of the input event.
    *
    * **Telemetry**
-   * 
+   *
    * - Creates a new span for each execution as per the traceparent and tracestate field
    *   of the event. If those are not present, then a brand new span is created and distributed
    *   tracing is disabled
@@ -134,106 +155,130 @@ export default class ArvoEventHandler<TContract extends ArvoContract> {
       TContract['accepts']['type']
     >,
   ): Promise<ArvoEvent[]> {
-    const spanName: string = `ArvoEventHandler<${this.contract.uri}>.execute<${event.type}>`
+    const spanName: string = `ArvoEventHandler<${this.contract.uri}>.execute<${event.type}>`;
     const spanOptions: SpanOptions = {
       kind: this.openTelemetrySpanKind,
       attributes: {
         [OpenInference.ATTR_SPAN_KIND]: this.openInferenceSpanKind,
         [ArvoExecution.ATTR_SPAN_KIND]: this.arvoExecutionSpanKind,
-      }
-    }
+      },
+    };
     let span: Span;
     if (event.traceparent) {
-      const inheritedContext = extractContext(event.traceparent, event.tracestate)
-      span = ArvoEventHandlerTracer.startSpan(spanName, spanOptions, inheritedContext)
-    }
-    else {
-      span = ArvoEventHandlerTracer.startSpan(spanName, spanOptions)
+      const inheritedContext = extractContext(
+        event.traceparent,
+        event.tracestate,
+      );
+      span = ArvoEventHandlerTracer.startSpan(
+        spanName,
+        spanOptions,
+        inheritedContext,
+      );
+    } else {
+      span = ArvoEventHandlerTracer.startSpan(spanName, spanOptions);
     }
     const eventFactory = createArvoEventFactory(this.contract);
-    return await context.with(trace.setSpan(context.active(), span), async () => {
-      const otelSpanHeaders = currentOpenTelemetryHeaders()
-      try {
-        span.setStatus({code: SpanStatusCode.OK })
-        Object.entries(event.otelAttributes).forEach(([key, value]) => span.setAttribute(`to_process.0.${key}`, value))
-        const inputEventValidation = this.contract.validateAccepts(
-          event.type,
-          event.data,
-        );
-        if (inputEventValidation.error) {
-          throw new Error(
-            `Invalid event payload: ${inputEventValidation.error}`,
+    return await context.with(
+      trace.setSpan(context.active(), span),
+      async () => {
+        const otelSpanHeaders = currentOpenTelemetryHeaders();
+        try {
+          span.setStatus({ code: SpanStatusCode.OK });
+          Object.entries(event.otelAttributes).forEach(([key, value]) =>
+            span.setAttribute(`to_process.0.${key}`, value),
           );
-        }
-        const _handleOutput = await this._handler({event, source: this.source})
-        if (!_handleOutput) return []
-        let outputs: ArvoEventHandlerFunctionOutput<TContract>[] = []
-        if (Array.isArray(_handleOutput)) {
-          outputs = _handleOutput
-        } else {
-          outputs = [_handleOutput]
-        }
-        
-        return outputs.map((output, index) => {
-          const { __extensions, ...handlerResult } = output
-          const result = eventFactory.emits(
+          const inputEventValidation = this.contract.validateAccepts(
+            event.type,
+            event.data,
+          );
+          if (inputEventValidation.error) {
+            throw new Error(
+              `Invalid event payload: ${inputEventValidation.error}`,
+            );
+          }
+          const _handleOutput = await this._handler({
+            event,
+            source: this.source,
+          });
+          if (!_handleOutput) return [];
+          let outputs: ArvoEventHandlerFunctionOutput<TContract>[] = [];
+          if (Array.isArray(_handleOutput)) {
+            outputs = _handleOutput;
+          } else {
+            outputs = [_handleOutput];
+          }
+
+          return outputs.map((output, index) => {
+            const { __extensions, ...handlerResult } = output;
+            const result = eventFactory.emits(
+              {
+                ...handlerResult,
+                traceparent: otelSpanHeaders.traceparent || undefined,
+                tracestate: otelSpanHeaders.tracestate || undefined,
+                source: this.source,
+                subject: event.subject,
+                // The user should be able to override the `to` field
+                // If that is not present then the 'redirectto' field
+                // is referred to. Then, after all else, 'source' field
+                // is used as a form of reply.
+                to: coalesceOrDefault(
+                  [handlerResult.to, event.redirectto],
+                  event.source,
+                ),
+                executionunits: coalesce(
+                  handlerResult.executionunits,
+                  this.executionunits,
+                ),
+              },
+              __extensions,
+            );
+            Object.entries(result.otelAttributes).forEach(([key, value]) =>
+              span.setAttribute(`to_emit.${index}.${key}`, value),
+            );
+            return result;
+          });
+        } catch (error) {
+          exceptionToSpan(error as Error);
+          span.setStatus({
+            code: SpanStatusCode.ERROR,
+            message: (error as Error).message,
+          });
+          const result = eventFactory.systemError(
             {
-              ...handlerResult,
-              traceparent: otelSpanHeaders.traceparent || undefined,
-              tracestate: otelSpanHeaders.tracestate || undefined,
               source: this.source,
               subject: event.subject,
-              // The user should be able to override the `to` field
-              // If that is not present then the 'redirectto' field 
-              // is referred to. Then, after all else, 'source' field
-              // is used as a form of reply. 
-              to: coalesceOrDefault([handlerResult.to, event.redirectto], event.source),
-              executionunits: coalesce(handlerResult.executionunits, this.executionunits),
+              // The system error must always got back to
+              // the source
+              to: event.source,
+              error: error as Error,
+              executionunits: this.executionunits,
+              traceparent: otelSpanHeaders.traceparent || undefined,
+              tracestate: otelSpanHeaders.tracestate || undefined,
             },
-            __extensions,
+            {},
           );
-          Object.entries(result.otelAttributes).forEach(([key, value]) => span.setAttribute(`to_emit.${index}.${key}`, value))
-          return result
-        })
-      } catch (error) {
-        exceptionToSpan(error as Error)
-        span.setStatus({
-          code: SpanStatusCode.ERROR,
-          message: (error as Error).message,
-        });
-        const result = eventFactory.systemError(
-          {
-            source: this.source,
-            subject: event.subject,
-            // The system error must always got back to 
-            // the source
-            to: event.source,
-            error: error as Error,
-            executionunits: this.executionunits,
-            traceparent: otelSpanHeaders.traceparent || undefined,
-            tracestate: otelSpanHeaders.tracestate || undefined,
-          },
-          {},
-        );
-        Object.entries(result.otelAttributes).forEach(([key, value]) => span.setAttribute(`to_emit.0.${key}`, value))
-        return [result];
-      } finally {
-        span.end()
-      }
-    })
+          Object.entries(result.otelAttributes).forEach(([key, value]) =>
+            span.setAttribute(`to_emit.0.${key}`, value),
+          );
+          return [result];
+        } finally {
+          span.end();
+        }
+      },
+    );
   }
 
   /**
    * Provides the schema for system error events.
-   * 
+   *
    * @returns An object containing the error event type and schema.
-   * 
+   *
    * @remarks
    * This getter defines the structure for system error events that may be emitted
    * when an unexpected error occurs during event handling. The error event type
    * is prefixed with 'sys.' followed by the contract's accepted event type and '.error'.
    * The schema used for these error events is the standard ArvoErrorSchema.
-   * 
+   *
    * @example
    * // If the contract's accepted event type is 'user.created'
    * // The system error event type would be 'sys.user.created.error'
@@ -241,7 +286,7 @@ export default class ArvoEventHandler<TContract extends ArvoContract> {
   public get systemErrorSchema() {
     return {
       type: `sys.${this.contract.accepts.type}.error`,
-      schema: ArvoErrorSchema
-    }
+      schema: ArvoErrorSchema,
+    };
   }
 }

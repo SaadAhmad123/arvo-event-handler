@@ -12,12 +12,12 @@ import { IMultiArvoEventHandler } from './types';
  * multiple event types from various ArvoContracts. Unlike the more specialized ArvoEventHandler,
  * MultiArvoEventHandler offers greater flexibility by not being bound to a specific contract
  * or event type.
- * 
+ *
  * Key features of MultiArvoEventHandler:
  * - Handles multiple event types
  * - Works across different ArvoContracts
  * - Provides a unified interface for diverse event processing
- * 
+ *
  * The handler's behavior and resource allocation are determined by the provided configuration
  * parameters, including execution units and the event processing logic.
  *
@@ -38,7 +38,7 @@ import { IMultiArvoEventHandler } from './types';
  *     }
  *   }
  * });
- * 
+ *
  * // Use the handler
  * await multiEventHandler.handleEvent(someEvent);
  * ```

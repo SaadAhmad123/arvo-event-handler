@@ -22,7 +22,7 @@ export type ArvoEventHandlerFunctionInput<TContract extends ArvoContract> = {
   >;
 
   /** The source field data of the handler */
-  source: string
+  source: string;
 };
 
 /**
@@ -53,7 +53,11 @@ export type ArvoEventHandlerFunctionOutput<TContract extends ArvoContract> = {
  */
 export type ArvoEventHandlerFunction<TContract extends ArvoContract> = (
   params: ArvoEventHandlerFunctionInput<TContract>,
-) => Promise<Array<ArvoEventHandlerFunctionOutput<TContract>> | ArvoEventHandlerFunctionOutput<TContract> | void>;
+) => Promise<
+  | Array<ArvoEventHandlerFunctionOutput<TContract>>
+  | ArvoEventHandlerFunctionOutput<TContract>
+  | void
+>;
 
 /**
  * Interface for an ArvoEvent handler.
@@ -93,7 +97,7 @@ export interface IArvoEventHandler<TContract extends ArvoContract> {
    */
   handler: ArvoEventHandlerFunction<TContract>;
 
-  /** 
+  /**
    * The OpenTelemetry span kind attributes for the handler
    * executor.
    * @param [openInference] - The OpenInference span kind. Default is "CHAIN"
@@ -101,8 +105,8 @@ export interface IArvoEventHandler<TContract extends ArvoContract> {
    * @param [openTelemetry] - The OpenTelemetry span kind. Default is "INTERNAL"
    */
   spanKind?: {
-    openInference?: OpenInferenceSpanKind,
-    arvoExecution?: ArvoExecutionSpanKind,
-    openTelemetry?: SpanKind
-  }
+    openInference?: OpenInferenceSpanKind;
+    arvoExecution?: ArvoExecutionSpanKind;
+    openTelemetry?: SpanKind;
+  };
 }

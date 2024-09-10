@@ -22,18 +22,22 @@ group: Guides
 The main differences between `MultiArvoEventHandler` and `ArvoEventHandler` are:
 
 1. Contract Binding:
+
    - `ArvoEventHandler` is bound to a specific `ArvoContract` and handles events of a single type defined by that contract.
    - `MultiArvoEventHandler` is not bound to any specific contract and can handle multiple event types.
 
 2. Event Validation:
+
    - `ArvoEventHandler` validates incoming events against the contract it's bound to.
    - `MultiArvoEventHandler` doesn't perform any built-in validation, leaving it up to the handler implementation.
 
 3. Event Creation:
+
    - `ArvoEventHandler` uses an event factory created from its bound contract to create output events.
    - `MultiArvoEventHandler` uses a generic `createArvoEvent` function to create output events.
 
 4. Flexibility:
+
    - `ArvoEventHandler` is more structured and type-safe due to its contract binding.
    - `MultiArvoEventHandler` is more flexible and can be used in scenarios where you need to handle various event types that might not conform to a single contract.
 
@@ -60,7 +64,7 @@ const multiEventHandler = createMultiArvoEventHandler({
   source: 'com.multi.handler',
   executionunits: 100,
   handler: async ({ event, source }) => {
-    
+
     // Some OpenTelemetry logging if needed
     logToSpan({
       level: "DEBUG",
@@ -135,4 +139,3 @@ For more detailed information, refer to the inline documentation in the source c
 ## Execution diagrams
 
 See the Mermaid MD diagram [here](https://github.com/SaadAhmad123/arvo-event-handler/tree/main/src/MultiArvoEventHandler/ExecutionDiagrams)
-

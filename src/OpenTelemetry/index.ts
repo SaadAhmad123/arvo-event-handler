@@ -1,12 +1,7 @@
-import {
-  trace,
-  propagation,
-  Context,
-  context,
-} from '@opentelemetry/api';
+import { trace, propagation, Context, context } from '@opentelemetry/api';
 import { getPackageInfo } from './utils';
 
-const pkg = getPackageInfo()
+const pkg = getPackageInfo();
 
 /**
  * A tracer instance for the ArvoEventHandler package.
@@ -14,10 +9,13 @@ const pkg = getPackageInfo()
 export const ArvoEventHandlerTracer = trace.getTracer(pkg.name, pkg.version);
 
 // Helper function to extract context from traceparent and tracestate
-export const extractContext = (traceparent: string, tracestate: string | null): Context  => {
+export const extractContext = (
+  traceparent: string,
+  tracestate: string | null,
+): Context => {
   const extractedContext = propagation.extract(context.active(), {
     traceparent,
     tracestate: tracestate || undefined,
   });
   return extractedContext;
-}
+};

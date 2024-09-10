@@ -104,4 +104,3 @@ For more detailed information, refer to the inline documentation in the source c
 ## Execution diagrams
 
 See the MermaidMD diagram [here](https://github.com/SaadAhmad123/arvo-event-handler/tree/main/src/ArvoEventHandler/ExecutionDiagrams.md)
-
