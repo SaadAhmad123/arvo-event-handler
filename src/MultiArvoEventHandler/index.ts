@@ -3,6 +3,7 @@ import { ArvoEvent, ArvoExecutionSpanKind, OpenInference, OpenInferenceSpanKind,
 import { IMultiArvoEventHandler, MultiArvoEventHandlerFunction, MultiArvoEventHandlerFunctionOutput } from "./types";
 import { CloudEventContextSchema } from "arvo-core/dist/ArvoEvent/schema";
 import { ArvoEventHandlerTracer, extractContext } from '../OpenTelemetry';
+import { coalesce, coalesceOrDefault } from '../utils';
 
 /**
  * Represents a Multi ArvoEvent handler that can process multiple event types.
@@ -17,7 +18,7 @@ export default class MultiArvoEventHandler {
 
   /** The default execution cost associated with this handler */
   readonly executionunits: number;
-  
+
   /** 
    * The source identifier for events produced by this handler 
    * 
@@ -43,8 +44,8 @@ export default class MultiArvoEventHandler {
   constructor(param: IMultiArvoEventHandler) {
     this.executionunits = param.executionunits
     this._handler = param.handler
-    
-    const {error} = CloudEventContextSchema.pick({
+
+    const { error } = CloudEventContextSchema.pick({
       source: true
     }).safeParse({ source: param.source })
 
@@ -62,20 +63,45 @@ export default class MultiArvoEventHandler {
 
   /**
    * Executes the event handler for a given event.
-   * 
+   *
    * @param event - The event to handle.
-   * @returns A promise that resolves to the resulting ArvoEvents.
-   * 
+   * @returns A promise that resolves to an array of resulting ArvoEvents.
+   *
    * @remarks
    * This method performs the following steps:
    * 1. Creates an OpenTelemetry span for the execution.
    * 2. Executes the handler function.
-   * 3. Creates and returns the result event.
+   * 3. Creates and returns the result event(s).
    * 4. Handles any errors and creates an error event if necessary.
-   * 
+   *
    * All telemetry data is properly set and propagated throughout the execution.
-   * The method ensures that the resulting event has the correct source, subject,
-   * and execution units, and includes any necessary tracing information.
+   *
+   * @example
+   * ```typescript
+   * const handler = new MultiArvoEventHandler({ 
+   *    source: 'com.multi.handler',
+   *    ...
+   * });
+   * const inputEvent: ArvoEvent = createArvoEvent({ ... });
+   * const resultEvents = await handler.execute(inputEvent);
+   * ```
+   *
+   * @throws All errors thrown during the execution are returned as a system error event
+   *
+   * **Routing**
+   * The routing of the resulting events is determined as follows:
+   * - The `to` field of the output event is set in this priority:
+   *   1. The `to` field provided by the handler result
+   *   2. The `source` field from the input event (as a form of reply)
+   * - For system error events, the `to` field is always set to the `source` of the input event.
+   *
+   * **Telemetry**
+   * - Creates a new span for each execution as per the traceparent and tracestate field
+   *   of the event. If those are not present, then a brand new span is created and distributed
+   *   tracing is disabled
+   * - Sets span attributes for input and output events
+   * - Propagates trace context to output events
+   * - Handles error cases and sets appropriate span status
    */
   public async execute(
     event: ArvoEvent
@@ -101,10 +127,10 @@ export default class MultiArvoEventHandler {
     return await context.with(trace.setSpan(context.active(), span), async () => {
       const otelSpanHeaders = currentOpenTelemetryHeaders()
       try {
-        span.setStatus({code: SpanStatusCode.OK })
+        span.setStatus({ code: SpanStatusCode.OK })
         Object.entries(event.otelAttributes).forEach(([key, value]) => span.setAttribute(`to_process.0.${key}`, value))
 
-        const _handlerOutput = await this._handler({event, source: this.source})
+        const _handlerOutput = await this._handler({ event, source: this.source })
         if (!_handlerOutput) return []
         let outputs: MultiArvoEventHandlerFunctionOutput[] = []
         if (Array.isArray(_handlerOutput)) {
@@ -112,9 +138,8 @@ export default class MultiArvoEventHandler {
         } else {
           outputs = [_handlerOutput]
         }
-
         return outputs.map((output, index) => {
-          const {__extensions, ...handlerResult} = output
+          const { __extensions, ...handlerResult } = output
           const result = createArvoEvent(
             {
               ...handlerResult,
@@ -122,9 +147,12 @@ export default class MultiArvoEventHandler {
               tracestate: otelSpanHeaders.tracestate || undefined,
               source: this.source,
               subject: event.subject,
-              to: handlerResult.to || event.source,
-              executionunits:
-                  handlerResult.executionunits || this.executionunits,
+              // The user should be able to override the `to` field
+              // If that is not present then the 'redirectto' field 
+              // is referred to. Then, after all else, 'source' field
+              // is used as a form of reply. 
+              to: coalesceOrDefault([handlerResult.to, event.redirectto], event.source),
+              executionunits: coalesce(handlerResult.executionunits, this.executionunits),
             },
             __extensions,
           )
@@ -141,6 +169,8 @@ export default class MultiArvoEventHandler {
           type: `sys.${this.source}.error`,
           source: this.source,
           subject: event.subject,
+          // The system error must always got back to 
+          // the source
           to: event.source,
           executionunits: this.executionunits,
           traceparent: otelSpanHeaders.traceparent || undefined,

@@ -15,6 +15,7 @@ import {
   IMultiArvoEventHandler
 } from './MultiArvoEventHandler/types'
 import { createMultiArvoEventHandler } from './MultiArvoEventHandler/helpers';
+import { isNullOrUndefined, getValueOrDefault, coalesce, coalesceOrDefault } from './utils';
 
 export {
   ArvoEventHandler,
@@ -30,4 +31,8 @@ export {
   MultiArvoEventHandlerFunction,
   IMultiArvoEventHandler,
   createMultiArvoEventHandler,
+  isNullOrUndefined,
+  getValueOrDefault,
+  coalesce,
+  coalesceOrDefault,
 };

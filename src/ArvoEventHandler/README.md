@@ -100,3 +100,8 @@ console.log('Handler results:', results);
 - Always handle potential errors in your handler implementation.
 
 For more detailed information, refer to the inline documentation in the source code.
+
+## Execution diagrams
+
+See the MermaidMD diagram [here](https://github.com/SaadAhmad123/arvo-event-handler/tree/main/src/ArvoEventHandler/ExecutionDiagrams.md)
+

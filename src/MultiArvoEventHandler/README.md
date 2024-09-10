@@ -131,3 +131,8 @@ The system automatically generates error events when exceptions occur during pro
 - Always handle potential errors in your handler implementation.
 
 For more detailed information, refer to the inline documentation in the source code.
+
+## Execution diagrams
+
+See the Mermaid MD diagram [here](https://github.com/SaadAhmad123/arvo-event-handler/tree/main/src/MultiArvoEventHandler/ExecutionDiagrams)
+

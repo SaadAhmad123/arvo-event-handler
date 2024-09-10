@@ -15,6 +15,7 @@ import { IArvoEventHandler, ArvoEventHandlerFunction, ArvoEventHandlerFunctionOu
 import { CloudEventContextSchema } from 'arvo-core/dist/ArvoEvent/schema';
 import { ArvoEventHandlerTracer, extractContext } from '../OpenTelemetry';
 import { context, Span, SpanKind, SpanOptions, SpanStatusCode, trace } from '@opentelemetry/api';
+import { coalesce, coalesceOrDefault, getValueOrDefault, isNullOrUndefined } from '../utils';
 
 /**
  * Represents an event handler for Arvo contracts.
@@ -83,17 +84,46 @@ export default class ArvoEventHandler<TContract extends ArvoContract> {
    * Executes the event handler for a given event.
    *
    * @param event - The event to handle.
-   * @returns A promise that resolves to the resulting ArvoEvents.
+   * @returns A promise that resolves to an array of resulting ArvoEvents.
    *
    * @remarks
    * This method performs the following steps:
    * 1. Creates an OpenTelemetry span for the execution.
    * 2. Validates the input event against the contract.
    * 3. Executes the handler function.
-   * 4. Creates and returns the result event.
+   * 4. Creates and returns the result event(s).
    * 5. Handles any errors and creates an error event if necessary.
    *
    * All telemetry data is properly set and propagated throughout the execution.
+   *
+   * @example
+   * ```typescript
+   * const contract = createArvoContract({ ... })
+   * const handler = createArvoEventHandler({ 
+   *    contract: contract,
+   *    ...
+   * });
+   * const inputEvent: ArvoEvent<...> = createArvoEvent({ ... });
+   * const resultEvents = await handler.execute(inputEvent);
+   * ```
+   *
+   * @throws All error throw during the execution are returned as a system error event
+   *
+   * **Routing**
+   * The routing of the resulting events is determined as follows:
+   * - The `to` field of the output event is set in this priority:
+   *   1. The `to` field provided by the handler result
+   *   2. The `redirectto` field from the input event
+   *   3. The `source` field from the input event (as a form of reply)
+   * - For system error events, the `to` field is always set to the `source` of the input event.
+   *
+   * **Telemetry**
+   * - Creates a new span for each execution as per the traceparent and tracestate field
+   *   of the event. If those are not present, then a brand new span is created and distributed
+   *   tracing is disabled
+   * - Sets span attributes for input and output events
+   * - Propagates trace context to output events
+   * - Handles error cases and sets appropriate span status
    */
   public async execute(
     event: ArvoEvent<
@@ -151,9 +181,12 @@ export default class ArvoEventHandler<TContract extends ArvoContract> {
               tracestate: otelSpanHeaders.tracestate || undefined,
               source: this.source,
               subject: event.subject,
-              to: handlerResult.to || event.source,
-              executionunits:
-                handlerResult.executionunits || this.executionunits,
+              // The user should be able to override the `to` field
+              // If that is not present then the 'redirectto' field 
+              // is referred to. Then, after all else, 'source' field
+              // is used as a form of reply. 
+              to: coalesceOrDefault([handlerResult.to, event.redirectto], event.source),
+              executionunits: coalesce(handlerResult.executionunits, this.executionunits),
             },
             __extensions,
           );
@@ -170,6 +203,8 @@ export default class ArvoEventHandler<TContract extends ArvoContract> {
           {
             source: this.source,
             subject: event.subject,
+            // The system error must always got back to 
+            // the source
             to: event.source,
             error: error as Error,
             executionunits: this.executionunits,

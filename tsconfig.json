@@ -20,7 +20,10 @@
       "CHANGELOG.md",
       "LICENSE.md"
     ],
-    "plugin": ["typedoc-plugin-zod"],
+    "plugin": [
+      "typedoc-plugin-zod",
+      "typedoc-plugin-mermaid",
+    ],
     "out": "docs"
   }
 }
