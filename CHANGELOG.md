@@ -7,3 +7,7 @@
 
 - Finalised Event Handler implementation
 
+## [0.0.5] - 2024-09-10
+
+- Updated routing
+
