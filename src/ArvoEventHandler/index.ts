@@ -26,7 +26,7 @@ import {
   SpanStatusCode,
   trace,
 } from '@opentelemetry/api';
-import { coalesce, coalesceOrDefault } from '../utils';
+import { coalesce, coalesceOrDefault, eventHandlerOutputEventCreator } from '../utils';
 
 /**
  * Represents an event handler for Arvo contracts.
@@ -202,34 +202,15 @@ export default class ArvoEventHandler<TContract extends ArvoContract> {
           } else {
             outputs = [_handleOutput];
           }
-
-          return outputs.map((output, index) => {
-            const { __extensions, ...handlerResult } = output;
-            const result = eventFactory.emits(
-              {
-                ...handlerResult,
-                traceparent: otelSpanHeaders.traceparent || undefined,
-                tracestate: otelSpanHeaders.tracestate || undefined,
-                source: this.source,
-                subject: event.subject,
-                // prioritise returned 'to', 'redirectto' and then
-                // 'source'
-                to: coalesceOrDefault(
-                  [handlerResult.to, event.redirectto],
-                  event.source,
-                ),
-                executionunits: coalesce(
-                  handlerResult.executionunits,
-                  this.executionunits,
-                ),
-              },
-              __extensions,
-            );
-            Object.entries(result.otelAttributes).forEach(([key, value]) =>
-              span.setAttribute(`to_emit.${index}.${key}`, value),
-            );
-            return result;
-          });
+          
+          return eventHandlerOutputEventCreator(
+            outputs,
+            otelSpanHeaders,
+            this.source,
+            event,
+            this.executionunits,
+            (...args) => eventFactory.emits(...args)
+          )
         } catch (error) {
           exceptionToSpan(error as Error);
           span.setStatus({

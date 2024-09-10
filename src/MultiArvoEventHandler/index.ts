@@ -25,7 +25,7 @@ import {
 } from './types';
 import { CloudEventContextSchema } from 'arvo-core/dist/ArvoEvent/schema';
 import { ArvoEventHandlerTracer, extractContext } from '../OpenTelemetry';
-import { coalesce, coalesceOrDefault } from '../utils';
+import { coalesce, coalesceOrDefault, eventHandlerOutputEventCreator } from '../utils';
 import { createSpanFromEvent } from '../OpenTelemetry/utils';
 
 /**
@@ -186,31 +186,15 @@ export default class MultiArvoEventHandler {
           } else {
             outputs = [_handlerOutput];
           }
-          return outputs.map((output, index) => {
-            const { __extensions, ...handlerResult } = output;
-            const result = createArvoEvent(
-              {
-                ...handlerResult,
-                traceparent: otelSpanHeaders.traceparent || undefined,
-                tracestate: otelSpanHeaders.tracestate || undefined,
-                source: this.source,
-                subject: event.subject,
-                to: coalesceOrDefault(
-                  [handlerResult.to, event.redirectto],
-                  event.source,
-                ),
-                executionunits: coalesce(
-                  handlerResult.executionunits,
-                  this.executionunits,
-                ),
-              },
-              __extensions,
-            );
-            Object.entries(result.otelAttributes).forEach(([key, value]) =>
-              span.setAttribute(`to_emit.${index}.${key}`, value),
-            );
-            return result;
-          });
+
+          return eventHandlerOutputEventCreator(
+            outputs,
+            otelSpanHeaders,
+            this.source,
+            event,
+            this.executionunits,
+            (...args) => createArvoEvent(...args)
+          )
         } catch (error) {
           exceptionToSpan(error as Error);
           span.setStatus({

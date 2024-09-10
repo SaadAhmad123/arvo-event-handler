@@ -1,3 +1,8 @@
+import { ArvoEvent, CreateArvoEvent, currentOpenTelemetryHeaders, OpenTelemetryHeaders } from "arvo-core";
+import { ArvoEventHandlerFunctionOutput } from "./ArvoEventHandler/types";
+import { MultiArvoEventHandlerFunctionOutput } from "./MultiArvoEventHandler/types";
+import { trace } from "@opentelemetry/api";
+
 /**
  * Checks if the item is null or undefined.
  *
@@ -64,4 +69,52 @@ export function coalesceOrDefault<T>(
   _default: NonNullable<T>,
 ): NonNullable<T> {
   return getValueOrDefault(coalesce(...values), _default);
+}
+
+/**
+ * Creates ArvoEvents from event handler output.
+ *
+ * @param events - An array of event handler function outputs.
+ * @param otelSpanHeaders - OpenTelemetry headers for tracing.
+ * @param source - The source of the event.
+ * @param originalEvent - The original ArvoEvent that triggered the handler.
+ * @param handlerExectionUnits - The number of execution units for the handler.
+ * @param factory - A function to create ArvoEvents.
+ * @returns An array of ArvoEvents created from the handler output.
+ */
+export const eventHandlerOutputEventCreator  = (
+  events: Array<ArvoEventHandlerFunctionOutput<any> | MultiArvoEventHandlerFunctionOutput>,
+  otelSpanHeaders: OpenTelemetryHeaders,
+  source: string,
+  originalEvent: ArvoEvent,
+  handlerExectionUnits: number,
+  factory: (param: CreateArvoEvent<any, any> & {to: string}, extensions?: Record<string, string | number | boolean>) => ArvoEvent<any, any, any>
+) => {
+  return events.map((item, index) => {
+    const { __extensions, ...handlerResult } = item;
+    const result = factory(
+      {
+        ...handlerResult,
+        traceparent: otelSpanHeaders.traceparent || undefined,
+        tracestate: otelSpanHeaders.tracestate || undefined,
+        source: source,
+        subject: originalEvent.subject,
+        // prioritise returned 'to', 'redirectto' and then
+        // 'source'
+        to: coalesceOrDefault(
+          [handlerResult.to, originalEvent.redirectto],
+          originalEvent.source,
+        ),
+        executionunits: coalesce(
+          handlerResult.executionunits,
+          handlerExectionUnits,
+        ),
+      },
+      __extensions,
+    );
+    Object.entries(result.otelAttributes).forEach(([key, value]) =>
+      trace.getActiveSpan()?.setAttribute(`to_emit.${index}.${key}`, value),
+    );
+    return result;
+  });
 }
