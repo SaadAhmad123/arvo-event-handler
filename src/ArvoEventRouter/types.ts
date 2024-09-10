@@ -26,6 +26,12 @@ export interface IArvoEventRouter {
    *   in the relevant `ArvoEventHandler`.
    */
   source: string
+  
+  /**
+   * The default execution cost of the function.
+   * This can represent a dollar value or some other number with a rate card.
+   */
+  executionunits: number;
 
   /**
    * A list of all available event handlers to be used by the router.
