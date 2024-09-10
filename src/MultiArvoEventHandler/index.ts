@@ -89,13 +89,16 @@ export default class MultiArvoEventHandler {
    * @throws All errors thrown during the execution are returned as a system error event
    *
    * **Routing**
+   * 
    * The routing of the resulting events is determined as follows:
    * - The `to` field of the output event is set in this priority:
    *   1. The `to` field provided by the handler result
-   *   2. The `source` field from the input event (as a form of reply)
+   *   2. The `redirectto` field from the input event
+   *   3. The `source` field from the input event (as a form of reply)
    * - For system error events, the `to` field is always set to the `source` of the input event.
    *
    * **Telemetry**
+   * 
    * - Creates a new span for each execution as per the traceparent and tracestate field
    *   of the event. If those are not present, then a brand new span is created and distributed
    *   tracing is disabled

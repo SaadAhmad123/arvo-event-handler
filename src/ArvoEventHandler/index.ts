@@ -110,6 +110,7 @@ export default class ArvoEventHandler<TContract extends ArvoContract> {
    * @throws All error throw during the execution are returned as a system error event
    *
    * **Routing**
+   * 
    * The routing of the resulting events is determined as follows:
    * - The `to` field of the output event is set in this priority:
    *   1. The `to` field provided by the handler result
@@ -118,6 +119,7 @@ export default class ArvoEventHandler<TContract extends ArvoContract> {
    * - For system error events, the `to` field is always set to the `source` of the input event.
    *
    * **Telemetry**
+   * 
    * - Creates a new span for each execution as per the traceparent and tracestate field
    *   of the event. If those are not present, then a brand new span is created and distributed
    *   tracing is disabled
