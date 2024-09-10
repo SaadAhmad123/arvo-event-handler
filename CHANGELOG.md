@@ -11,3 +11,7 @@
 
 - Updated routing
 
+## [1.0.0] - 2024-09-10
+
+- First version rrelease
+
