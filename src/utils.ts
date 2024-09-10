@@ -134,7 +134,7 @@ export const createHandlerErrorOutputEvent = (
     code: SpanStatusCode.ERROR,
     message: error.message,
   });
-  const result = createArvoEvent({
+  const result = factory({
     type,
     source,
     subject: originalEvent.subject,
