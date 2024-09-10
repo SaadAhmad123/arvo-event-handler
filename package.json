@@ -1,6 +1,6 @@
 {
   "name": "arvo-event-handler",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "This package contains class and function for event handlers in an Arvo Event Driven system",
   "main": "dist/index.js",
   "scripts": {
