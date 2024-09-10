@@ -9,7 +9,6 @@ import {
   ArvoExecutionSpanKind,
   OpenInferenceSpanKind,
   currentOpenTelemetryHeaders,
-  exceptionToSpan,
   createArvoEvent,
   ArvoErrorSchema,
   cleanString,

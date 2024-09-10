@@ -5,7 +5,6 @@ import {
   cleanString,
   createArvoEvent,
   currentOpenTelemetryHeaders,
-  exceptionToSpan,
   OpenInferenceSpanKind,
 } from 'arvo-core';
 import ArvoEventHandler from '../ArvoEventHandler';
