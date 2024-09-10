@@ -90,7 +90,7 @@ describe('ArvoEventRouter', () => {
           },
         ];
       } catch (e) {
-        exceptionToSpan(e as Error)
+        exceptionToSpan(e as Error);
         return {
           type: 'evt.user.register.error',
           data: {
@@ -205,26 +205,25 @@ describe('ArvoEventRouter', () => {
         subject: 'test',
         to: 'test-router',
         data: {
-          name: 'John Doe'
+          name: 'John Doe',
         },
         traceparent: otelHeaders.traceparent ?? undefined,
         tracestate: otelHeaders.tracestate ?? undefined,
-      })
-  
-      const results = await router.execute(event)
-  
-      expect(results).toHaveLength(2)
-      expect(results[0].type).toBe('evt.user.read.success')
-      expect(results[1].type).toBe('notif.user.read')
-      span.end()
-    })
-    
-  })
+      });
+
+      const results = await router.execute(event);
+
+      expect(results).toHaveLength(2);
+      expect(results[0].type).toBe('evt.user.read.success');
+      expect(results[1].type).toBe('notif.user.read');
+      span.end();
+    });
+  });
 
   it('should handle errors in user register event', async () => {
     const tracer = trace.getTracer('test-tracer');
     await tracer.startActiveSpan('test-arvo-event-router-1', async (span) => {
-      const otelHeaders = currentOpenTelemetryHeaders(); 
+      const otelHeaders = currentOpenTelemetryHeaders();
       const event = createArvoEvent({
         type: 'com.user.register',
         source: 'test-source',
@@ -232,21 +231,22 @@ describe('ArvoEventRouter', () => {
         to: 'test-router',
         data: {
           name: 'Old Person',
-          age: 101
+          age: 101,
         },
         traceparent: otelHeaders.traceparent ?? undefined,
         tracestate: otelHeaders.tracestate ?? undefined,
-      })
-  
-      const results = await router.execute(event)
-  
-      expect(results).toHaveLength(1)
-      expect(results[0].type).toBe('evt.user.register.error')
-      expect(results[0].data.errorMessage).toBe('Age more than 100. It is invalid')
-      span.end()
-    })
-    
-  })
+      });
+
+      const results = await router.execute(event);
+
+      expect(results).toHaveLength(1);
+      expect(results[0].type).toBe('evt.user.register.error');
+      expect(results[0].data.errorMessage).toBe(
+        'Age more than 100. It is invalid',
+      );
+      span.end();
+    });
+  });
 
   it('should handle non-existent user in read event', async () => {
     const event = createArvoEvent({
@@ -255,18 +255,18 @@ describe('ArvoEventRouter', () => {
       subject: 'test',
       to: 'test-router',
       data: {
-        name: 'Non Existent User'
-      }
-    })
+        name: 'Non Existent User',
+      },
+    });
 
-    const results = await router.execute(event)
+    const results = await router.execute(event);
 
-    expect(results).toHaveLength(2)
-    expect(results[0].type).toBe('evt.user.read.success')
-    expect(results[0].data.created).toBe(false)
-    expect(results[1].type).toBe('notif.user.read')
-    expect(results[1].data.message).toBe('User not found: Non Existent User')
-  })
+    expect(results).toHaveLength(2);
+    expect(results[0].type).toBe('evt.user.read.success');
+    expect(results[0].data.created).toBe(false);
+    expect(results[1].type).toBe('notif.user.read');
+    expect(results[1].data.message).toBe('User not found: Non Existent User');
+  });
 
   it('should throw an error for mismatched source', async () => {
     const tracer = trace.getTracer('test-tracer');
@@ -279,21 +279,23 @@ describe('ArvoEventRouter', () => {
         to: 'wrong-router',
         data: {
           name: 'John Doe',
-          age: 30
+          age: 30,
         },
         traceparent: otelHeaders.traceparent ?? undefined,
         tracestate: otelHeaders.tracestate ?? undefined,
-      })
-  
-      const result = await router.execute(event)
-      expect(result[0].data.errorMessage).toBe(cleanString(`
+      });
+
+      const result = await router.execute(event);
+      expect(result[0].data.errorMessage).toBe(
+        cleanString(`
         Invalid event. The 'event.to' is wrong-router while this handler
         listens to only 'event.to' equal to test-router. If this is a mistake,
         please update the 'source' field of the handler
-      `))
-      span.end()
-    })
-  })
+      `),
+      );
+      span.end();
+    });
+  });
 
   it('should throw an error for unhandled event type', async () => {
     const event = createArvoEvent({
@@ -301,14 +303,16 @@ describe('ArvoEventRouter', () => {
       source: 'test-source',
       subject: 'test',
       to: 'test-router',
-      data: {}
-    })
-    const result = await router.execute(event)
-    expect(result[0].data.errorMessage).toBe(cleanString(`
+      data: {},
+    });
+    const result = await router.execute(event);
+    expect(result[0].data.errorMessage).toBe(
+      cleanString(`
       Invalid event (type=com.user.unhandled). No valid handler
       <handler[*].contract.accepts.type> found in the router.
-    `))
-  })
+    `),
+    );
+  });
 
   it('should add execution units to the result events', async () => {
     const event = createArvoEvent({
@@ -318,39 +322,40 @@ describe('ArvoEventRouter', () => {
       subject: 'test',
       data: {
         name: 'John Doe',
-        age: 30
-      }
-    })
+        age: 30,
+      },
+    });
 
-    const results = await router.execute(event)
+    const results = await router.execute(event);
 
-    results.forEach(result => {
-      expect(result.executionunits).toBe(11) // 10 from handler + 1 from router
-    })
-  })
+    results.forEach((result) => {
+      expect(result.executionunits).toBe(11); // 10 from handler + 1 from router
+    });
+  });
 
-  it ('should throw error on duplication', () => {
+  it('should throw error on duplication', () => {
     expect(() => {
       createArvoEventRouter({
         source: 'test-router',
         executionunits: 1,
         handlers: [userRegisterHandler, userReadHandler, userRegisterHandler],
-      })
-    }).toThrow(cleanString(`
+      });
+    }).toThrow(
+      cleanString(`
       Duplicate handlers for event.type=com.user.register found. There are same 'contract.accept.types' in
       contracts 'uri=#/test/user/register' and 'uri=#/test/user/register'. This router does not support handlers
       with the same 'contract.accept.type'.
-    `))
-  })
+    `),
+    );
+  });
 
-  it ('should throw error on invalid source', () => {
+  it('should throw error on invalid source', () => {
     expect(() => {
       createArvoEventRouter({
         source: 'invalid source with spaces',
         executionunits: 1,
         handlers: [userRegisterHandler, userReadHandler, userRegisterHandler],
-      })
-    }).toThrow("The provided 'source' is not a valid string. Error")
-  })
-
+      });
+    }).toThrow("The provided 'source' is not a valid string. Error");
+  });
 });

@@ -23,9 +23,8 @@ import {
 } from '@opentelemetry/api';
 import { ArvoEventHandlerTracer, extractContext } from '../OpenTelemetry';
 import { deleteOtelHeaders } from './utils';
-import {
-  CloudEventContextSchema,
-} from 'arvo-core/dist/ArvoEvent/schema';
+import { CloudEventContextSchema } from 'arvo-core/dist/ArvoEvent/schema';
+import { createSpanFromEvent } from '../OpenTelemetry/utils';
 
 /**
  * ArvoEventRouter class handles routing of ArvoEvents to appropriate event handlers.
@@ -148,29 +147,15 @@ export class ArvoEventRouter {
    * - The router's default execution units are used for error events.
    */
   async execute(event: ArvoEvent): Promise<ArvoEvent[]> {
-    const spanName: string = `ArvoEventRouter.source<${this.source ?? 'arvo.event.router'}>.execute<${event.type}>`;
-    const spanOptions: SpanOptions = {
-      kind: this.openTelemetrySpanKind,
-      attributes: {
-        [OpenInference.ATTR_SPAN_KIND]: this.openInferenceSpanKind,
-        [ArvoExecution.ATTR_SPAN_KIND]: this.arvoExecutionSpanKind,
+    const span: Span = createSpanFromEvent(
+      `ArvoEventRouter.source<${this.source ?? 'arvo.event.router'}>.execute<${event.type}>`,
+      event,
+      {
+        kind: this.openTelemetrySpanKind,
+        openInference: this.openInferenceSpanKind,
+        arvoExecution: this.arvoExecutionSpanKind,
       },
-    };
-
-    let span: Span;
-    if (event.traceparent) {
-      const inheritedContext = extractContext(
-        event.traceparent,
-        event.tracestate,
-      );
-      span = ArvoEventHandlerTracer.startSpan(
-        spanName,
-        spanOptions,
-        inheritedContext,
-      );
-    } else {
-      span = ArvoEventHandlerTracer.startSpan(spanName, spanOptions);
-    }
+    );
 
     return await context.with(
       trace.setSpan(context.active(), span),

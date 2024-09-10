@@ -26,6 +26,7 @@ import {
 import { CloudEventContextSchema } from 'arvo-core/dist/ArvoEvent/schema';
 import { ArvoEventHandlerTracer, extractContext } from '../OpenTelemetry';
 import { coalesce, coalesceOrDefault } from '../utils';
+import { createSpanFromEvent } from '../OpenTelemetry/utils';
 
 /**
  * Represents a Multi ArvoEvent handler that can process multiple event types.
@@ -144,29 +145,15 @@ export default class MultiArvoEventHandler {
    * - This ensures that the handler only processes events intended for it.
    */
   public async execute(event: ArvoEvent): Promise<ArvoEvent[]> {
-    const spanName: string = `MutliArvoEventHandler.source<${this.source}>.execute<${event.type}>`;
-    const spanOptions: SpanOptions = {
-      kind: this.openTelemetrySpanKind,
-      attributes: {
-        [OpenInference.ATTR_SPAN_KIND]: this.openInferenceSpanKind,
-        [ArvoExecution.ATTR_SPAN_KIND]: this.arvoExecutionSpanKind,
+    const span = createSpanFromEvent(
+      `MutliArvoEventHandler.source<${this.source}>.execute<${event.type}>`,
+      event,
+      {
+        kind: this.openTelemetrySpanKind,
+        openInference: this.openInferenceSpanKind,
+        arvoExecution: this.arvoExecutionSpanKind,
       },
-    };
-
-    let span: Span;
-    if (event.traceparent) {
-      const inheritedContext = extractContext(
-        event.traceparent,
-        event.tracestate,
-      );
-      span = ArvoEventHandlerTracer.startSpan(
-        spanName,
-        spanOptions,
-        inheritedContext,
-      );
-    } else {
-      span = ArvoEventHandlerTracer.startSpan(spanName, spanOptions);
-    }
+    );
 
     return await context.with(
       trace.setSpan(context.active(), span),
@@ -208,10 +195,6 @@ export default class MultiArvoEventHandler {
                 tracestate: otelSpanHeaders.tracestate || undefined,
                 source: this.source,
                 subject: event.subject,
-                // The user should be able to override the `to` field
-                // If that is not present then the 'redirectto' field
-                // is referred to. Then, after all else, 'source' field
-                // is used as a form of reply.
                 to: coalesceOrDefault(
                   [handlerResult.to, event.redirectto],
                   event.source,
@@ -238,8 +221,6 @@ export default class MultiArvoEventHandler {
             type: `sys.${this.source}.error`,
             source: this.source,
             subject: event.subject,
-            // The system error must always got back to
-            // the source
             to: event.source,
             executionunits: this.executionunits,
             traceparent: otelSpanHeaders.traceparent ?? undefined,

@@ -26,10 +26,7 @@ import {
   SpanStatusCode,
   trace,
 } from '@opentelemetry/api';
-import {
-  coalesce,
-  coalesceOrDefault,
-} from '../utils';
+import { coalesce, coalesceOrDefault } from '../utils';
 
 /**
  * Represents an event handler for Arvo contracts.

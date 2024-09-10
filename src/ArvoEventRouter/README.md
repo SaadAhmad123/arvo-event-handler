@@ -40,7 +40,10 @@ const finalResults = await stage2Router.execute(stage1Results[0]);
 ## Sample Usage
 
 ```typescript
-import { createArvoEventRouter, createArvoEventHandler } from 'arvo-event-handler';
+import {
+  createArvoEventRouter,
+  createArvoEventHandler,
+} from 'arvo-event-handler';
 import { createArvoEvent } from 'arvo-core';
 
 // Create event handlers

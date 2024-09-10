@@ -1,5 +1,14 @@
+import { Span, SpanKind, SpanOptions } from '@opentelemetry/api';
+import {
+  ArvoEvent,
+  ArvoExecution,
+  ArvoExecutionSpanKind,
+  OpenInference,
+  OpenInferenceSpanKind,
+} from 'arvo-core';
 import * as fs from 'fs';
 import * as path from 'path';
+import { ArvoEventHandlerTracer, extractContext } from '.';
 
 interface PackageJson {
   name: string;
@@ -25,3 +34,38 @@ export function getPackageInfo(): { name: string; version: string } {
     return { name: 'Unknown', version: 'Unknown' };
   }
 }
+
+export const createSpanFromEvent = (
+  spanName: string,
+  event: ArvoEvent,
+  spanKinds: {
+    kind: SpanKind;
+    openInference: OpenInferenceSpanKind;
+    arvoExecution: ArvoExecutionSpanKind;
+  },
+): Span => {
+  const spanOptions: SpanOptions = {
+    kind: spanKinds.kind,
+    attributes: {
+      [OpenInference.ATTR_SPAN_KIND]: spanKinds.openInference,
+      [ArvoExecution.ATTR_SPAN_KIND]: spanKinds.arvoExecution,
+    },
+  };
+
+  let span: Span;
+  if (event.traceparent) {
+    const inheritedContext = extractContext(
+      event.traceparent,
+      event.tracestate,
+    );
+    span = ArvoEventHandlerTracer.startSpan(
+      spanName,
+      spanOptions,
+      inheritedContext,
+    );
+  } else {
+    span = ArvoEventHandlerTracer.startSpan(spanName, spanOptions);
+  }
+
+  return span;
+};
