@@ -42,13 +42,17 @@ export type MultiArvoEventHandlerFunction = (param: MultiArvoEventHandlerFunctio
  * Interface for an Multi ArvoEvent handler.
  */
 export interface IMultiArvoEventHandler {
-  /**
-   * The source definition of the MultiArvoEventHanlder. 
+  /** 
+   * The source identifier for events produced by this handler 
    * 
    * @remarks
-   * For all the events which are emitted by the handler, this will be the source
-   * field value of them all.
-   */
+   * The handler listens to the events with field `event.to` equal
+   * to the this `source` value. If the event does not confirm to 
+   * this, a system error event is returned
+   * 
+   * For all the events which are emitted by the handler, this is
+   * the source field value of them all. 
+  */
   source: string;
 
   /**

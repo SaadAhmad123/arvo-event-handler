@@ -25,17 +25,58 @@ Whether you're building a small microservice or a large-scale distributed system
 
 # Arvo - Event Handler
 
+This package contains the event handler primitive required to enable an Arvo Event Driven System. These are light weight classes and types which take care of event listening, contract bound type inference, distributed open telemetry and much more.
+
+## Documentation & Resources
+
+| Source       | Link                                                     |
+| ------------ | -------------------------------------------------------- |
+| Package      | https://www.npmjs.com/package/arvo-event-handler?activeTab=readme |
+| Github       | https://github.com/SaadAhmad123/arvo-event-handler                |
+| Documenation | https://saadahmad123.github.io/arvo-event-handler/index.html      |
+
 ## Installation
 
 You can install the core package via `npm` or `yarn`
 
 ```bash
-npm install arvo-event-handler
+npm install arvo-event-handler arvo-core
 ```
 
 ```bash
-yarn add arvo-event-handler
+yarn add arvo-event-handler arvo-core
 ```
+
+## Components
+
+There 2 main types of event handlers in Arvo event driven system
+
+- [ArvoEventHandler](src/ArvoEventHandler/README.md) is designed to facilitate the handling of events as per an `ArvoContract` (see [arvo-core](https://saadahmad123.github.io/arvo-core/documents/ArvoContract.html)). It provides a robust and flexible way to create, manage, and execute event handlers for Arvo-based event driven systems.
+- [MultiArvoEventHandler](src/MultiArvoEventHandler/README.md) is a flexible and powerful event handling class designed to process multiple event types across different ArvoContracts. This handler offers greater versatility compared to the more specialized `ArvoEventHandler`, as it's not bound to a specific contract or event type.
+
+## Getting Started
+
+To start using Arvo Event Handlers in your project:
+
+- Install the package as shown in the Installation section.
+- Import the necessary components:
+
+```javascript
+import {
+  createArvoEvent,
+  createArvoContract,
+  createArvoContractLibrary,
+  createArvoEventFactory,
+} from 'arvo-core';
+
+import {
+  createArvoEventHandler,
+  createMultiArvoEventHandler,
+}
+```
+
+- Begin defining your events, contracts, and handlers using the provided classes.
+
 
 ## License
 

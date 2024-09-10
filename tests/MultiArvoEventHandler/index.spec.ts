@@ -1,4 +1,4 @@
-import { createArvoEvent, currentOpenTelemetryHeaders } from "arvo-core";
+import { cleanString, createArvoEvent, currentOpenTelemetryHeaders } from "arvo-core";
 import { createMultiArvoEventHandler, MultiArvoEventHandlerFunction } from "../../src"
 import { telemetrySdkStart, telemetrySdkStop } from '../utils';
 import { trace } from '@opentelemetry/api';
@@ -13,10 +13,6 @@ describe('MultiArvoEventHandler', () => {
   });
 
   const mockHandlerFunction: MultiArvoEventHandlerFunction = async ({event, source}) => {
-    if (event.to !== source) {
-      throw new Error("Invalid source")
-    }
-    
     if (event.type === "com.user.register") {
       return {
         type: 'evt.user.register.success',
@@ -112,7 +108,11 @@ describe('MultiArvoEventHandler', () => {
     }));
     expect(result).toBeDefined();
     expect(result[0].type).toBe('sys.multi.event.handler.error')
-    expect(result[0].data.errorMessage).toBe("Invalid source")
+    expect(result[0].data.errorMessage).toBe(cleanString(`
+      Invalid event. The 'event.to' is multi.event.handler.invalid while this handler
+      listens to only 'event.to' equal to multi.event.handler. If this is a mistake,
+      please update the 'source' field of the handler  
+    `))
     expect(result[0].source).toBe('multi.event.handler')
     expect(result[0].executionunits).toBe(100)
   });

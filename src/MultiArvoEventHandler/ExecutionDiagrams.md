@@ -12,40 +12,44 @@ C -->|Yes| D[Start Span with Inherited Context]
 C -->|No| E[Start New Span]
 D --> F[Set Span Attributes]
 E --> F
-F --> G[Execute Handler Function]
-G --> H{Handler Output?}
-H -->|Yes| I[Process Output Events]
-H -->|No| J[Return Empty Array]
-I --> K[Create Result Events]
-K --> L[Set Span Attributes for Output]
-L --> M[Return Result Events]
+F --> G{event.to === this.source?}
+G -->|No| H[Throw Error]
+G -->|Yes| I[Execute Handler Function]
+I --> J{Handler Output?}
+J -->|Yes| K[Process Output Events]
+J -->|No| L[Return Empty Array]
+K --> M[Create Result Events]
+M --> N[Set Span Attributes for Output]
+N --> O[Return Result Events]
     
-G --> N{Error Occurred?}
-N -->|Yes| O[Set Error Status]
-O --> P[Create System Error Event]
-P --> Q[Set Span Attributes for Error]
-Q --> R[Return Error Event]
+I --> P{Error Occurred?}
+P -->|Yes| Q[Set Error Status]
+Q --> R[Create System Error Event]
+R --> S[Set Span Attributes for Error]
+S --> T[Return Error Event]
     
-M --> S[End Span]
-R --> S
-J --> S
-S --> T[End]
+H --> Q
+O --> U[End Span]
+T --> U
+L --> U
+U --> V[End]
     
 subgraph Error Handling
-N
-O
 P
 Q
 R
+S
+T
+H
 end
     
 subgraph Event Processing
-G
-H
 I
+J
 K
-L
 M
+N
+O
 end
     
 subgraph Telemetry
@@ -53,9 +57,9 @@ B
 D
 E
 F
-L
-Q
+N
 S
+U
 end
 ```
 
@@ -82,6 +86,14 @@ end
 
 MultiArvoEventHandler->>OpenTelemetry: Set span attributes
 
+alt event.to !== this.source
+MultiArvoEventHandler->>EventFactory: Create system error event
+EventFactory-->>MultiArvoEventHandler: Error event
+MultiArvoEventHandler->>OpenTelemetry: Set error status
+MultiArvoEventHandler->>OpenTelemetry: Set error attributes
+MultiArvoEventHandler->>OpenTelemetry: End span
+MultiArvoEventHandler-->>Caller: Return error event
+else event.to === this.source
 MultiArvoEventHandler->>HandlerFunction: Execute handler
     
 alt Handler execution successful
@@ -99,5 +111,6 @@ EventFactory-->>MultiArvoEventHandler: Error event
 MultiArvoEventHandler->>OpenTelemetry: Set error attributes
 MultiArvoEventHandler->>OpenTelemetry: End span
 MultiArvoEventHandler-->>Caller: Return error event
+end
 end
 ```

@@ -1,5 +1,5 @@
 import { context, Span, SpanKind, SpanOptions, SpanStatusCode, trace } from '@opentelemetry/api';
-import { ArvoEvent, ArvoExecutionSpanKind, OpenInference, OpenInferenceSpanKind, ArvoExecution, currentOpenTelemetryHeaders, exceptionToSpan, createArvoEvent, ArvoErrorSchema } from "arvo-core";
+import { ArvoEvent, ArvoExecutionSpanKind, OpenInference, OpenInferenceSpanKind, ArvoExecution, currentOpenTelemetryHeaders, exceptionToSpan, createArvoEvent, ArvoErrorSchema, cleanString } from "arvo-core";
 import { IMultiArvoEventHandler, MultiArvoEventHandlerFunction, MultiArvoEventHandlerFunctionOutput } from "./types";
 import { CloudEventContextSchema } from "arvo-core/dist/ArvoEvent/schema";
 import { ArvoEventHandlerTracer, extractContext } from '../OpenTelemetry';
@@ -23,6 +23,10 @@ export default class MultiArvoEventHandler {
    * The source identifier for events produced by this handler 
    * 
    * @remarks
+   * The handler listens to the events with field `event.to` equal
+   * to the this `source` value. If the event does not confirm to 
+   * this, a system error event is returned
+   * 
    * For all the events which are emitted by the handler, this is
    * the source field value of them all. 
   */
@@ -70,9 +74,10 @@ export default class MultiArvoEventHandler {
    * @remarks
    * This method performs the following steps:
    * 1. Creates an OpenTelemetry span for the execution.
-   * 2. Executes the handler function.
-   * 3. Creates and returns the result event(s).
-   * 4. Handles any errors and creates an error event if necessary.
+   * 2. Validates that the event's 'to' field matches the handler's 'source'.
+   * 3. Executes the handler function.
+   * 4. Creates and returns the result event(s).
+   * 5. Handles any errors and creates an error event if necessary.
    *
    * All telemetry data is properly set and propagated throughout the execution.
    *
@@ -86,7 +91,8 @@ export default class MultiArvoEventHandler {
    * const resultEvents = await handler.execute(inputEvent);
    * ```
    *
-   * @throws All errors thrown during the execution are returned as a system error event
+   * @throws {Error} Throws an error if the event's 'to' field doesn't match the handler's 'source'.
+   * All other errors thrown during the execution are returned as a system error event.
    *
    * **Routing**
    * 
@@ -105,7 +111,13 @@ export default class MultiArvoEventHandler {
    * - Sets span attributes for input and output events
    * - Propagates trace context to output events
    * - Handles error cases and sets appropriate span status
-   */
+   *
+   * **Event Validation**
+   * 
+   * - Checks if the event's 'to' field matches the handler's 'source'.
+   * - If they don't match, an error is thrown with a descriptive message.
+   * - This ensures that the handler only processes events intended for it.
+   */ 
   public async execute(
     event: ArvoEvent
   ): Promise<ArvoEvent[]> {
@@ -132,6 +144,14 @@ export default class MultiArvoEventHandler {
       try {
         span.setStatus({ code: SpanStatusCode.OK })
         Object.entries(event.otelAttributes).forEach(([key, value]) => span.setAttribute(`to_process.0.${key}`, value))
+
+        if(event.to !== this.source) {
+          throw new Error(cleanString(`
+            Invalid event. The 'event.to' is ${event.to} while this handler 
+            listens to only 'event.to' equal to ${this.source}. If this is a mistake,
+            please update the 'source' field of the handler
+          `))
+        }
 
         const _handlerOutput = await this._handler({ event, source: this.source })
         if (!_handlerOutput) return []
