@@ -52,7 +52,9 @@ yarn add arvo-event-handler arvo-core
 There 2 main types of event handlers in Arvo event driven system
 
 - [ArvoEventHandler](src/ArvoEventHandler/README.md) is designed to facilitate the handling of events as per an `ArvoContract` (see [arvo-core](https://saadahmad123.github.io/arvo-core/documents/ArvoContract.html)). It provides a robust and flexible way to create, manage, and execute event handlers for Arvo-based event driven systems.
+- [ArvoEventRouter](src/ArvoEventRouter/README.md) is designed to route ArvoEvents to appropriate ArvoEventHandlers. It provides a centralized mechanism for managing and executing multiple event handlers based on event types.
 - [MultiArvoEventHandler](src/MultiArvoEventHandler/README.md) is a flexible and powerful event handling class designed to process multiple event types across different ArvoContracts. This handler offers greater versatility compared to the more specialized `ArvoEventHandler`, as it's not bound to a specific contract or event type.
+
 
 ## Getting Started
 
@@ -72,7 +74,8 @@ import {
 import {
   createArvoEventHandler,
   createMultiArvoEventHandler,
-}
+  createArvoEventRouter,
+} from 'arvo-event-handler'
 ```
 
 - Begin defining your events, contracts, and handlers using the provided classes.

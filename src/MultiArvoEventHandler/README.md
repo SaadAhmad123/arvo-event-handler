@@ -56,7 +56,7 @@ Both handlers share similar telemetry and error handling mechanisms, but `MultiA
 ## Sample Usage
 
 ```typescript
-import { createArvoContract, logToSpan, createArvoEvent } from 'arvo-core';
+import { createArvoContract, logToSpan, createArvoEvent, exceptionToSpan } from 'arvo-core';
 import { createMultiArvoEventHandler } from 'arvo-event-handler';
 import { trace } from '@opentelemetry/api';
 
@@ -84,6 +84,7 @@ const multiEventHandler = createMultiArvoEventHandler({
           data: { transactionId: event.data.id, status: 'completed' }
         };
       default:
+        exceptionToSpan(new Error("Unhandled event"))
         console.log(`Unhandled event type: ${event.type}`);
     }
   }

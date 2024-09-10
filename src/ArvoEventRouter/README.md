@@ -1,3 +1,8 @@
+---
+title: ArvoEventRouter
+group: Guides
+---
+
 # ArvoEventRouter
 
 ## Overview
@@ -14,12 +19,10 @@ ArvoEventRouter is a TypeScript class designed to route ArvoEvents to appropriat
 
 ## Usecases
 
-1. Centralized Event Processing
-
+**1. Centralized Event Processing**
 Use ArvoEventRouter as a central point for processing various types of events in your application. This is particularly useful in microservices architectures or event-driven systems where different event handlers are bundled into one service
 
-2. Event Transformation Pipeline
-
+**2. Event Transformation Pipeline**
 Create a pipeline of event transformations by chaining multiple routers, each responsible for a specific stage of event processing.
 
 ```typescript
@@ -37,16 +40,15 @@ const finalResults = await stage2Router.execute(stage1Results[0]);
 ## Sample Usage
 
 ```typescript
-import { ArvoEventRouter } from './ArvoEventRouter';
-import { ArvoEventHandler } from './ArvoEventHandler';
+import { createArvoEventRouter, createArvoEventHandler } from 'arvo-event-handler';
 import { createArvoEvent } from 'arvo-core';
 
 // Create event handlers
-const handler1 = new ArvoEventHandler(/* ... */);
-const handler2 = new ArvoEventHandler(/* ... */);
+const handler1 = createArvoEventHandler(/* ... */);
+const handler2 = createArvoEventHandler(/* ... */);
 
 // Initialize the router
-const router = new ArvoEventRouter({
+const router = createArvoEventRouter({
   handlers: [handler1, handler2],
   source: 'my.service.router',
   executionunits: 10,
