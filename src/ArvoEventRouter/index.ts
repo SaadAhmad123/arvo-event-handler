@@ -1,5 +1,6 @@
 import {
   ArvoContract,
+  ArvoErrorSchema,
   ArvoEvent,
   ArvoExecutionSpanKind,
   cleanString,
@@ -9,7 +10,7 @@ import {
 } from 'arvo-core';
 import ArvoEventHandler from '../ArvoEventHandler';
 import { IArvoEventRouter } from './types';
-import { createHandlerErrorOutputEvent, getValueOrDefault, isNullOrUndefined } from '../utils';
+import { createHandlerErrorOutputEvent, getValueOrDefault, isLowerAlphanumeric, isNullOrUndefined } from '../utils';
 import {
   context,
   Span,
@@ -20,17 +21,28 @@ import {
 import { deleteOtelHeaders } from './utils';
 import { CloudEventContextSchema } from 'arvo-core/dist/ArvoEvent/schema';
 import { createSpanFromEvent } from '../OpenTelemetry/utils';
+import AbstractArvoEventHandler from '../AbstractArvoEventHandler';
 
 /**
  * ArvoEventRouter class handles routing of ArvoEvents to appropriate event handlers.
  */
-export class ArvoEventRouter {
+export class ArvoEventRouter extends AbstractArvoEventHandler {
+  private _handlerDefaultSource: string = `arvo.event.router`
+  private readonly _source: string | null;
+
   /**
-   * The source name of the router. The router attempts
-   * to match the `event.to` field with this value
-   * @property {string} [source]
+   * The source name of the router.
+   * @returns {string} The router's source name.
+   * 
+   * @remarks
+   * The router attempts to match the `event.to` field with this value.
+   * If the source is 'arvo.event.router', the `event.to` is not matched and any event is allowed.
+   * 'arvo.event.router' is the default source which is set automatically in case a source
+   * is not explicitly provided
    */
-  readonly source: string | null;
+  public get source() {
+    return this._source ?? this._handlerDefaultSource
+  }
 
   /**
    * A list of all available event handlers to be used by the router.
@@ -62,20 +74,14 @@ export class ArvoEventRouter {
    *                 source in an invalid string
    */
   constructor(param: IArvoEventRouter) {
+    super()
     this.handlers = param.handlers;
 
-    if (param.source) {
-      const { error } = CloudEventContextSchema.pick({
-        source: true,
-      }).safeParse({ source: param.source });
-      if (error) {
-        throw new Error(
-          `The provided 'source' is not a valid string. Error: ${error.message}`,
-        );
-      }
+    if (param.source && !isLowerAlphanumeric(param.source)) {
+      throw new Error(`Invalid 'source' = '${param.source}'. The 'source' must only contain alphanumeric characters e.g. test.router`)
     }
 
-    this.source = isNullOrUndefined(param.source) ? null : param.source;
+    this._source = isNullOrUndefined(param.source) ? null : param.source;
     this.executionunits = param.executionunits;
 
     for (const handler of this.handlers) {
@@ -143,7 +149,7 @@ export class ArvoEventRouter {
    */
   async execute(event: ArvoEvent): Promise<ArvoEvent[]> {
     const span: Span = createSpanFromEvent(
-      `ArvoEventRouter.source<${this.source ?? 'arvo.event.router'}>.execute<${event.type}>`,
+      `ArvoEventRouter.source<${this._source ?? 'arvo.event.router'}>.execute<${event.type}>`,
       event,
       {
         kind: this.openTelemetrySpanKind,
@@ -160,11 +166,11 @@ export class ArvoEventRouter {
         try {
           span.setStatus({ code: SpanStatusCode.OK });
 
-          if (!isNullOrUndefined(this.source) && newEvent.to !== this.source) {
+          if (!isNullOrUndefined(this._source) && newEvent.to !== this._source) {
             throw new Error(
               cleanString(`
             Invalid event. The 'event.to' is ${newEvent.to} while this handler 
-            listens to only 'event.to' equal to ${this.source}. If this is a mistake,
+            listens to only 'event.to' equal to ${this._source}. If this is a mistake,
             please update the 'source' field of the handler
           `),
             );
@@ -188,7 +194,7 @@ export class ArvoEventRouter {
                 {
                   id: event.id,
                   time: event.time,
-                  source: getValueOrDefault(this.source, event.source),
+                  source: event.source,
                   specversion: '1.0',
                   type: event.type,
                   subject: event.subject,
@@ -210,8 +216,8 @@ export class ArvoEventRouter {
           return createHandlerErrorOutputEvent(
             error as Error,
             otelSpanHeaders,
-            `sys.arvo.event.router.error`,
-            this.source ?? `arvo.event.router`,
+            `sys.${this.source}.error`,
+            this.source,
             event,
             this.executionunits,
             (...args) => createArvoEvent(...args)
@@ -221,5 +227,27 @@ export class ArvoEventRouter {
         }
       },
     );
+  }
+
+  /**
+   * Provides the schema for system error events.
+   *
+   * @returns An object containing the error event type and schema.
+   *
+   * @remarks
+   * This getter defines the structure for system error events that may be emitted
+   * when an unexpected error occurs during event handling. The error event type
+   * is prefixed with 'sys.' followed by the handler's source and '.error'.
+   * The schema used for these error events is the standard ArvoErrorSchema.
+   *
+   * @example
+   * // If the handler's source is 'user.service'
+   * // The system error event type would be 'sys.user.service.error'
+   */
+  public get systemErrorSchema() {
+    return {
+      type: `sys.${this.source}.error`,
+      schema: ArvoErrorSchema,
+    };
   }
 }

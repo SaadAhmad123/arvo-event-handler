@@ -21,8 +21,9 @@ import {
   SpanStatusCode,
   trace,
 } from '@opentelemetry/api';
-import { eventHandlerOutputEventCreator } from '../utils';
+import { eventHandlerOutputEventCreator, createHandlerErrorOutputEvent } from '../utils';
 import { createSpanFromEvent } from '../OpenTelemetry/utils';
+import AbstractArvoEventHandler from '../AbstractArvoEventHandler';
 
 /**
  * Represents an event handler for Arvo contracts.
@@ -34,7 +35,7 @@ import { createSpanFromEvent } from '../OpenTelemetry/utils';
  * for executing event handlers, managing telemetry, and ensuring proper contract validation.
  * It's designed to be flexible and reusable across different Arvo contract implementations.
  */
-export default class ArvoEventHandler<TContract extends ArvoContract> {
+export default class ArvoEventHandler<TContract extends ArvoContract> extends AbstractArvoEventHandler {
   /** The contract of the handler to which it is bound */
   readonly contract: TContract;
 
@@ -70,6 +71,7 @@ export default class ArvoEventHandler<TContract extends ArvoContract> {
    * If no source is provided, it defaults to the contract's accepted event type.
    */
   constructor(param: IArvoEventHandler<TContract>) {
+    super()
     this.contract = param.contract;
     this.executionunits = param.executionunits;
     this._handler = param.handler;
@@ -211,8 +213,9 @@ export default class ArvoEventHandler<TContract extends ArvoContract> {
               to: event.source,
               error: error as Error,
               executionunits: this.executionunits,
-              traceparent: otelSpanHeaders.traceparent || undefined,
-              tracestate: otelSpanHeaders.tracestate || undefined,
+              traceparent: otelSpanHeaders.traceparent ?? undefined,
+              tracestate: otelSpanHeaders.tracestate ?? undefined,
+              accesscontrol: event.accesscontrol ?? undefined,
             },
             {},
           );
@@ -243,9 +246,6 @@ export default class ArvoEventHandler<TContract extends ArvoContract> {
    * // The system error event type would be 'sys.user.created.error'
    */
   public get systemErrorSchema() {
-    return {
-      type: `sys.${this.contract.accepts.type}.error`,
-      schema: ArvoErrorSchema,
-    };
+    return this.contract.systemError
   }
 }

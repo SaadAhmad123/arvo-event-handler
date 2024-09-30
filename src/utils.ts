@@ -77,6 +77,7 @@ export function coalesceOrDefault<T>(
  * @param events - An array of event handler function outputs.
  * @param otelSpanHeaders - OpenTelemetry headers for tracing.
  * @param source - The source of the event.
+ * @param defaultAccessControl - The default access control string for the events
  * @param originalEvent - The original ArvoEvent that triggered the handler.
  * @param handlerExectionUnits - The number of execution units for the handler.
  * @param factory - A function to create ArvoEvents.
@@ -109,6 +110,7 @@ export const eventHandlerOutputEventCreator = (
           handlerResult.executionunits,
           handlerExectionUnits,
         ),
+        accesscontrol: handlerResult.accesscontrol ?? originalEvent.accesscontrol ?? undefined
       },
       __extensions,
     );
@@ -128,7 +130,6 @@ export const createHandlerErrorOutputEvent = (
   handlerExectionUnits: number,
   factory: (param: CreateArvoEvent<any, any> & { to: string }, extensions?: Record<string, string | number | boolean>) => ArvoEvent<any, any, any>
 ) => {
-
   exceptionToSpan(error);
   trace.getActiveSpan()?.setStatus({
     code: SpanStatusCode.ERROR,
@@ -147,10 +148,29 @@ export const createHandlerErrorOutputEvent = (
       errorMessage: error.message,
       errorStack: error.stack ?? null,
     },
+    accesscontrol: originalEvent.accesscontrol ?? undefined
   })
 
   Object.entries(result.otelAttributes).forEach(([key, value]) =>
     trace.getActiveSpan()?.setAttribute(`to_emit.0.${key}`, value),
   );
   return [result];
+}
+
+/**
+ * Validates if a string contains only uppercase or lowercase alphanumeric characters.
+ * 
+ * This function checks if the input string consists solely of:
+ * - Lowercase letters (a-z)
+ * - Numbers (0-9)
+ * - Dot (.)
+ * 
+ * It does not allow any special characters, spaces, or other non-alphanumeric characters.
+ * 
+ * @param input - The string to be validated.
+ * @returns True if the string contains only alphanumeric characters, false otherwise.
+ */
+export function isLowerAlphanumeric(input: string): boolean {
+  const alphanumericRegex = /^[a-z0-9.]+$/;
+  return alphanumericRegex.test(input);
 }

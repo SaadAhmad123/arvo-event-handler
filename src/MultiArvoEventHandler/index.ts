@@ -19,8 +19,9 @@ import {
   MultiArvoEventHandlerFunctionOutput,
 } from './types';
 import { CloudEventContextSchema } from 'arvo-core/dist/ArvoEvent/schema';
-import { createHandlerErrorOutputEvent, eventHandlerOutputEventCreator } from '../utils';
+import { createHandlerErrorOutputEvent, eventHandlerOutputEventCreator, isLowerAlphanumeric } from '../utils';
 import { createSpanFromEvent } from '../OpenTelemetry/utils';
+import AbstractArvoEventHandler from '../AbstractArvoEventHandler';
 
 /**
  * Represents a Multi ArvoEvent handler that can process multiple event types.
@@ -31,7 +32,7 @@ import { createSpanFromEvent } from '../OpenTelemetry/utils';
  * without being tied to a specific contract. This makes it more flexible for
  * scenarios where you need to process various event types with a single handler.
  */
-export default class MultiArvoEventHandler {
+export default class MultiArvoEventHandler extends AbstractArvoEventHandler {
   /** The default execution cost associated with this handler */
   readonly executionunits: number;
 
@@ -63,17 +64,12 @@ export default class MultiArvoEventHandler {
    * @throws {Error} Throws an error if the provided source is invalid.
    */
   constructor(param: IMultiArvoEventHandler) {
+    super()
     this.executionunits = param.executionunits;
     this._handler = param.handler;
 
-    const { error } = CloudEventContextSchema.pick({
-      source: true,
-    }).safeParse({ source: param.source });
-
-    if (error) {
-      throw new Error(
-        `The provided 'source' is not a valid string. Error: ${error.message}`,
-      );
+    if (!isLowerAlphanumeric(param.source)) {
+      throw new Error(`Invalid 'source' = '${param.source}'. The 'source' must only contain alphanumeric characters e.g. test.handler`)
     }
 
     this.source = param.source;

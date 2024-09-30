@@ -3,7 +3,6 @@ import {
   cleanString,
   createArvoContract,
   createArvoEvent,
-  createArvoEventFactory,
   currentOpenTelemetryHeaders,
   exceptionToSpan,
 } from 'arvo-core';
@@ -170,7 +169,7 @@ describe('ArvoEventRouter', () => {
 
   beforeEach(() => {
     router = createArvoEventRouter({
-      source: 'test-router',
+      source: 'test.router',
       executionunits: 1,
       handlers: [userRegisterHandler, userReadHandler],
     });
@@ -181,7 +180,7 @@ describe('ArvoEventRouter', () => {
       type: 'com.user.register',
       source: 'test-source',
       subject: 'test',
-      to: 'test-router',
+      to: 'test.router',
       data: {
         name: 'John Doe',
         age: 30,
@@ -203,7 +202,7 @@ describe('ArvoEventRouter', () => {
         type: 'com.user.read',
         source: 'test-source',
         subject: 'test',
-        to: 'test-router',
+        to: 'test.router',
         data: {
           name: 'John Doe',
         },
@@ -228,7 +227,7 @@ describe('ArvoEventRouter', () => {
         type: 'com.user.register',
         source: 'test-source',
         subject: 'test',
-        to: 'test-router',
+        to: 'test.router',
         data: {
           name: 'Old Person',
           age: 101,
@@ -253,7 +252,7 @@ describe('ArvoEventRouter', () => {
       type: 'com.user.read',
       source: 'test-source',
       subject: 'test',
-      to: 'test-router',
+      to: 'test.router',
       data: {
         name: 'Non Existent User',
       },
@@ -289,7 +288,7 @@ describe('ArvoEventRouter', () => {
       expect(result[0].data.errorMessage).toBe(
         cleanString(`
         Invalid event. The 'event.to' is wrong-router while this handler
-        listens to only 'event.to' equal to test-router. If this is a mistake,
+        listens to only 'event.to' equal to test.router. If this is a mistake,
         please update the 'source' field of the handler
       `),
       );
@@ -302,7 +301,7 @@ describe('ArvoEventRouter', () => {
       type: 'com.user.unhandled',
       source: 'test-source',
       subject: 'test',
-      to: 'test-router',
+      to: 'test.router',
       data: {},
     });
     const result = await router.execute(event);
@@ -318,7 +317,7 @@ describe('ArvoEventRouter', () => {
     const event = createArvoEvent({
       type: 'com.user.register',
       source: 'test-source',
-      to: 'test-router',
+      to: 'test.router',
       subject: 'test',
       data: {
         name: 'John Doe',
@@ -336,7 +335,7 @@ describe('ArvoEventRouter', () => {
   it('should throw error on duplication', () => {
     expect(() => {
       createArvoEventRouter({
-        source: 'test-router',
+        source: 'test.router',
         executionunits: 1,
         handlers: [userRegisterHandler, userReadHandler, userRegisterHandler],
       });
@@ -356,6 +355,6 @@ describe('ArvoEventRouter', () => {
         executionunits: 1,
         handlers: [userRegisterHandler, userReadHandler, userRegisterHandler],
       });
-    }).toThrow("The provided 'source' is not a valid string. Error");
+    }).toThrow("Invalid 'source' = 'invalid source with spaces'. The 'source' must only contain alphanumeric characters e.g. test.router");
   });
 });

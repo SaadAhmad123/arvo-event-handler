@@ -24,6 +24,7 @@ import {
 import { IArvoEventRouter } from './ArvoEventRouter/types';
 import { ArvoEventRouter } from './ArvoEventRouter';
 import { createArvoEventRouter } from './ArvoEventRouter/helpers';
+import AbstractArvoEventHandler from './AbstractArvoEventHandler';
 
 export {
   ArvoEventHandler,
@@ -46,4 +47,5 @@ export {
   IArvoEventRouter,
   ArvoEventRouter,
   createArvoEventRouter,
+  AbstractArvoEventHandler,
 };

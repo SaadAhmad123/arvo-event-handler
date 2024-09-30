@@ -19,3 +19,7 @@
 ## [1.0.2] - 2024-09-10
 
 - Added ArvoEventRouter as a mechanism to group ArvoEventHandlers
+## [1.1.0] - 2024-09-30
+
+- Added Abstract handler class and bound all handlers to it
+

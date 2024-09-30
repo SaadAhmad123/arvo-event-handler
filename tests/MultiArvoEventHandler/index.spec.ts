@@ -41,6 +41,7 @@ describe('MultiArvoEventHandler', () => {
             registered: true,
           },
           executionunits: 15,
+          accesscontrol: 'role=none'
         },
         {
           type: 'notif.user.name',
@@ -76,7 +77,7 @@ describe('MultiArvoEventHandler', () => {
         handler: mockHandlerFunction,
         source: 'test source with spaces',
       });
-    }).toThrow("The provided 'source' is not a valid string");
+    }).toThrow("Invalid 'source' = 'test source with spaces'. The 'source' must only contain alphanumeric characters e.g. test.handler");
   });
 
   it('should execute handler successfully', async () => {
@@ -95,12 +96,14 @@ describe('MultiArvoEventHandler', () => {
         data: {
           name: 'Saad Ahmad',
         },
+        accesscontrol: 'role=test-role'
       }),
     );
     expect(result).toBeDefined();
     expect(result[0].type).toBe('evt.user.register.success');
     expect(result[0].executionunits).toBe(150);
     expect(result[0].source).toBe('multi.event.handler')
+    expect(result[0].accesscontrol).toBe('role=test-role')
 
   });
 
@@ -158,15 +161,20 @@ describe('MultiArvoEventHandler', () => {
           redirectto: 'multi.event.handler.1',
           traceparent: otelHeaders.traceparent || undefined,
           tracestate: otelHeaders.tracestate || undefined,
+          accesscontrol: 'role=test'
         }),
       );
       expect(result).toBeDefined();
       expect(result.length).toBe(2);
       expect(result[0].type).toBe('notif.user.status');
       expect(result[0].to).toBe('multi.event.handler.1');
+      expect(result[0].executionunits).toBe(15);
+      expect(result[0].accesscontrol).toBe('role=none')
       expect(result[1].to).toBe('multi.event.handler.1');
       expect(result[1].type).toBe('notif.user.name');
-      expect(result[0].executionunits).toBe(15);
+      expect(result[1].executionunits).toBe(15);
+      expect(result[1].accesscontrol).toBe('role=test')
+      
 
       result = await handler.execute(
         createArvoEvent({
