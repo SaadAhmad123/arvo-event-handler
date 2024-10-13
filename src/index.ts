@@ -25,6 +25,7 @@ import { IArvoEventRouter } from './ArvoEventRouter/types';
 import { ArvoEventRouter } from './ArvoEventRouter';
 import { createArvoEventRouter } from './ArvoEventRouter/helpers';
 import AbstractArvoEventHandler from './AbstractArvoEventHandler';
+import { createSpanFromEvent } from './OpenTelemetry/utils';
 
 export {
   ArvoEventHandler,
@@ -48,4 +49,5 @@ export {
   ArvoEventRouter,
   createArvoEventRouter,
   AbstractArvoEventHandler,
+  createSpanFromEvent as createOtelSpanFromEvent
 };
