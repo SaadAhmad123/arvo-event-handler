@@ -23,6 +23,17 @@ Key features of Arvo include:
 
 Whether you're building a small microservice or a large-scale distributed system, my hope with Arvo is to offers you some of the tools and patterns to help you succeed in the world of event-driven architecture.
 
+## Arvo suite
+
+Arvo is a collection of libraries which allows you to build the event driven system in the Arvo pattern. However, if you feel you don't have to use them or you can use them as you see fit.
+
+| Scope       | NPM                                                                | Github                                                                | Documentation                                                                |
+| ------------ | ------------------------------------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------- |
+| Orchestration      | https://www.npmjs.com/package/arvo-xstate?activeTab=readme | https://github.com/SaadAhmad123/arvo-xstate | https://saadahmad123.github.io/arvo-xstate/index.html |
+| Core       | https://www.npmjs.com/package/arvo-core?activeTab=readme                | https://github.com/SaadAhmad123/arvo-core | https://saadahmad123.github.io/arvo-core/index.html |
+| Event Handling | https://www.npmjs.com/package/arvo-event-handler?activeTab=readme      | https://github.com/SaadAhmad123/arvo-event-handler | https://saadahmad123.github.io/arvo-event-handler/index.html |
+
+
 # Arvo - Event Handler
 
 This package contains the event handler primitive required to enable an Arvo Event Driven System. These are light weight classes and types which take care of event listening, contract bound type inference, distributed open telemetry and much more.
