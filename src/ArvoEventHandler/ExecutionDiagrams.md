@@ -6,54 +6,63 @@ Below are the execution flow diagrams of the execute function for the handler
 
 ```mermaid
 graph TD
-    A[Start] --> B[Create OpenTelemetry Span]
-    B --> C{Has traceparent?}
-    C -->|Yes| D[Start Span with Inherited Context]
-    C -->|No| E[Start New Span]
-    D --> F[Validate Input Event]
-    E --> F
-    F --> G{Validation Error?}
-    G -->|Yes| H[Throw Error]
-    G -->|No| I[Execute Handler Function]
-    I --> J{Handler Output?}
-    J -->|Yes| K[Process Output Events]
-    J -->|No| L[Return Empty Array]
-    K --> M[Create Result Events]
-    M --> N[Set Telemetry Data]
-    N --> O[Return Result Events]
+    A[Start] --> B[Create Handler Execution Span]
+    
+    subgraph Span Creation
+        B --> C{Check OpenTelemetry Config}
+        C -->|inheritFrom='event'| D[Create Span from Event]
+        C -->|inheritFrom=<else>| E[Create New Span from current execution environment]
+        
+        D --> F[Set OpenInference Attributes]
+        E --> F
+        F --> G[Set ArvoExecution Attributes]
+        G --> H[Set Span Kind]
+    end
 
-    H --> P[Create System Error Event]
-    P --> Q[Set Error Telemetry Data]
-    Q --> R[Return Error Event]
+    H --> I[Validate Input Event]
+    I --> J{Validation Error?}
+    J -->|Yes| K[Throw Error]
+    J -->|No| L[Execute Handler Function]
+    
+    L --> M{Handler Output?}
+    M -->|Yes| N[Process Output Events]
+    M -->|No| O[Return Empty Array]
+    
+    N --> P[Create Result Events]
+    P --> Q[Set Output Telemetry Data]
+    Q --> R[Return Result Events]
 
-    O --> S[End Span]
-    R --> S
-    L --> S
-    S --> T[End]
+    K --> S[Create System Error Event]
+    S --> T[Set Error Status & Attributes]
+    T --> U[Return Error Event]
+
+    R --> V[End Span]
+    U --> V
+    O --> V
+    V --> W[End]
 
     subgraph Error Handling
-    H
-    P
-    Q
-    R
+        K
+        S
+        T
+        U
     end
 
     subgraph Event Processing
-    I
-    J
-    K
-    M
-    N
-    O
+        L
+        M
+        N
+        P
+        Q
+        R
     end
 
-    subgraph Telemetry
-    B
-    D
-    E
-    N
-    Q
-    S
+    subgraph Telemetry Attributes
+        style F fill:#f9f,stroke:#333
+        style G fill:#f9f,stroke:#333
+        style H fill:#f9f,stroke:#333
+        style Q fill:#f9f,stroke:#333
+        style T fill:#f9f,stroke:#333
     end
 ```
 
@@ -62,53 +71,59 @@ graph TD
 ```mermaid
 sequenceDiagram
     participant Caller
-    participant ArvoEventHandler
-    participant OpenTelemetry
-    participant ContractValidator
-    participant HandlerFunction
-    participant EventFactory
+    participant Handler as ArvoEventHandler
+    participant Span as SpanCreation
+    participant OTel as OpenTelemetry
+    participant Validator as ContractValidator
+    participant Function as HandlerFunction
+    participant Factory as EventFactory
 
-    Caller->>ArvoEventHandler: execute(event)
-    ArvoEventHandler->>OpenTelemetry: Create or continue span
-
-    alt Event has traceparent
-        ArvoEventHandler->>OpenTelemetry: Extract context
-        OpenTelemetry-->>ArvoEventHandler: Inherited context
-    else No traceparent
-        ArvoEventHandler->>OpenTelemetry: Start new span
+    Caller->>Handler: execute(event)
+    
+    Handler->>Span: createHandlerExecutionSpan()
+    
+    alt opentelemetryConfig.inheritFrom === 'event'
+        Span->>OTel: createSpanFromEvent()
+        OTel-->>Span: Event-based span
+    else default config
+        Span->>OTel: startSpan()
+        OTel-->>Span: New span
     end
+    
+    Span->>OTel: Set OpenInference attributes
+    Span->>OTel: Set ArvoExecution attributes
+    Span->>OTel: Set SpanKind
+    Span-->>Handler: Configured span
 
-    ArvoEventHandler->>OpenTelemetry: Set span attributes
-
-    ArvoEventHandler->>ContractValidator: Validate input event
-
+    Handler->>Validator: Validate input event
+    
     alt Invalid event
-        ContractValidator-->>ArvoEventHandler: Validation error
-        ArvoEventHandler->>OpenTelemetry: Set error status
-        ArvoEventHandler->>EventFactory: Create system error event
-        EventFactory-->>ArvoEventHandler: Error event
-        ArvoEventHandler->>OpenTelemetry: Set error attributes
-        ArvoEventHandler->>OpenTelemetry: End span
-        ArvoEventHandler-->>Caller: Return error event
+        Validator-->>Handler: Validation error
+        Handler->>OTel: Set error status
+        Handler->>Factory: Create system error event
+        Factory-->>Handler: Error event
+        Handler->>OTel: Set error attributes
+        Handler->>OTel: End span
+        Handler-->>Caller: Return error event
     else Valid event
-        ContractValidator-->>ArvoEventHandler: Validation success
-        ArvoEventHandler->>HandlerFunction: Execute handler
+        Validator-->>Handler: Validation success
+        Handler->>Function: Execute handler
 
         alt Handler execution successful
-            HandlerFunction-->>ArvoEventHandler: Handler output
-            ArvoEventHandler->>EventFactory: Create output event(s)
-            EventFactory-->>ArvoEventHandler: Output event(s)
-            ArvoEventHandler->>OpenTelemetry: Set output attributes
-            ArvoEventHandler->>OpenTelemetry: End span
-            ArvoEventHandler-->>Caller: Return output event(s)
+            Function-->>Handler: Handler output
+            Handler->>Factory: Create output events
+            Factory-->>Handler: Output events
+            Handler->>OTel: Set output attributes
+            Handler->>OTel: End span
+            Handler-->>Caller: Return output events
         else Handler execution failed
-            HandlerFunction-->>ArvoEventHandler: Throw error
-            ArvoEventHandler->>OpenTelemetry: Set error status
-            ArvoEventHandler->>EventFactory: Create system error event
-            EventFactory-->>ArvoEventHandler: Error event
-            ArvoEventHandler->>OpenTelemetry: Set error attributes
-            ArvoEventHandler->>OpenTelemetry: End span
-            ArvoEventHandler-->>Caller: Return error event
+            Function-->>Handler: Throw error
+            Handler->>OTel: Set error status
+            Handler->>Factory: Create system error event
+            Factory-->>Handler: Error event
+            Handler->>OTel: Set error attributes
+            Handler->>OTel: End span
+            Handler-->>Caller: Return error event
         end
     end
 ```

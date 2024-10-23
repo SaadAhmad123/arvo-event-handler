@@ -1,7 +1,6 @@
 import {
   context,
   SpanKind,
-  SpanOptions,
   SpanStatusCode,
   trace,
 } from '@opentelemetry/api';
@@ -13,8 +12,6 @@ import {
   createArvoEvent,
   ArvoErrorSchema,
   cleanString,
-  OpenInference,
-  ArvoExecution,
 } from 'arvo-core';
 import {
   IMultiArvoEventHandler,
@@ -26,10 +23,10 @@ import {
   eventHandlerOutputEventCreator,
   isLowerAlphanumeric,
 } from '../utils';
-import { createSpanFromEvent } from '../OpenTelemetry/utils';
 import AbstractArvoEventHandler from '../AbstractArvoEventHandler';
-import { ArvoEventHandlerTracer } from '../OpenTelemetry';
+import { fetchOpenTelemetryTracer } from '../OpenTelemetry';
 import { ExecutionOpenTelemetryConfiguration } from '../AbstractArvoEventHandler/types';
+import { createHandlerExecutionSpan } from '../AbstractArvoEventHandler/utils';
 
 /**
  * Represents a Multi ArvoEvent handler that can process multiple event types.
@@ -148,31 +145,19 @@ export default class MultiArvoEventHandler extends AbstractArvoEventHandler {
    */
   public async execute(
     event: ArvoEvent,
-    opentelemetry: ExecutionOpenTelemetryConfiguration = {
-      inheritFrom: 'event',
-      tracer: ArvoEventHandlerTracer,
-    },
+    opentelemetry?: ExecutionOpenTelemetryConfiguration,
   ): Promise<ArvoEvent[]> {
-    const spanName = `MutliArvoEventHandler.source<${this.source}>.execute<${event.type}>`;
-    const spanKinds = {
-      kind: this.openTelemetrySpanKind,
-      openInference: this.openInferenceSpanKind,
-      arvoExecution: this.arvoExecutionSpanKind,
-    };
-    const spanOptions: SpanOptions = {
-      kind: spanKinds.kind,
-      attributes: {
-        [OpenInference.ATTR_SPAN_KIND]: spanKinds.openInference,
-        [ArvoExecution.ATTR_SPAN_KIND]: spanKinds.arvoExecution,
+
+    const span = createHandlerExecutionSpan({
+      spanName: `MutliArvoEventHandler.source<${this.source}>.execute<${event.type}>`,
+      spanKinds: {
+        kind: this.openTelemetrySpanKind,
+        openInference: this.openInferenceSpanKind,
+        arvoExecution: this.arvoExecutionSpanKind,
       },
-    };
-    const span =
-      opentelemetry.inheritFrom === 'event'
-        ? createSpanFromEvent(spanName, event, spanKinds, opentelemetry.tracer)
-        : (opentelemetry.tracer ?? ArvoEventHandlerTracer).startSpan(
-            spanName,
-            spanOptions,
-          );
+      event: event,
+      opentelemetryConfig: opentelemetry
+    })
 
     return await context.with(
       trace.setSpan(context.active(), span),
@@ -214,7 +199,7 @@ export default class MultiArvoEventHandler extends AbstractArvoEventHandler {
             this.executionunits,
             (param, extension) =>
               createArvoEvent(param, extension, {
-                tracer: opentelemetry.tracer ?? ArvoEventHandlerTracer,
+                tracer: opentelemetry?.tracer ?? fetchOpenTelemetryTracer(),
               }),
           );
         } catch (error) {
@@ -227,7 +212,7 @@ export default class MultiArvoEventHandler extends AbstractArvoEventHandler {
             this.executionunits,
             (param, extension) =>
               createArvoEvent(param, extension, {
-                tracer: opentelemetry.tracer ?? ArvoEventHandlerTracer,
+                tracer: opentelemetry?.tracer ?? fetchOpenTelemetryTracer(),
               }),
           );
         } finally {

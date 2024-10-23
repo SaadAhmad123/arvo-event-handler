@@ -8,7 +8,7 @@ import {
 } from 'arvo-core';
 import * as fs from 'fs';
 import * as path from 'path';
-import { ArvoEventHandlerTracer, extractContext } from '.';
+import { fetchOpenTelemetryTracer, extractContext } from '.';
 
 interface PackageJson {
   name: string;
@@ -16,7 +16,7 @@ interface PackageJson {
   [key: string]: any;
 }
 
-export function getPackageInfo(): { name: string; version: string } {
+export function getPackageInfo(defaultName: string): { name: string; version: string } {
   try {
     // Read the package.json file
     const packageJsonPath = path.resolve(__dirname, '../../package.json');
@@ -105,7 +105,7 @@ export const createSpanFromEvent = (
     openInference: OpenInferenceSpanKind;
     arvoExecution: ArvoExecutionSpanKind;
   },
-  tracer: Tracer = ArvoEventHandlerTracer,
+  tracer: Tracer = fetchOpenTelemetryTracer(),
 ): Span => {
   const spanOptions: SpanOptions = {
     kind: spanKinds.kind,

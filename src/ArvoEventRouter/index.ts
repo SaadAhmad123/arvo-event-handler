@@ -2,37 +2,30 @@ import {
   ArvoContract,
   ArvoErrorSchema,
   ArvoEvent,
-  ArvoExecution,
   ArvoExecutionSpanKind,
   cleanString,
   createArvoEvent,
   currentOpenTelemetryHeaders,
-  OpenInference,
   OpenInferenceSpanKind,
 } from 'arvo-core';
 import ArvoEventHandler from '../ArvoEventHandler';
 import { IArvoEventRouter } from './types';
 import {
   createHandlerErrorOutputEvent,
-  getValueOrDefault,
   isLowerAlphanumeric,
   isNullOrUndefined,
 } from '../utils';
 import {
   context,
-  Span,
   SpanKind,
-  SpanOptions,
   SpanStatusCode,
   trace,
-  Tracer,
 } from '@opentelemetry/api';
 import { deleteOtelHeaders } from './utils';
-import { CloudEventContextSchema } from 'arvo-core/dist/ArvoEvent/schema';
-import { createSpanFromEvent } from '../OpenTelemetry/utils';
 import AbstractArvoEventHandler from '../AbstractArvoEventHandler';
-import { ArvoEventHandlerTracer } from '../OpenTelemetry';
+import { fetchOpenTelemetryTracer } from '../OpenTelemetry';
 import { ExecutionOpenTelemetryConfiguration } from '../AbstractArvoEventHandler/types';
+import { createHandlerExecutionSpan } from '../AbstractArvoEventHandler/utils';
 
 /**
  * ArvoEventRouter class handles routing of ArvoEvents to appropriate event handlers.
@@ -120,7 +113,7 @@ export class ArvoEventRouter extends AbstractArvoEventHandler {
    *
    * @param event - The ArvoEvent to be processed and routed.
    * @param opentelemetry - Configuration for OpenTelemetry integration, including tracing options
-   *                        and context inheritance settings.
+   *                        and context inheritance settings. Default is inherit from event and internal tracer
    * @returns A Promise that resolves to an array of ArvoEvents.
    *
    * @remarks
@@ -164,31 +157,19 @@ export class ArvoEventRouter extends AbstractArvoEventHandler {
    */
   async execute(
     event: ArvoEvent,
-    opentelemetry: ExecutionOpenTelemetryConfiguration = {
-      inheritFrom: 'event',
-      tracer: ArvoEventHandlerTracer,
-    },
+    opentelemetry?: ExecutionOpenTelemetryConfiguration
   ): Promise<ArvoEvent[]> {
-    const spanName = `ArvoEventRouter.source<${this._source ?? 'arvo.event.router'}>.execute<${event.type}>`;
-    const spanKinds = {
-      kind: this.openTelemetrySpanKind,
-      openInference: this.openInferenceSpanKind,
-      arvoExecution: this.arvoExecutionSpanKind,
-    };
-    const spanOptions: SpanOptions = {
-      kind: spanKinds.kind,
-      attributes: {
-        [OpenInference.ATTR_SPAN_KIND]: spanKinds.openInference,
-        [ArvoExecution.ATTR_SPAN_KIND]: spanKinds.arvoExecution,
+
+    const span = createHandlerExecutionSpan({
+      spanName: `ArvoEventRouter.source<${this._source ?? 'arvo.event.router'}>.execute<${event.type}>`,
+      spanKinds: {
+        kind: this.openTelemetrySpanKind,
+        openInference: this.openInferenceSpanKind,
+        arvoExecution: this.arvoExecutionSpanKind,
       },
-    };
-    const span =
-      opentelemetry.inheritFrom === 'event'
-        ? createSpanFromEvent(spanName, event, spanKinds, opentelemetry.tracer)
-        : (opentelemetry.tracer ?? ArvoEventHandlerTracer).startSpan(
-            spanName,
-            spanOptions,
-          );
+      event: event,
+      opentelemetryConfig: opentelemetry
+    })
 
     return await context.with(
       trace.setSpan(context.active(), span),
@@ -222,7 +203,7 @@ export class ArvoEventRouter extends AbstractArvoEventHandler {
 
           const results = await this.handlersMap[newEvent.type].execute(
             newEvent,
-            { inheritFrom: 'execution', tracer: opentelemetry.tracer },
+            { inheritFrom: 'execution', tracer: opentelemetry?.tracer ?? fetchOpenTelemetryTracer() },
           );
 
           return results.map(
@@ -259,7 +240,7 @@ export class ArvoEventRouter extends AbstractArvoEventHandler {
             this.executionunits,
             (param, extension) =>
               createArvoEvent(param, extension, {
-                tracer: opentelemetry.tracer ?? ArvoEventHandlerTracer,
+                tracer: opentelemetry?.tracer ?? fetchOpenTelemetryTracer(),
               }),
           );
         } finally {
