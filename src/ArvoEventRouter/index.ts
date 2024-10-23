@@ -32,6 +32,7 @@ import { CloudEventContextSchema } from 'arvo-core/dist/ArvoEvent/schema';
 import { createSpanFromEvent } from '../OpenTelemetry/utils';
 import AbstractArvoEventHandler from '../AbstractArvoEventHandler';
 import { ArvoEventHandlerTracer } from '../OpenTelemetry';
+import { ExecutionOpenTelemetryConfiguration } from '../AbstractArvoEventHandler/types';
 
 /**
  * ArvoEventRouter class handles routing of ArvoEvents to appropriate event handlers.
@@ -118,6 +119,8 @@ export class ArvoEventRouter extends AbstractArvoEventHandler {
    * Executes the routing process for a given ArvoEvent.
    *
    * @param event - The ArvoEvent to be processed and routed.
+   * @param opentelemetry - Configuration for OpenTelemetry integration, including tracing options
+   *                        and context inheritance settings.
    * @returns A Promise that resolves to an array of ArvoEvents.
    *
    * @remarks
@@ -161,7 +164,7 @@ export class ArvoEventRouter extends AbstractArvoEventHandler {
    */
   async execute(
     event: ArvoEvent,
-    opentelemetry: { inheritFrom: 'event' | 'execution'; tracer?: Tracer } = {
+    opentelemetry: ExecutionOpenTelemetryConfiguration = {
       inheritFrom: 'event',
       tracer: ArvoEventHandlerTracer,
     },

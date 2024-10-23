@@ -32,6 +32,7 @@ import {
 import { createSpanFromEvent } from '../OpenTelemetry/utils';
 import AbstractArvoEventHandler from '../AbstractArvoEventHandler';
 import { ArvoEventHandlerTracer } from '../OpenTelemetry';
+import { ExecutionOpenTelemetryConfiguration } from '../AbstractArvoEventHandler/types';
 
 /**
  * Represents an event handler for Arvo contracts.
@@ -108,6 +109,8 @@ export default class ArvoEventHandler<
    * Executes the event handler for a given event.
    *
    * @param event - The event to handle.
+   * @param opentelemetry - Configuration for OpenTelemetry integration, including tracing options
+   *                        and context inheritance settings.
    * @returns A promise that resolves to an array of resulting ArvoEvents.
    *
    * @remarks
@@ -157,10 +160,7 @@ export default class ArvoEventHandler<
       Record<string, any>,
       TContract['accepts']['type']
     >,
-    opentelemetry: {
-      inheritFrom: 'event' | 'execution';
-      tracer?: Tracer;
-    } = {
+    opentelemetry: ExecutionOpenTelemetryConfiguration = {
       inheritFrom: 'event',
       tracer: ArvoEventHandlerTracer,
     },
