@@ -4,7 +4,6 @@ import {
   SpanOptions,
   SpanStatusCode,
   trace,
-  Tracer,
 } from '@opentelemetry/api';
 import {
   ArvoEvent,
@@ -213,7 +212,10 @@ export default class MultiArvoEventHandler extends AbstractArvoEventHandler {
             this.source,
             event,
             this.executionunits,
-            (...args) => createArvoEvent(...args),
+            (param, extension) =>
+              createArvoEvent(param, extension, {
+                tracer: opentelemetry.tracer ?? ArvoEventHandlerTracer,
+              }),
           );
         } catch (error) {
           return createHandlerErrorOutputEvent(
@@ -223,7 +225,10 @@ export default class MultiArvoEventHandler extends AbstractArvoEventHandler {
             this.source,
             event,
             this.executionunits,
-            (...args) => createArvoEvent(...args),
+            (param, extension) =>
+              createArvoEvent(param, extension, {
+                tracer: opentelemetry.tracer ?? ArvoEventHandlerTracer,
+              }),
           );
         } finally {
           span.end();

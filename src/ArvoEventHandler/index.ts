@@ -1,6 +1,5 @@
 import {
   ArvoContract,
-  ArvoErrorSchema,
   ArvoEvent,
   ArvoExecution,
   ArvoExecutionSpanKind,
@@ -25,10 +24,7 @@ import {
   trace,
   Tracer,
 } from '@opentelemetry/api';
-import {
-  eventHandlerOutputEventCreator,
-  createHandlerErrorOutputEvent,
-} from '../utils';
+import { eventHandlerOutputEventCreator } from '../utils';
 import { createSpanFromEvent } from '../OpenTelemetry/utils';
 import AbstractArvoEventHandler from '../AbstractArvoEventHandler';
 import { ArvoEventHandlerTracer } from '../OpenTelemetry';
@@ -223,7 +219,10 @@ export default class ArvoEventHandler<
             this.source,
             event,
             this.executionunits,
-            (...args) => eventFactory.emits(...args),
+            (param, extension) =>
+              eventFactory.emits(param, extension, {
+                tracer: opentelemetry.tracer ?? ArvoEventHandlerTracer,
+              }),
           );
         } catch (error) {
           exceptionToSpan(error as Error);
@@ -245,6 +244,7 @@ export default class ArvoEventHandler<
               accesscontrol: event.accesscontrol ?? undefined,
             },
             {},
+            { tracer: opentelemetry.tracer ?? ArvoEventHandlerTracer },
           );
           Object.entries(result.otelAttributes).forEach(([key, value]) =>
             span.setAttribute(`to_emit.0.${key}`, value),

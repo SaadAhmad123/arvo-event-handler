@@ -257,7 +257,10 @@ export class ArvoEventRouter extends AbstractArvoEventHandler {
             this.source,
             event,
             this.executionunits,
-            (...args) => createArvoEvent(...args),
+            (param, extension) =>
+              createArvoEvent(param, extension, {
+                tracer: opentelemetry.tracer ?? ArvoEventHandlerTracer,
+              }),
           );
         } finally {
           span.end();
