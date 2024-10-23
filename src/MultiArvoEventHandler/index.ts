@@ -4,6 +4,7 @@ import {
   SpanOptions,
   SpanStatusCode,
   trace,
+  Tracer,
 } from '@opentelemetry/api';
 import {
   ArvoEvent,
@@ -146,8 +147,9 @@ export default class MultiArvoEventHandler extends AbstractArvoEventHandler {
    */
   public async execute(
     event: ArvoEvent,
-    opentelemetry: { inheritFrom: 'event' | 'execution' } = {
+    opentelemetry: { inheritFrom: 'event' | 'execution'; tracer?: Tracer } = {
       inheritFrom: 'event',
+      tracer: ArvoEventHandlerTracer,
     },
   ): Promise<ArvoEvent[]> {
     const spanName = `MutliArvoEventHandler.source<${this.source}>.execute<${event.type}>`;
@@ -165,8 +167,11 @@ export default class MultiArvoEventHandler extends AbstractArvoEventHandler {
     };
     const span =
       opentelemetry.inheritFrom === 'event'
-        ? createSpanFromEvent(spanName, event, spanKinds)
-        : ArvoEventHandlerTracer.startSpan(spanName, spanOptions);
+        ? createSpanFromEvent(spanName, event, spanKinds, opentelemetry.tracer)
+        : (opentelemetry.tracer ?? ArvoEventHandlerTracer).startSpan(
+            spanName,
+            spanOptions,
+          );
 
     return await context.with(
       trace.setSpan(context.active(), span),

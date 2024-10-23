@@ -23,6 +23,7 @@ import {
   SpanOptions,
   SpanStatusCode,
   trace,
+  Tracer,
 } from '@opentelemetry/api';
 import {
   eventHandlerOutputEventCreator,
@@ -156,8 +157,12 @@ export default class ArvoEventHandler<
       Record<string, any>,
       TContract['accepts']['type']
     >,
-    opentelemetry: { inheritFrom: 'event' | 'execution' } = {
+    opentelemetry: {
+      inheritFrom: 'event' | 'execution';
+      tracer?: Tracer;
+    } = {
       inheritFrom: 'event',
+      tracer: ArvoEventHandlerTracer,
     },
   ): Promise<ArvoEvent[]> {
     const spanName = `ArvoEventHandler<${this.contract.uri}>.execute<${event.type}>`;
@@ -175,8 +180,11 @@ export default class ArvoEventHandler<
     };
     const span =
       opentelemetry.inheritFrom === 'event'
-        ? createSpanFromEvent(spanName, event, spanKinds)
-        : ArvoEventHandlerTracer.startSpan(spanName, spanOptions);
+        ? createSpanFromEvent(spanName, event, spanKinds, opentelemetry.tracer)
+        : (opentelemetry.tracer ?? ArvoEventHandlerTracer).startSpan(
+            spanName,
+            spanOptions,
+          );
 
     const eventFactory = createArvoEventFactory(this.contract);
     return await context.with(
