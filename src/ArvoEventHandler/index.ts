@@ -2,7 +2,9 @@ import {
   ArvoContract,
   ArvoErrorSchema,
   ArvoEvent,
+  ArvoExecution,
   ArvoExecutionSpanKind,
+  OpenInference,
   OpenInferenceSpanKind,
   ResolveArvoContractRecord,
   createArvoEventFactory,
@@ -18,12 +20,17 @@ import { CloudEventContextSchema } from 'arvo-core/dist/ArvoEvent/schema';
 import {
   context,
   SpanKind,
+  SpanOptions,
   SpanStatusCode,
   trace,
 } from '@opentelemetry/api';
-import { eventHandlerOutputEventCreator, createHandlerErrorOutputEvent } from '../utils';
+import {
+  eventHandlerOutputEventCreator,
+  createHandlerErrorOutputEvent,
+} from '../utils';
 import { createSpanFromEvent } from '../OpenTelemetry/utils';
 import AbstractArvoEventHandler from '../AbstractArvoEventHandler';
+import { ArvoEventHandlerTracer } from '../OpenTelemetry';
 
 /**
  * Represents an event handler for Arvo contracts.
@@ -35,7 +42,9 @@ import AbstractArvoEventHandler from '../AbstractArvoEventHandler';
  * for executing event handlers, managing telemetry, and ensuring proper contract validation.
  * It's designed to be flexible and reusable across different Arvo contract implementations.
  */
-export default class ArvoEventHandler<TContract extends ArvoContract> extends AbstractArvoEventHandler {
+export default class ArvoEventHandler<
+  TContract extends ArvoContract,
+> extends AbstractArvoEventHandler {
   /** The contract of the handler to which it is bound */
   readonly contract: TContract;
 
@@ -71,7 +80,7 @@ export default class ArvoEventHandler<TContract extends ArvoContract> extends Ab
    * If no source is provided, it defaults to the contract's accepted event type.
    */
   constructor(param: IArvoEventHandler<TContract>) {
-    super()
+    super();
     this.contract = param.contract;
     this.executionunits = param.executionunits;
     this._handler = param.handler;
@@ -147,17 +156,27 @@ export default class ArvoEventHandler<TContract extends ArvoContract> extends Ab
       Record<string, any>,
       TContract['accepts']['type']
     >,
+    opentelemetry: { inheritFrom: 'event' | 'execution' } = {
+      inheritFrom: 'event',
+    },
   ): Promise<ArvoEvent[]> {
-
-    const span = createSpanFromEvent(
-      `ArvoEventHandler<${this.contract.uri}>.execute<${event.type}>`,
-      event,
-      {
-        kind: this.openTelemetrySpanKind,
-        openInference: this.openInferenceSpanKind,
-        arvoExecution: this.arvoExecutionSpanKind
-      }
-    )
+    const spanName = `ArvoEventHandler<${this.contract.uri}>.execute<${event.type}>`;
+    const spanKinds = {
+      kind: this.openTelemetrySpanKind,
+      openInference: this.openInferenceSpanKind,
+      arvoExecution: this.arvoExecutionSpanKind,
+    };
+    const spanOptions: SpanOptions = {
+      kind: spanKinds.kind,
+      attributes: {
+        [OpenInference.ATTR_SPAN_KIND]: spanKinds.openInference,
+        [ArvoExecution.ATTR_SPAN_KIND]: spanKinds.arvoExecution,
+      },
+    };
+    const span =
+      opentelemetry.inheritFrom === 'event'
+        ? createSpanFromEvent(spanName, event, spanKinds)
+        : ArvoEventHandlerTracer.startSpan(spanName, spanOptions);
 
     const eventFactory = createArvoEventFactory(this.contract);
     return await context.with(
@@ -189,15 +208,15 @@ export default class ArvoEventHandler<TContract extends ArvoContract> extends Ab
           } else {
             outputs = [_handleOutput];
           }
-          
+
           return eventHandlerOutputEventCreator(
             outputs,
             otelSpanHeaders,
             this.source,
             event,
             this.executionunits,
-            (...args) => eventFactory.emits(...args)
-          )
+            (...args) => eventFactory.emits(...args),
+          );
         } catch (error) {
           exceptionToSpan(error as Error);
           span.setStatus({
@@ -246,6 +265,6 @@ export default class ArvoEventHandler<TContract extends ArvoContract> extends Ab
    * // The system error event type would be 'sys.user.created.error'
    */
   public get systemErrorSchema() {
-    return this.contract.systemError
+    return this.contract.systemError;
   }
 }

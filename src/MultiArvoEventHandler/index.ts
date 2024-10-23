@@ -1,6 +1,7 @@
 import {
   context,
   SpanKind,
+  SpanOptions,
   SpanStatusCode,
   trace,
 } from '@opentelemetry/api';
@@ -12,6 +13,8 @@ import {
   createArvoEvent,
   ArvoErrorSchema,
   cleanString,
+  OpenInference,
+  ArvoExecution,
 } from 'arvo-core';
 import {
   IMultiArvoEventHandler,
@@ -19,9 +22,14 @@ import {
   MultiArvoEventHandlerFunctionOutput,
 } from './types';
 import { CloudEventContextSchema } from 'arvo-core/dist/ArvoEvent/schema';
-import { createHandlerErrorOutputEvent, eventHandlerOutputEventCreator, isLowerAlphanumeric } from '../utils';
+import {
+  createHandlerErrorOutputEvent,
+  eventHandlerOutputEventCreator,
+  isLowerAlphanumeric,
+} from '../utils';
 import { createSpanFromEvent } from '../OpenTelemetry/utils';
 import AbstractArvoEventHandler from '../AbstractArvoEventHandler';
+import { ArvoEventHandlerTracer } from '../OpenTelemetry';
 
 /**
  * Represents a Multi ArvoEvent handler that can process multiple event types.
@@ -64,12 +72,14 @@ export default class MultiArvoEventHandler extends AbstractArvoEventHandler {
    * @throws {Error} Throws an error if the provided source is invalid.
    */
   constructor(param: IMultiArvoEventHandler) {
-    super()
+    super();
     this.executionunits = param.executionunits;
     this._handler = param.handler;
 
     if (!isLowerAlphanumeric(param.source)) {
-      throw new Error(`Invalid 'source' = '${param.source}'. The 'source' must only contain alphanumeric characters e.g. test.handler`)
+      throw new Error(
+        `Invalid 'source' = '${param.source}'. The 'source' must only contain alphanumeric characters e.g. test.handler`,
+      );
     }
 
     this.source = param.source;
@@ -134,16 +144,29 @@ export default class MultiArvoEventHandler extends AbstractArvoEventHandler {
    * - If they don't match, an error is thrown with a descriptive message.
    * - This ensures that the handler only processes events intended for it.
    */
-  public async execute(event: ArvoEvent): Promise<ArvoEvent[]> {
-    const span = createSpanFromEvent(
-      `MutliArvoEventHandler.source<${this.source}>.execute<${event.type}>`,
-      event,
-      {
-        kind: this.openTelemetrySpanKind,
-        openInference: this.openInferenceSpanKind,
-        arvoExecution: this.arvoExecutionSpanKind,
+  public async execute(
+    event: ArvoEvent,
+    opentelemetry: { inheritFrom: 'event' | 'execution' } = {
+      inheritFrom: 'event',
+    },
+  ): Promise<ArvoEvent[]> {
+    const spanName = `MutliArvoEventHandler.source<${this.source}>.execute<${event.type}>`;
+    const spanKinds = {
+      kind: this.openTelemetrySpanKind,
+      openInference: this.openInferenceSpanKind,
+      arvoExecution: this.arvoExecutionSpanKind,
+    };
+    const spanOptions: SpanOptions = {
+      kind: spanKinds.kind,
+      attributes: {
+        [OpenInference.ATTR_SPAN_KIND]: spanKinds.openInference,
+        [ArvoExecution.ATTR_SPAN_KIND]: spanKinds.arvoExecution,
       },
-    );
+    };
+    const span =
+      opentelemetry.inheritFrom === 'event'
+        ? createSpanFromEvent(spanName, event, spanKinds)
+        : ArvoEventHandlerTracer.startSpan(spanName, spanOptions);
 
     return await context.with(
       trace.setSpan(context.active(), span),
@@ -183,8 +206,8 @@ export default class MultiArvoEventHandler extends AbstractArvoEventHandler {
             this.source,
             event,
             this.executionunits,
-            (...args) => createArvoEvent(...args)
-          )
+            (...args) => createArvoEvent(...args),
+          );
         } catch (error) {
           return createHandlerErrorOutputEvent(
             error as Error,
@@ -193,8 +216,8 @@ export default class MultiArvoEventHandler extends AbstractArvoEventHandler {
             this.source,
             event,
             this.executionunits,
-            (...args) => createArvoEvent(...args)
-          )
+            (...args) => createArvoEvent(...args),
+          );
         } finally {
           span.end();
         }

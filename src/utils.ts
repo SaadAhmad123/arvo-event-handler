@@ -1,7 +1,12 @@
-import { ArvoEvent, CreateArvoEvent, exceptionToSpan, OpenTelemetryHeaders } from "arvo-core";
-import { ArvoEventHandlerFunctionOutput } from "./ArvoEventHandler/types";
-import { MultiArvoEventHandlerFunctionOutput } from "./MultiArvoEventHandler/types";
-import { SpanStatusCode, trace } from "@opentelemetry/api";
+import {
+  ArvoEvent,
+  CreateArvoEvent,
+  exceptionToSpan,
+  OpenTelemetryHeaders,
+} from 'arvo-core';
+import { ArvoEventHandlerFunctionOutput } from './ArvoEventHandler/types';
+import { MultiArvoEventHandlerFunctionOutput } from './MultiArvoEventHandler/types';
+import { SpanStatusCode, trace } from '@opentelemetry/api';
 
 /**
  * Checks if the item is null or undefined.
@@ -84,12 +89,17 @@ export function coalesceOrDefault<T>(
  * @returns An array of ArvoEvents created from the handler output.
  */
 export const eventHandlerOutputEventCreator = (
-  events: Array<ArvoEventHandlerFunctionOutput<any> | MultiArvoEventHandlerFunctionOutput>,
+  events: Array<
+    ArvoEventHandlerFunctionOutput<any> | MultiArvoEventHandlerFunctionOutput
+  >,
   otelSpanHeaders: OpenTelemetryHeaders,
   source: string,
   originalEvent: ArvoEvent,
   handlerExectionUnits: number,
-  factory: (param: CreateArvoEvent<any, any> & { to: string }, extensions?: Record<string, string | number | boolean>) => ArvoEvent<any, any, any>
+  factory: (
+    param: CreateArvoEvent<any, any> & { to: string },
+    extensions?: Record<string, string | number | boolean>,
+  ) => ArvoEvent<any, any, any>,
 ) => {
   return events.map((item, index) => {
     const { __extensions, ...handlerResult } = item;
@@ -110,7 +120,10 @@ export const eventHandlerOutputEventCreator = (
           handlerResult.executionunits,
           handlerExectionUnits,
         ),
-        accesscontrol: handlerResult.accesscontrol ?? originalEvent.accesscontrol ?? undefined
+        accesscontrol:
+          handlerResult.accesscontrol ??
+          originalEvent.accesscontrol ??
+          undefined,
       },
       __extensions,
     );
@@ -119,7 +132,7 @@ export const eventHandlerOutputEventCreator = (
     );
     return result;
   });
-}
+};
 
 export const createHandlerErrorOutputEvent = (
   error: Error,
@@ -128,7 +141,10 @@ export const createHandlerErrorOutputEvent = (
   source: string,
   originalEvent: ArvoEvent,
   handlerExectionUnits: number,
-  factory: (param: CreateArvoEvent<any, any> & { to: string }, extensions?: Record<string, string | number | boolean>) => ArvoEvent<any, any, any>
+  factory: (
+    param: CreateArvoEvent<any, any> & { to: string },
+    extensions?: Record<string, string | number | boolean>,
+  ) => ArvoEvent<any, any, any>,
 ) => {
   exceptionToSpan(error);
   trace.getActiveSpan()?.setStatus({
@@ -148,25 +164,25 @@ export const createHandlerErrorOutputEvent = (
       errorMessage: error.message,
       errorStack: error.stack ?? null,
     },
-    accesscontrol: originalEvent.accesscontrol ?? undefined
-  })
+    accesscontrol: originalEvent.accesscontrol ?? undefined,
+  });
 
   Object.entries(result.otelAttributes).forEach(([key, value]) =>
     trace.getActiveSpan()?.setAttribute(`to_emit.0.${key}`, value),
   );
   return [result];
-}
+};
 
 /**
  * Validates if a string contains only uppercase or lowercase alphanumeric characters.
- * 
+ *
  * This function checks if the input string consists solely of:
  * - Lowercase letters (a-z)
  * - Numbers (0-9)
  * - Dot (.)
- * 
+ *
  * It does not allow any special characters, spaces, or other non-alphanumeric characters.
- * 
+ *
  * @param input - The string to be validated.
  * @returns True if the string contains only alphanumeric characters, false otherwise.
  */

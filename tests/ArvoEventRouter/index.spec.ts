@@ -355,6 +355,8 @@ describe('ArvoEventRouter', () => {
         executionunits: 1,
         handlers: [userRegisterHandler, userReadHandler, userRegisterHandler],
       });
-    }).toThrow("Invalid 'source' = 'invalid source with spaces'. The 'source' must only contain alphanumeric characters e.g. test.router");
+    }).toThrow(
+      "Invalid 'source' = 'invalid source with spaces'. The 'source' must only contain alphanumeric characters e.g. test.router",
+    );
   });
 });

@@ -1,8 +1,8 @@
-import { ArvoContractRecord, ArvoEvent } from "arvo-core";
+import { ArvoContractRecord, ArvoEvent } from 'arvo-core';
 
 /**
  * Abstract base class for Arvo event handlers.
- * 
+ *
  * @abstract
  * @description
  * This class defines the basic structure for all Arvo event handlers.
@@ -13,24 +13,24 @@ import { ArvoContractRecord, ArvoEvent } from "arvo-core";
 export default abstract class AbstractArvoEventHandler {
   /**
    * Executes the event handling logic for a given Arvo event.
-   * 
+   *
    * @abstract
    * @param {ArvoEvent} event - The Arvo event to be processed.
    * @returns {Promise<ArvoEvent[]>} A promise that resolves to an array of resulting Arvo events.
-   * 
+   *
    * @description
    * This method should contain the core logic for processing an Arvo event.
    * Implementations should handle the event according to their specific requirements
    * and return any resulting events.
-   * 
+   *
    * @throws {Error} Implementations may throw errors for invalid inputs or processing failures.
-   * 
+   *
    * @remarks
    * - The method is asynchronous to allow for potentially time-consuming operations.
    * - The returned array may be empty if no new events are generated as a result of processing.
    * - Implementations should ensure proper error handling and event validation.
    */
-  public abstract execute(event: ArvoEvent): Promise<ArvoEvent[]>; 
+  public abstract execute(event: ArvoEvent): Promise<ArvoEvent[]>;
 
   /**
    * Provides the schema for system error events.
@@ -60,5 +60,5 @@ export default abstract class AbstractArvoEventHandler {
    * }
    * ```
    */
-  public abstract get systemErrorSchema(): ArvoContractRecord
+  public abstract get systemErrorSchema(): ArvoContractRecord;
 }

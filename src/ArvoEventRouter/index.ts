@@ -10,7 +10,12 @@ import {
 } from 'arvo-core';
 import ArvoEventHandler from '../ArvoEventHandler';
 import { IArvoEventRouter } from './types';
-import { createHandlerErrorOutputEvent, getValueOrDefault, isLowerAlphanumeric, isNullOrUndefined } from '../utils';
+import {
+  createHandlerErrorOutputEvent,
+  getValueOrDefault,
+  isLowerAlphanumeric,
+  isNullOrUndefined,
+} from '../utils';
 import {
   context,
   Span,
@@ -27,13 +32,13 @@ import AbstractArvoEventHandler from '../AbstractArvoEventHandler';
  * ArvoEventRouter class handles routing of ArvoEvents to appropriate event handlers.
  */
 export class ArvoEventRouter extends AbstractArvoEventHandler {
-  private _handlerDefaultSource: string = `arvo.event.router`
+  private _handlerDefaultSource: string = `arvo.event.router`;
   private readonly _source: string | null;
 
   /**
    * The source name of the router.
    * @returns {string} The router's source name.
-   * 
+   *
    * @remarks
    * The router attempts to match the `event.to` field with this value.
    * If the source is 'arvo.event.router', the `event.to` is not matched and any event is allowed.
@@ -41,7 +46,7 @@ export class ArvoEventRouter extends AbstractArvoEventHandler {
    * is not explicitly provided
    */
   public get source() {
-    return this._source ?? this._handlerDefaultSource
+    return this._source ?? this._handlerDefaultSource;
   }
 
   /**
@@ -74,11 +79,13 @@ export class ArvoEventRouter extends AbstractArvoEventHandler {
    *                 source in an invalid string
    */
   constructor(param: IArvoEventRouter) {
-    super()
+    super();
     this.handlers = param.handlers;
 
     if (param.source && !isLowerAlphanumeric(param.source)) {
-      throw new Error(`Invalid 'source' = '${param.source}'. The 'source' must only contain alphanumeric characters e.g. test.router`)
+      throw new Error(
+        `Invalid 'source' = '${param.source}'. The 'source' must only contain alphanumeric characters e.g. test.router`,
+      );
     }
 
     this._source = isNullOrUndefined(param.source) ? null : param.source;
@@ -166,7 +173,10 @@ export class ArvoEventRouter extends AbstractArvoEventHandler {
         try {
           span.setStatus({ code: SpanStatusCode.OK });
 
-          if (!isNullOrUndefined(this._source) && newEvent.to !== this._source) {
+          if (
+            !isNullOrUndefined(this._source) &&
+            newEvent.to !== this._source
+          ) {
             throw new Error(
               cleanString(`
             Invalid event. The 'event.to' is ${newEvent.to} while this handler 
@@ -220,8 +230,8 @@ export class ArvoEventRouter extends AbstractArvoEventHandler {
             this.source,
             event,
             this.executionunits,
-            (...args) => createArvoEvent(...args)
-          )
+            (...args) => createArvoEvent(...args),
+          );
         } finally {
           span.end();
         }

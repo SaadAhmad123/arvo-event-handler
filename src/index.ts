@@ -49,5 +49,5 @@ export {
   ArvoEventRouter,
   createArvoEventRouter,
   AbstractArvoEventHandler,
-  createSpanFromEvent as createOtelSpanFromEvent
+  createSpanFromEvent as createOtelSpanFromEvent,
 };
