@@ -31,7 +31,7 @@ import { createHandlerExecutionSpan } from '../AbstractArvoEventHandler/utils';
  * ArvoEventRouter class handles routing of ArvoEvents to appropriate event handlers.
  */
 export class ArvoEventRouter extends AbstractArvoEventHandler {
-  private _handlerDefaultSource: string = `arvo.event.router`;
+  private readonly _handlerDefaultSource: string = `arvo.event.router`;
   private readonly _source: string | null;
 
   /**

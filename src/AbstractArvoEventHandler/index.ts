@@ -1,4 +1,3 @@
-import { Tracer } from '@opentelemetry/api';
 import { ArvoContractRecord, ArvoEvent } from 'arvo-core';
 import { ExecutionOpenTelemetryConfiguration } from './types';
 
