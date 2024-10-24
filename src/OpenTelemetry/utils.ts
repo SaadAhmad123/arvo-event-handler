@@ -31,7 +31,7 @@ export function getPackageInfo(defaultName: string): { name: string; version: st
     return { name, version };
   } catch (error) {
     console.error('Error reading package.json:', error);
-    return { name: 'Unknown', version: 'Unknown' };
+    return { name: defaultName, version: 'Unknown' };
   }
 }
 
