@@ -55,7 +55,7 @@ export default abstract class AbstractArvoEventHandler {
    */
   public abstract execute(
     event: ArvoEvent,
-    opentelemetry: ExecutionOpenTelemetryConfiguration,
+    opentelemetry?: ExecutionOpenTelemetryConfiguration,
   ): Promise<ArvoEvent[]>;
 
   /**
