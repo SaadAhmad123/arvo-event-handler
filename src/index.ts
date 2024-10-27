@@ -49,6 +49,6 @@ export {
   ArvoEventRouter,
   createArvoEventRouter,
   AbstractArvoEventHandler,
-  OpenTelemetryConfig as EventHandlerExecutionOtelConfiguration,
-  createOtelSpan as createOtelSpan,
+  OpenTelemetryConfig,
+  createOtelSpan,
 };
