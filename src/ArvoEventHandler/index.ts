@@ -23,8 +23,8 @@ import {
 import { eventHandlerOutputEventCreator } from '../utils';
 import AbstractArvoEventHandler from '../AbstractArvoEventHandler';
 import { fetchOpenTelemetryTracer } from '../OpenTelemetry';
-import { ExecutionOpenTelemetryConfiguration } from '../AbstractArvoEventHandler/types';
-import { createHandlerExecutionSpan } from '../AbstractArvoEventHandler/utils';
+import { OpenTelemetryConfig } from '../OpenTelemetry/types';
+import { createOtelSpan } from '../OpenTelemetry/utils';
 
 /**
  * Represents an event handler for Arvo contracts.
@@ -152,10 +152,9 @@ export default class ArvoEventHandler<
       Record<string, any>,
       TContract['accepts']['type']
     >,
-    opentelemetry?: ExecutionOpenTelemetryConfiguration,
+    opentelemetry?: OpenTelemetryConfig,
   ): Promise<ArvoEvent[]> {
-
-    const span = createHandlerExecutionSpan({
+    const span = createOtelSpan({
       spanName: `ArvoEventHandler<${this.contract.uri}>.execute<${event.type}>`,
       spanKinds: {
         kind: this.openTelemetrySpanKind,

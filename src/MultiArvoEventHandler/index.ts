@@ -25,8 +25,8 @@ import {
 } from '../utils';
 import AbstractArvoEventHandler from '../AbstractArvoEventHandler';
 import { fetchOpenTelemetryTracer } from '../OpenTelemetry';
-import { ExecutionOpenTelemetryConfiguration } from '../AbstractArvoEventHandler/types';
-import { createHandlerExecutionSpan } from '../AbstractArvoEventHandler/utils';
+import { OpenTelemetryConfig } from '../OpenTelemetry/types';
+import { createOtelSpan } from '../OpenTelemetry/utils';
 
 /**
  * Represents a Multi ArvoEvent handler that can process multiple event types.
@@ -145,10 +145,9 @@ export default class MultiArvoEventHandler extends AbstractArvoEventHandler {
    */
   public async execute(
     event: ArvoEvent,
-    opentelemetry?: ExecutionOpenTelemetryConfiguration,
+    opentelemetry?: OpenTelemetryConfig,
   ): Promise<ArvoEvent[]> {
-
-    const span = createHandlerExecutionSpan({
+    const span = createOtelSpan({
       spanName: `MutliArvoEventHandler.source<${this.source}>.execute<${event.type}>`,
       spanKinds: {
         kind: this.openTelemetrySpanKind,

@@ -1,4 +1,4 @@
-import { Span, SpanKind, SpanOptions, Tracer } from '@opentelemetry/api';
+import { Span, SpanKind, SpanOptions, Tracer, Context, propagation, context } from '@opentelemetry/api';
 import {
   ArvoEvent,
   ArvoExecution,
@@ -8,13 +8,8 @@ import {
 } from 'arvo-core';
 import * as fs from 'fs';
 import * as path from 'path';
-import { fetchOpenTelemetryTracer, extractContext } from '.';
-
-interface PackageJson {
-  name: string;
-  version: string;
-  [key: string]: any;
-}
+import { fetchOpenTelemetryTracer } from '.';
+import { PackageJson, ICreateOtelSpan } from './types'
 
 export function getPackageInfo(defaultName: string): { name: string; version: string } {
   try {
@@ -33,7 +28,21 @@ export function getPackageInfo(defaultName: string): { name: string; version: st
     console.error('Error reading package.json:', error);
     return { name: defaultName, version: 'Unknown' };
   }
+
 }
+
+// Helper function to extract context from traceparent and tracestate
+export const extractContext = (
+  traceparent: string,
+  tracestate: string | null,
+): Context => {
+  const extractedContext = propagation.extract(context.active(), {
+    traceparent,
+    tracestate: tracestate ?? undefined,
+  });
+  return extractedContext;
+};
+
 
 /**
  * Creates an OpenTelemetry span from an ArvoEvent, facilitating distributed tracing in the Arvo system.
@@ -105,7 +114,7 @@ export const createSpanFromEvent = (
     openInference: OpenInferenceSpanKind;
     arvoExecution: ArvoExecutionSpanKind;
   },
-  tracer: Tracer = fetchOpenTelemetryTracer(),
+  tracer: Tracer,
 ): Span => {
   const spanOptions: SpanOptions = {
     kind: spanKinds.kind,
@@ -128,3 +137,42 @@ export const createSpanFromEvent = (
 
   return span;
 };
+
+/**
+ * Creates an OpenTelemetry span for tracking handler execution.
+ * 
+ * This function creates a span either from an existing event or as a new span,
+ * depending on the configuration. It includes attributes for both OpenInference
+ * and Arvo execution span kinds.
+ * 
+ * @param params - Parameters for creating the handler execution span
+ * @param params.spanName - Name of the span to be created
+ * @param params.spanKinds - Object containing different span kind classifications
+ * @param params.event - The Arvo event associated with this span
+ * @param params.opentelemetryConfig - OpenTelemetry configuration
+ * 
+ * @returns A new OpenTelemetry span configured according to the parameters
+ */
+export const createOtelSpan = ({
+  spanName,
+  spanKinds,
+  event,
+  opentelemetryConfig,
+}: ICreateOtelSpan) => {
+  opentelemetryConfig = opentelemetryConfig ?? {
+    inheritFrom: 'event',
+    tracer: null
+  }
+  const spanOptions: SpanOptions = {
+    kind: spanKinds.kind,
+    attributes: {
+      [OpenInference.ATTR_SPAN_KIND]: spanKinds.openInference,
+      [ArvoExecution.ATTR_SPAN_KIND]: spanKinds.arvoExecution,
+    },
+  };
+
+  let tracer: Tracer = opentelemetryConfig.tracer ?? fetchOpenTelemetryTracer()
+  return opentelemetryConfig.inheritFrom === "event" ?
+    createSpanFromEvent(spanName, event, spanKinds, tracer) :
+    tracer.startSpan(spanName, spanOptions)
+}
