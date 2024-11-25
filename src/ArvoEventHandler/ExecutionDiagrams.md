@@ -5,65 +5,65 @@ Below are the execution flow diagrams of the execute function for the handler
 ## Execution flow diagram
 
 ```mermaid
-graph TD
-    A[Start] --> B[Create Handler Execution Span]
+stateDiagram-v2
+    [*] --> StartSpan
     
-    subgraph Span Creation
-        B --> C{Check OpenTelemetry Config}
-        C -->|inheritFrom='event'| D[Create Span from Event]
-        C -->|inheritFrom=<else>| E[Create New Span from current execution environment]
-        
-        D --> F[Set OpenInference Attributes]
-        E --> F
-        F --> G[Set ArvoExecution Attributes]
-        G --> H[Set Span Kind]
-    end
-
-    H --> I[Validate Input Event]
-    I --> J{Validation Error?}
-    J -->|Yes| K[Throw Error]
-    J -->|No| L[Execute Handler Function]
+    state SpanContext {
+        StartSpan --> SetSpanContext
+        SetSpanContext --> GetOtelHeaders
+        GetOtelHeaders --> SetStatusOK
+    }
     
-    L --> M{Handler Output?}
-    M -->|Yes| N[Process Output Events]
-    M -->|No| O[Return Empty Array]
+    SetStatusOK --> ValidateEventType
     
-    N --> P[Create Result Events]
-    P --> Q[Set Output Telemetry Data]
-    Q --> R[Return Result Events]
+    ValidateEventType --> ParseDataSchema: Valid Type
+    ValidateEventType --> HandleError: Invalid Type
+    
+    state SchemaHandling {
+        ParseDataSchema --> GetVersion: Valid
+        ParseDataSchema --> LogWarning: No Version
+        LogWarning --> GetVersion: Use Latest Version
+    }
+    
+    state ContractHandling {
+        GetVersion --> SetAttributes
+        SetAttributes --> ValidateInputEvent
+    }
+    
+    ValidateInputEvent --> ExecuteHandler: Valid
+    ValidateInputEvent` --> HandleError: Invalid
+    
+    state HandlerExecution {
+        ExecuteHandler --> ProcessOutput: Has Output
+        ExecuteHandler --> ReturnEmpty: No Output
+        ProcessOutput --> CreateResultEvents
+    }
+    
+    state ErrorHandling {
+        HandleError --> CreateSystemError
+        CreateSystemError --> SetErrorStatus
+    }
+    
+    CreateResultEvents --> EndSpan
+    SetErrorStatus --> EndSpan
+    ReturnEmpty --> EndSpan
+    
+    EndSpan --> [*]
 
-    K --> S[Create System Error Event]
-    S --> T[Set Error Status & Attributes]
-    T --> U[Return Error Event]
+    note right of SpanContext
+        Sets context and initial
+        telemetry configuration
+    end note
 
-    R --> V[End Span]
-    U --> V
-    O --> V
-    V --> W[End]
+    note right of HandlerExecution
+        Executes handler function
+        Creates and processes events
+    end note
 
-    subgraph Error Handling
-        K
-        S
-        T
-        U
-    end
-
-    subgraph Event Processing
-        L
-        M
-        N
-        P
-        Q
-        R
-    end
-
-    subgraph Telemetry Attributes
-        style F fill:#f9f,stroke:#333
-        style G fill:#f9f,stroke:#333
-        style H fill:#f9f,stroke:#333
-        style Q fill:#f9f,stroke:#333
-        style T fill:#f9f,stroke:#333
-    end
+    note right of ErrorHandling
+        Handles validation and
+        execution errors
+    end note
 ```
 
 ## Execution sequence diagram
@@ -72,58 +72,56 @@ graph TD
 sequenceDiagram
     participant Caller
     participant Handler as ArvoEventHandler
-    participant Span as SpanCreation
     participant OTel as OpenTelemetry
-    participant Validator as ContractValidator
-    participant Function as HandlerFunction
+    participant Contract as ContractHandler
+    participant HandlerFn as HandlerFunction
     participant Factory as EventFactory
 
-    Caller->>Handler: execute(event)
-    
-    Handler->>Span: createHandlerExecutionSpan()
-    
-    alt opentelemetryConfig.inheritFrom === 'event'
-        Span->>OTel: createSpanFromEvent()
-        OTel-->>Span: Event-based span
-    else default config
-        Span->>OTel: startSpan()
-        OTel-->>Span: New span
+    Caller->>Handler: execute(event, opentelemetry?)
+    Handler->>OTel: createOtelSpan()
+    activate Handler
+
+    Handler->>OTel: setSpan(context)
+    Handler->>OTel: currentOpenTelemetryHeaders()
+    Handler->>OTel: setStatus(OK)
+
+    Handler->>Contract: validate event.type
+    alt Invalid Type
+        Contract-->>Handler: throw Error
     end
-    
-    Span->>OTel: Set OpenInference attributes
-    Span->>OTel: Set ArvoExecution attributes
-    Span->>OTel: Set SpanKind
-    Span-->>Handler: Configured span
 
-    Handler->>Validator: Validate input event
-    
-    alt Invalid event
-        Validator-->>Handler: Validation error
-        Handler->>OTel: Set error status
-        Handler->>Factory: Create system error event
-        Factory-->>Handler: Error event
-        Handler->>OTel: Set error attributes
-        Handler->>OTel: End span
-        Handler-->>Caller: Return error event
-    else Valid event
-        Validator-->>Handler: Validation success
-        Handler->>Function: Execute handler
+    Handler->>Contract: parseEventDataSchema(event)
+    alt No Version
+        Handler->>OTel: logToSpan(WARNING)
+    end
 
-        alt Handler execution successful
-            Function-->>Handler: Handler output
-            Handler->>Factory: Create output events
-            Factory-->>Handler: Output events
-            Handler->>OTel: Set output attributes
-            Handler->>OTel: End span
-            Handler-->>Caller: Return output events
-        else Handler execution failed
-            Function-->>Handler: Throw error
-            Handler->>OTel: Set error status
-            Handler->>Factory: Create system error event
-            Factory-->>Handler: Error event
-            Handler->>OTel: Set error attributes
-            Handler->>OTel: End span
-            Handler-->>Caller: Return error event
+    Handler->>Contract: version(parsedVersion ?? 'latest')
+    Handler->>Factory: createArvoEventFactory()
+    
+    Handler->>OTel: setAttribute(otelAttributes)
+    Handler->>Contract: accepts.schema.safeParse()
+    
+    alt Invalid Schema
+        Contract-->>Handler: throw Error
+    else Valid Schema
+        Handler->>HandlerFn: execute(event, source)
+        alt Has Output
+            HandlerFn-->>Handler: return output
+            Handler->>Factory: eventHandlerOutputEventCreator()
+            Factory-->>Handler: return events
+        else No Output
+            HandlerFn-->>Handler: return (void)
+            Handler-->>Caller: return []
         end
     end
+
+    alt Error Caught
+        Handler->>Factory: systemError()
+        Factory-->>Handler: error event
+        Handler->>OTel: setStatus(ERROR)
+        Handler-->>Caller: return [errorEvent]
+    end
+
+    deactivate Handler
+    Handler->>OTel: span.end()
 ```

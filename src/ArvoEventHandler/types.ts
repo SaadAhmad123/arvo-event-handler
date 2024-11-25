@@ -2,10 +2,11 @@ import { SpanKind } from '@opentelemetry/api';
 import {
   ArvoContract,
   ArvoEvent,
-  ResolveArvoContractRecord,
   CreateArvoEvent,
   OpenInferenceSpanKind,
   ArvoExecutionSpanKind,
+  VersionedArvoContract,
+  ArvoSemanticVersion,
 } from 'arvo-core';
 import { z } from 'zod';
 
@@ -13,10 +14,10 @@ import { z } from 'zod';
  * Represents the input for an ArvoEvent handler function.
  * @template TAccepts - The type of ArvoContractRecord that the handler accepts.
  */
-export type ArvoEventHandlerFunctionInput<TContract extends ArvoContract> = {
+export type ArvoEventHandlerFunctionInput<TContract extends VersionedArvoContract<ArvoContract, ArvoSemanticVersion>> = {
   /** The ArvoEvent object. */
   event: ArvoEvent<
-    ResolveArvoContractRecord<TContract['accepts']>,
+    z.infer<TContract['accepts']['schema']>,
     Record<string, any>,
     TContract['accepts']['type']
   >;
@@ -29,7 +30,7 @@ export type ArvoEventHandlerFunctionInput<TContract extends ArvoContract> = {
  * Represents the output of an ArvoEvent handler function.
  * @template TContract - The type of ArvoContract that the handler is associated with.
  */
-export type ArvoEventHandlerFunctionOutput<TContract extends ArvoContract> = {
+export type ArvoEventHandlerFunctionOutput<TContract extends VersionedArvoContract<ArvoContract, ArvoSemanticVersion>> = {
   [K in keyof TContract['emits']]: Omit<
     CreateArvoEvent<z.infer<TContract['emits'][K]>, K & string>,
     'subject' | 'source' | 'executionunits' | 'traceparent' | 'tracestate'
@@ -51,13 +52,15 @@ export type ArvoEventHandlerFunctionOutput<TContract extends ArvoContract> = {
  * Defines the structure of an ArvoEvent handler function.
  * @template TContract - The type of ArvoContract that the handler is associated with.
  */
-export type ArvoEventHandlerFunction<TContract extends ArvoContract> = (
-  params: ArvoEventHandlerFunctionInput<TContract>,
-) => Promise<
-  | Array<ArvoEventHandlerFunctionOutput<TContract>>
-  | ArvoEventHandlerFunctionOutput<TContract>
-  | void
->;
+export type ArvoEventHandlerFunction<TContract extends ArvoContract> = {
+  [V in ArvoSemanticVersion & keyof TContract['versions']]: (
+    params: ArvoEventHandlerFunctionInput<VersionedArvoContract<TContract, V>>,
+  ) => Promise<
+    | Array<ArvoEventHandlerFunctionOutput<VersionedArvoContract<TContract, V>>>
+    | ArvoEventHandlerFunctionOutput<VersionedArvoContract<TContract, V>>
+    | void
+  >;
+}
 
 /**
  * Interface for an ArvoEvent handler.

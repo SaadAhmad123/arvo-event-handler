@@ -40,14 +40,12 @@ export interface IArvoEventRouter {
   /**
    * A list of all available event handlers to be used by the router.
    *
-   * @property {ArvoEventHandler<ArvoContract>[]} handlers
-   *
    * @remarks
    * This array contains instances of `ArvoEventHandler<ArvoContract>` which define
    * how different types of events should be processed. The router will use these
    * handlers to manage incoming events and generate appropriate responses or actions.
    */
-  handlers: ArvoEventHandler<ArvoContract<any, any, any, any>>[];
+  handlers: ArvoEventHandler<ArvoContract<any, any, any>>[];
 
   /**
    * The OpenTelemetry span kind attributes for the handler

@@ -36,7 +36,6 @@ export class ArvoEventRouter extends AbstractArvoEventHandler {
 
   /**
    * The source name of the router.
-   * @returns {string} The router's source name.
    *
    * @remarks
    * The router attempts to match the `event.to` field with this value.
@@ -50,7 +49,6 @@ export class ArvoEventRouter extends AbstractArvoEventHandler {
 
   /**
    * A list of all available event handlers to be used by the router.
-   * @property {ArvoEventHandler<ArvoContract>[]} handlers
    */
   readonly handlers: ArvoEventHandler<ArvoContract>[];
 
@@ -73,7 +71,7 @@ export class ArvoEventRouter extends AbstractArvoEventHandler {
 
   /**
    * Creates an instance of ArvoEventRouter.
-   * @param {IArvoEventRouter} param - The parameters for initializing the router
+   * @param param - The parameters for initializing the router
    * @throws {Error} If there are duplicate handlers for the same event type or the
    *                 source in an invalid string
    */
@@ -91,17 +89,17 @@ export class ArvoEventRouter extends AbstractArvoEventHandler {
     this.executionunits = param.executionunits;
 
     for (const handler of this.handlers) {
-      if (this.handlersMap[handler.contract.accepts.type]) {
-        const existingHandler = this.handlersMap[handler.contract.accepts.type];
+      if (this.handlersMap[handler.contract.type]) {
+        const existingHandler = this.handlersMap[handler.contract.type];
         throw new Error(
           cleanString(`
-          Duplicate handlers for event.type=${handler.contract.accepts.type} found. There are same 'contract.accept.types' in 
+          Duplicate handlers for event.type=${handler.contract.type} found. There are same 'contract.accept.types' in 
           contracts 'uri=${existingHandler.contract.uri}' and 'uri=${handler.contract.uri}'. This router does not support handlers
           with the same 'contract.accept.type'.
         `),
         );
       }
-      this.handlersMap[handler.contract.accepts.type] = handler;
+      this.handlersMap[handler.contract.type] = handler;
     }
 
     Object.freeze(this.handlers);
@@ -196,7 +194,7 @@ export class ArvoEventRouter extends AbstractArvoEventHandler {
             throw new Error(
               cleanString(`
             Invalid event (type=${newEvent.type}). No valid handler 
-            <handler[*].contract.accepts.type> found in the router.
+            <handler[*].contract.type> found in the router.
           `),
             );
           }

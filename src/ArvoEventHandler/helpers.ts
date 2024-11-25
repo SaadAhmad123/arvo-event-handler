@@ -20,8 +20,10 @@ import ArvoEventHandler from '.';
  * const myHandler = createArvoEventHandler({
  *   contract: myContract,
  *   executionunits: 100,
- *   handler: async ({ event }) => {
- *     // Handler implementation
+ *   handler: {
+ *      '0.0.1': async ({ event }) => {
+ *          // Handler implementation
+ *      }
  *   }
  * });
  * ```

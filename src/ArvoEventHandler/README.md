@@ -11,17 +11,20 @@ The Arvo Event Handler is a TypeScript class designed to facilitate the handling
 
 ## Key Components
 
-1. `createArvoEventHandler`: A factory function for creating `ArvoEventHandler` instances.
-2. `ArvoEventHandler`: The main class that encapsulates the logic for handling Arvo events.
-3. `IArvoEventHandler`: An interface defining the structure of an Arvo event handler.
+1. `createArvoEventHandler`: Factory function for type-safe handler creation
+2. `ArvoEventHandler`: Core handler class with version support
+3. `IArvoEventHandler`: Interface for handler configuration
+4. Built-in OpenTelemetry integration
+5. Versioned event handling support
 
 ## Why Use It?
 
-- **Type Safety**: Leverages TypeScript's type system to ensure correct usage of `ArvoContract` and `ArvoEvent`.
-- **Telemetry Integration**: Built-in support for OpenTelemetry, allowing for easy tracing and monitoring.
-- **Flexible Configuration**: Allows customization of execution units, source identifiers, and span kinds.
-- **Error Handling**: Automatically handles and reports errors, creating system error events when necessary.
-- **Contract Validation**: Ensures that events conform to the specified Arvo contract.
+- **Version Support**: Handle different versions of events with type safety
+- **Telemetry Integration**: Built-in OpenTelemetry support with distributed tracing
+- **Type Safety**: Full TypeScript support with generics
+- **Error Handling**: Automatic error event creation and propagation
+- **Contract Validation**: Runtime validation of events against contracts
+- **Execution Tracking**: Built-in execution unit tracking
 
 ## Sample Usage
 
@@ -30,77 +33,125 @@ import { createArvoContract, logToSpan, createArvoEvent } from 'arvo-core';
 import { createArvoEventHandler } from 'arvo-event-handler';
 import { trace } from '@opentelemetry/api';
 
-
-// Define your Arvo contract
+// Define your versioned contract
 const myContract = createArvoContract({
-  // Contract definition
+  // Contract definition with versions
 });
 
-// Create an event handler
+// Create a versioned handler
 const myHandler = createArvoEventHandler({
   contract: myContract,
   executionunits: 100,
-  handler: async ({ event, source }) => {
-    // Handler implementation
-    console.log(`Handling event from ${source}`);
-    console.log(`Event data:`, event.data);
-
-    // Some OpenTelemetry logging if needed
-    logToSpan({
-      level: "DEBUG",
-      message: "Hello World",
-    })
-    trace.getActiveSpan().setAttribute('attr', 'value')
-
-    // Return the result
-    return {
-      type: 'my.event.processed',
-      data: {
-        // Processed data
-      }
-    };
+  handler: {
+    // Handler for version 0.0.1
+    '0.0.1': async ({ event, source }) => {
+      // Version-specific handling
+      logToSpan({
+        level: "DEBUG",
+        message: "Processing v0.0.1 event"
+      });
+      return {
+        type: 'event.processed',
+        data: {/* v0.0.1 response */}
+      };
+    },
+    // Handler for version 0.0.2
+    '0.0.2': async ({ event, source }) => {
+      logToSpan({
+        level: "DEBUG",
+        message: "Processing v0.0.2 event"
+      });
+      return {
+        type: 'event.processed',
+        data: {/* v0.0.2 response */}
+      };
+    }
   }
 });
 
 // Execute the handler
-const inputEvent = createArvoEvent({
-  // Your input event conforming to the contract
-};)
-const results = await myHandler.execute(inputEvent);
-console.log('Handler results:', results);
+const event = createArvoEvent({
+  // Event with version-specific schema
+  dataschema: "http://example.com/schema/0.0.1"
+});
+const results = await myHandler.execute(event);
 ```
 
-## Benefits
+## Key Features
 
-1. **Standardization**: Provides a consistent way to handle events across different Arvo contracts.
-2. **Modularity**: Allows for easy composition and reuse of event handlers.
-3. **Observability**: Built-in telemetry support aids in monitoring and debugging.
-4. **Type Safety**: Reduces runtime errors by leveraging TypeScript's type system.
-5. **Automatic Error Handling**: Simplifies error management and reporting.
+1. **Version Management**:
+   - Support for multiple contract versions
+   - Version-specific handlers
+   - Automatic version detection from event schema
 
-## What Happens in the Code
+2. **Telemetry**:
+   - OpenTelemetry span creation
+   - Attribute propagation
+   - Distributed tracing support
+   - Error tracking
 
-1. **Event Validation**: The handler validates incoming events against the contract.
-2. **Telemetry and Context Propagation**: Creates and manages OpenTelemetry spans for each execution. The distributed telemetry is enabled by the `traceparent` and `tracestate` fields in the `ArvoEvent`. If they are present then then trace context is inherited, otherwise it is created anew.
-3. **Execution**: Runs the user-defined handler function with the validated event.
-4. **Result Processing**: Formats and validates the handler's output.
-5. **Error Handling**: Catches and reports any errors, creating error events if necessary.
-6. **Event Creation**: Generates properly formatted Arvo events based on the handler's output.
-7. **Telemetry Propagaation in Output**: Relevant attributes and status are set on the span for observability. Moreover, the span headers (`traceparent` and `tracestate`) are set in the generated event.
+3. **Type Safety**:
+   - Version-specific type checking
+   - Contract validation
+   - Runtime schema validation
 
-## Advanced Usage
+4. **Error Handling**:
+   - Automatic error event creation
+   - Error context preservation
+   - Telemetry integration for errors
 
-- Custom span kinds can be specified for fine-grained control over telemetry.
-- The `source` field can be overridden, though this is generally not recommended.
-- Multiple events can be returned from a single handler execution.
+## Event Processing Flow
+
+1. **Initialization**:
+   - Create telemetry span
+   - Set execution context
+
+2. **Version Resolution**:
+   - Parse event schema version
+   - Select appropriate handler
+   - Validate against version contract
+
+3. **Execution**:
+   - Run version-specific handler
+   - Collect telemetry
+   - Track execution units
+
+4. **Response Processing**:
+   - Create result events
+   - Propagate context
+   - Handle errors if any
+
+## Advanced Features
+
+### Telemetry Configuration
+```typescript
+const handler = createArvoEventHandler({
+  contract: myContract,
+  executionunits: 100,
+  spanKind: {
+    openInference: OpenInferenceSpanKind.CHAIN,
+    arvoExecution: ArvoExecutionSpanKind.EVENT_HANDLER,
+    openTelemetry: SpanKind.INTERNAL
+  }
+});
+```
+
+## Best Practices
+
+1. Always provide handlers for all contract versions
+2. Use telemetry for debugging and monitoring
+3. Handle version upgrades gracefully
+4. Set appropriate execution units
+5. Leverage type safety features
 
 ## Notes
 
-- The `executionunits` parameter can be used to track computational costs or resource usage.
-- Always handle potential errors in your handler implementation.
+- Handlers must be provided for all versions in the contract
+- Event schema version must match contract version
+- System errors are automatically routed to event source
+- Telemetry context is preserved across the execution chain
 
-For more detailed information, refer to the inline documentation in the source code.
-
+For detailed API documentation, see the inline code documentation.
 ## Execution diagrams
 
 See the MermaidMD diagram [here](https://github.com/SaadAhmad123/arvo-event-handler/tree/main/src/ArvoEventHandler/ExecutionDiagrams.md)

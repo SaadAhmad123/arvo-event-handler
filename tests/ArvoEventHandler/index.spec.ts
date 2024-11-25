@@ -25,22 +25,24 @@ describe('ArvoEventHandler', () => {
 
   const mockContract = createArvoContract({
     uri: '#/test/ArvoEventHandler',
-    accepts: {
-      type: 'com.hello.world',
-      schema: z.object({
-        name: z.string(),
-        age: z.number(),
-      }),
-    },
-    emits: {
-      'evt.hello.world.success': z.object({
-        result: z.string(),
-      }),
-      'evt.hello.world.error': ArvoErrorSchema,
-    },
+    type: 'com.hello.world',
+    versions: {
+      '0.0.1': {
+        accepts: z.object({
+          name: z.string(),
+          age: z.number(),
+        }),
+        emits: {
+          'evt.hello.world.success': z.object({
+            result: z.string(),
+          }),
+          'evt.hello.world.error': ArvoErrorSchema,
+        },
+      }
+    }
   });
 
-  const mockEvent = createArvoEventFactory(mockContract).accepts({
+  const mockEvent = createArvoEventFactory(mockContract.version('0.0.1')).accepts({
     to: 'com.hello.world',
     source: 'com.test.env',
     subject: 'test-subject',
@@ -52,14 +54,16 @@ describe('ArvoEventHandler', () => {
 
   const mockHandlerFunction: ArvoEventHandlerFunction<
     typeof mockContract
-  > = async ({ event }) => {
-    return {
-      type: 'evt.hello.world.success',
-      data: {
-        result: `My name is ${event.data.name}. I am ${event.data.age} years old`,
-      },
-    };
-  };
+  > = {
+    '0.0.1': async ({ event }) => {
+      return {
+        type: 'evt.hello.world.success',
+        data: {
+          result: `My name is ${event.data.name}. I am ${event.data.age} years old`,
+        },
+      };
+    }
+  }
 
   it('should create an instance with default source', () => {
     const handler = new ArvoEventHandler({
@@ -67,7 +71,7 @@ describe('ArvoEventHandler', () => {
       executionunits: 100,
       handler: mockHandlerFunction,
     });
-    expect(handler.source).toBe(mockContract.accepts.type);
+    expect(handler.source).toBe(mockContract.type);
   });
 
   it('should create an instance with custom source', () => {
@@ -125,7 +129,7 @@ describe('ArvoEventHandler', () => {
     expect(result[0].executionunits).toBe(100);
     expect(result[0].type).toBe('sys.com.hello.world.error');
     expect(result[0].data.errorMessage).toBe(
-      'Accept type "com.saad.invalid.test" not found in contract',
+      "Invalid event type='com.saad.invalid.test' is provide to handler for type='com.hello.world'"
     );
   });
 
@@ -133,7 +137,7 @@ describe('ArvoEventHandler', () => {
     const tracer = trace.getTracer('test-tracer');
     await tracer.startActiveSpan('test', async (span) => {
       const otelHeaders = currentOpenTelemetryHeaders();
-      const mockEvent = createArvoEventFactory(mockContract).accepts({
+      const mockEvent = createArvoEventFactory(mockContract.version('0.0.1')).accepts({
         to: 'com.hello.world',
         source: 'com.test.env',
         subject: 'test-subject',
@@ -141,15 +145,17 @@ describe('ArvoEventHandler', () => {
           name: 'Saad',
           age: 10,
         },
-        traceparent: otelHeaders.traceparent || undefined,
-        tracestate: otelHeaders.tracestate || undefined,
+        traceparent: otelHeaders.traceparent ?? undefined,
+        tracestate: otelHeaders.tracestate ?? undefined,
       });
       const handler = new ArvoEventHandler({
         contract: mockContract,
         executionunits: 100,
-        handler: async () => {
-          throw new Error('Test error');
-        },
+        handler: {
+          '0.0.1': async () => {
+            throw new Error('Test error');
+          },
+        }
       });
       const result = await handler.execute(mockEvent);
       expect(result).toBeDefined();
@@ -171,15 +177,16 @@ describe('ArvoEventHandler', () => {
         data: {
           name: 'Saad',
         },
-        traceparent: otelHeaders.traceparent || undefined,
-        tracestate: otelHeaders.tracestate || undefined,
+        traceparent: otelHeaders.traceparent ?? undefined,
+        tracestate: otelHeaders.tracestate ?? undefined,
       });
       const handler = new ArvoEventHandler({
         contract: mockContract,
         executionunits: 100,
-        handler: async () => {},
+        handler: {
+          '0.0.1': async () => {},
+        }
       });
-      // @ts-ignore
       const result = await handler.execute(mockEvent);
       expect(result).toBeDefined();
       expect(result[0].type).toBe('sys.com.hello.world.error');
@@ -206,23 +213,25 @@ describe('ArvoEventHandler', () => {
     const handler = createArvoEventHandler({
       contract: mockContract,
       executionunits: 100,
-      handler: async ({ event }) => {
-        return [
-          {
-            type: 'evt.hello.world.success',
-            data: {
-              result: `My name is ${event.data.name}. I am ${event.data.age} years old`,
+      handler: {
+        '0.0.1': async ({ event }) => {
+          return [
+            {
+              type: 'evt.hello.world.success',
+              data: {
+                result: `My name is ${event.data.name}. I am ${event.data.age} years old`,
+              },
+              executionunits: 200,
             },
-            executionunits: 200,
-          },
-          {
-            type: 'evt.hello.world.success',
-            data: {
-              result: `My name is ${event.data.name}. I am ${event.data.age} years old`,
+            {
+              type: 'evt.hello.world.success',
+              data: {
+                result: `My name is ${event.data.name}. I am ${event.data.age} years old`,
+              },
+              executionunits: 500,
             },
-            executionunits: 500,
-          },
-        ];
+          ];
+        }
       },
     });
     const result = await handler.execute(mockEvent);
@@ -238,7 +247,7 @@ describe('ArvoEventHandler', () => {
     });
 
     expect(handler.systemErrorSchema.type).toBe(
-      `sys.${handler.contract.accepts.type}.error`,
+      `sys.${handler.contract.type}.error`,
     );
   });
 
@@ -246,7 +255,9 @@ describe('ArvoEventHandler', () => {
     const handler = new ArvoEventHandler({
       contract: mockContract,
       executionunits: 100,
-      handler: async () => {},
+      handler: {
+        '0.0.1': async () => {}
+      }
     });
 
     const events = await handler.execute(mockEvent);
