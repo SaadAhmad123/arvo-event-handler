@@ -38,11 +38,13 @@ describe('ArvoEventHandler', () => {
           }),
           'evt.hello.world.error': ArvoErrorSchema,
         },
-      }
-    }
+      },
+    },
   });
 
-  const mockEvent = createArvoEventFactory(mockContract.version('0.0.1')).accepts({
+  const mockEvent = createArvoEventFactory(
+    mockContract.version('0.0.1'),
+  ).accepts({
     to: 'com.hello.world',
     source: 'com.test.env',
     subject: 'test-subject',
@@ -52,9 +54,7 @@ describe('ArvoEventHandler', () => {
     },
   });
 
-  const mockHandlerFunction: ArvoEventHandlerFunction<
-    typeof mockContract
-  > = {
+  const mockHandlerFunction: ArvoEventHandlerFunction<typeof mockContract> = {
     '0.0.1': async ({ event }) => {
       return {
         type: 'evt.hello.world.success',
@@ -62,8 +62,8 @@ describe('ArvoEventHandler', () => {
           result: `My name is ${event.data.name}. I am ${event.data.age} years old`,
         },
       };
-    }
-  }
+    },
+  };
 
   it('should create an instance with default source', () => {
     const handler = new ArvoEventHandler({
@@ -129,7 +129,7 @@ describe('ArvoEventHandler', () => {
     expect(result[0].executionunits).toBe(100);
     expect(result[0].type).toBe('sys.com.hello.world.error');
     expect(result[0].data.errorMessage).toBe(
-      "Invalid event type='com.saad.invalid.test' is provide to handler for type='com.hello.world'"
+      "Invalid event type='com.saad.invalid.test' is provide to handler for type='com.hello.world'",
     );
   });
 
@@ -137,7 +137,9 @@ describe('ArvoEventHandler', () => {
     const tracer = trace.getTracer('test-tracer');
     await tracer.startActiveSpan('test', async (span) => {
       const otelHeaders = currentOpenTelemetryHeaders();
-      const mockEvent = createArvoEventFactory(mockContract.version('0.0.1')).accepts({
+      const mockEvent = createArvoEventFactory(
+        mockContract.version('0.0.1'),
+      ).accepts({
         to: 'com.hello.world',
         source: 'com.test.env',
         subject: 'test-subject',
@@ -155,7 +157,7 @@ describe('ArvoEventHandler', () => {
           '0.0.1': async () => {
             throw new Error('Test error');
           },
-        }
+        },
       });
       const result = await handler.execute(mockEvent);
       expect(result).toBeDefined();
@@ -185,7 +187,7 @@ describe('ArvoEventHandler', () => {
         executionunits: 100,
         handler: {
           '0.0.1': async () => {},
-        }
+        },
       });
       const result = await handler.execute(mockEvent);
       expect(result).toBeDefined();
@@ -231,7 +233,7 @@ describe('ArvoEventHandler', () => {
               executionunits: 500,
             },
           ];
-        }
+        },
       },
     });
     const result = await handler.execute(mockEvent);
@@ -256,8 +258,8 @@ describe('ArvoEventHandler', () => {
       contract: mockContract,
       executionunits: 100,
       handler: {
-        '0.0.1': async () => {}
-      }
+        '0.0.1': async () => {},
+      },
     });
 
     const events = await handler.execute(mockEvent);

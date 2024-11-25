@@ -9,7 +9,7 @@ export type PackageJson = {
   name: string;
   version: string;
   [key: string]: any;
-}
+};
 
 /**
  * Configuration options for OpenTelemetry integration in execution context.
@@ -34,7 +34,7 @@ export type OpenTelemetryConfig = {
 
 /**
  * Interface defining the required parameters for creating a handler execution span.
- * 
+ *
  * @interface ICreateHandlerExecutionSpan
  * @property {string} spanName - The name to be assigned to the created span
  * @property {Object} spanKinds - Object containing different span kind classifications
@@ -45,12 +45,12 @@ export type OpenTelemetryConfig = {
  * @property {EventHandlerExecutionOtelConfiguration} opentelemetryConfig - Configuration for OpenTelemetry behavior
  */
 export interface ICreateOtelSpan {
-  spanName: string,
+  spanName: string;
   spanKinds: {
-      kind: SpanKind;
-      openInference: OpenInferenceSpanKind;
-      arvoExecution: ArvoExecutionSpanKind;
-  },
-  event: ArvoEvent,
-  opentelemetryConfig?: OpenTelemetryConfig
+    kind: SpanKind;
+    openInference: OpenInferenceSpanKind;
+    arvoExecution: ArvoExecutionSpanKind;
+  };
+  event: ArvoEvent;
+  opentelemetryConfig?: OpenTelemetryConfig;
 }

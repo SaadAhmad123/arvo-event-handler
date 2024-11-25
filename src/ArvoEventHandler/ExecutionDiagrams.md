@@ -7,47 +7,47 @@ Below are the execution flow diagrams of the execute function for the handler
 ```mermaid
 stateDiagram-v2
     [*] --> StartSpan
-    
+
     state SpanContext {
         StartSpan --> SetSpanContext
         SetSpanContext --> GetOtelHeaders
         GetOtelHeaders --> SetStatusOK
     }
-    
+
     SetStatusOK --> ValidateEventType
-    
+
     ValidateEventType --> ParseDataSchema: Valid Type
     ValidateEventType --> HandleError: Invalid Type
-    
+
     state SchemaHandling {
         ParseDataSchema --> GetVersion: Valid
         ParseDataSchema --> LogWarning: No Version
         LogWarning --> GetVersion: Use Latest Version
     }
-    
+
     state ContractHandling {
         GetVersion --> SetAttributes
         SetAttributes --> ValidateInputEvent
     }
-    
+
     ValidateInputEvent --> ExecuteHandler: Valid
     ValidateInputEvent` --> HandleError: Invalid
-    
+
     state HandlerExecution {
         ExecuteHandler --> ProcessOutput: Has Output
         ExecuteHandler --> ReturnEmpty: No Output
         ProcessOutput --> CreateResultEvents
     }
-    
+
     state ErrorHandling {
         HandleError --> CreateSystemError
         CreateSystemError --> SetErrorStatus
     }
-    
+
     CreateResultEvents --> EndSpan
     SetErrorStatus --> EndSpan
     ReturnEmpty --> EndSpan
-    
+
     EndSpan --> [*]
 
     note right of SpanContext
@@ -97,10 +97,10 @@ sequenceDiagram
 
     Handler->>Contract: version(parsedVersion ?? 'latest')
     Handler->>Factory: createArvoEventFactory()
-    
+
     Handler->>OTel: setAttribute(otelAttributes)
     Handler->>Contract: accepts.schema.safeParse()
-    
+
     alt Invalid Schema
         Contract-->>Handler: throw Error
     else Valid Schema

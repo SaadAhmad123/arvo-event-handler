@@ -15,12 +15,7 @@ import {
   isLowerAlphanumeric,
   isNullOrUndefined,
 } from '../utils';
-import {
-  context,
-  SpanKind,
-  SpanStatusCode,
-  trace,
-} from '@opentelemetry/api';
+import { context, SpanKind, SpanStatusCode, trace } from '@opentelemetry/api';
 import { deleteOtelHeaders } from './utils';
 import AbstractArvoEventHandler from '../AbstractArvoEventHandler';
 import { fetchOpenTelemetryTracer } from '../OpenTelemetry';
@@ -155,9 +150,8 @@ export class ArvoEventRouter extends AbstractArvoEventHandler {
    */
   async execute(
     event: ArvoEvent,
-    opentelemetry?: OpenTelemetryConfig
+    opentelemetry?: OpenTelemetryConfig,
   ): Promise<ArvoEvent[]> {
-
     const span = createOtelSpan({
       spanName: `ArvoEventRouter.source<${this._source ?? 'arvo.event.router'}>.execute<${event.type}>`,
       spanKinds: {
@@ -166,8 +160,8 @@ export class ArvoEventRouter extends AbstractArvoEventHandler {
         arvoExecution: this.arvoExecutionSpanKind,
       },
       event: event,
-      opentelemetryConfig: opentelemetry
-    })
+      opentelemetryConfig: opentelemetry,
+    });
 
     return await context.with(
       trace.setSpan(context.active(), span),
@@ -201,7 +195,10 @@ export class ArvoEventRouter extends AbstractArvoEventHandler {
 
           const results = await this.handlersMap[newEvent.type].execute(
             newEvent,
-            { inheritFrom: 'execution', tracer: opentelemetry?.tracer ?? fetchOpenTelemetryTracer() },
+            {
+              inheritFrom: 'execution',
+              tracer: opentelemetry?.tracer ?? fetchOpenTelemetryTracer(),
+            },
           );
 
           return results.map(

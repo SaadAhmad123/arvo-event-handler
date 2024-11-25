@@ -43,8 +43,8 @@ describe('ArvoEventRouter', () => {
           }),
           'evt.user.register.error': ArvoErrorSchema,
         },
-      }
-    }
+      },
+    },
   });
 
   const userReadContract = createArvoContract({
@@ -65,8 +65,8 @@ describe('ArvoEventRouter', () => {
           }),
           'evt.user.read.error': ArvoErrorSchema,
         },
-      }
-    }
+      },
+    },
   });
 
   const userRegisterHandler = createArvoEventHandler({
@@ -104,7 +104,7 @@ describe('ArvoEventRouter', () => {
             },
           };
         }
-      }
+      },
     },
   });
 
@@ -125,7 +125,7 @@ describe('ArvoEventRouter', () => {
         try {
           // Simulating a user read operation
           const user = await findUser(event.data.name);
-  
+
           if (user) {
             return [
               {
@@ -169,7 +169,7 @@ describe('ArvoEventRouter', () => {
             },
           };
         }
-      }
+      },
     },
   });
 

@@ -14,7 +14,9 @@ import { z } from 'zod';
  * Represents the input for an ArvoEvent handler function.
  * @template TAccepts - The type of ArvoContractRecord that the handler accepts.
  */
-export type ArvoEventHandlerFunctionInput<TContract extends VersionedArvoContract<ArvoContract, ArvoSemanticVersion>> = {
+export type ArvoEventHandlerFunctionInput<
+  TContract extends VersionedArvoContract<ArvoContract, ArvoSemanticVersion>,
+> = {
   /** The ArvoEvent object. */
   event: ArvoEvent<
     z.infer<TContract['accepts']['schema']>,
@@ -30,7 +32,9 @@ export type ArvoEventHandlerFunctionInput<TContract extends VersionedArvoContrac
  * Represents the output of an ArvoEvent handler function.
  * @template TContract - The type of ArvoContract that the handler is associated with.
  */
-export type ArvoEventHandlerFunctionOutput<TContract extends VersionedArvoContract<ArvoContract, ArvoSemanticVersion>> = {
+export type ArvoEventHandlerFunctionOutput<
+  TContract extends VersionedArvoContract<ArvoContract, ArvoSemanticVersion>,
+> = {
   [K in keyof TContract['emits']]: Omit<
     CreateArvoEvent<z.infer<TContract['emits'][K]>, K & string>,
     'subject' | 'source' | 'executionunits' | 'traceparent' | 'tracestate'
@@ -60,7 +64,7 @@ export type ArvoEventHandlerFunction<TContract extends ArvoContract> = {
     | ArvoEventHandlerFunctionOutput<VersionedArvoContract<TContract, V>>
     | void
   >;
-}
+};
 
 /**
  * Interface for an ArvoEvent handler.

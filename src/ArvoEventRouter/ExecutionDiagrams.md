@@ -7,12 +7,12 @@ Below are the execution flow diagrams of the execute function for the handler
 ```mermaid
 graph TD
     A[Start] --> B[Create Handler Execution Span]
-    
+
     subgraph Span Creation
         B --> C{Check OpenTelemetry Config}
         C -->|inheritFrom='event'| D[Create Span from Event]
         C -->|inheritFrom=<else>| E[Create New Span from Current Execution Environment]
-        
+
         D --> F[Set OpenInference Attributes]
         E --> F
         F --> G[Set ArvoExecution Attributes]
@@ -21,27 +21,27 @@ graph TD
 
     H --> I[Delete OTel Headers from Event]
     I --> J[Set Span Status OK]
-    
+
     J --> K{Valid event.to?}
     K -->|No| L[Throw Error]
     K -->|Yes| M{Find Handler in Map}
-    
+
     M -->|Not Found| N[Throw Error]
     M -->|Found| O[Execute Handler]
-    
+
     O --> P{Handler Success?}
     P -->|Yes| Q[Process Results]
     P -->|No| R[Handle Error]
-    
+
     Q --> S[Add Router Execution Units]
     S --> T[Add OTel Headers]
     T --> U[Create New Events]
-    
+
     L --> V[Create System Error Event]
     N --> V
     R --> V
     V --> W[Set Error Status & Attributes]
-    
+
     U --> X[End Span]
     W --> X
     X --> Y[End]
@@ -97,9 +97,9 @@ sequenceDiagram
     participant Factory as EventFactory
 
     Caller->>Router: execute(event)
-    
+
     Router->>Span: createHandlerExecutionSpan()
-    
+
     alt opentelemetryConfig.inheritFrom === 'event'
         Span->>OTel: createSpanFromEvent()
         OTel-->>Span: Event-based span
@@ -107,7 +107,7 @@ sequenceDiagram
         Span->>OTel: startSpan()
         OTel-->>Span: New span
     end
-    
+
     Span->>OTel: Set OpenInference attributes
     Span->>OTel: Set ArvoExecution attributes
     Span->>OTel: Set SpanKind
@@ -131,7 +131,7 @@ sequenceDiagram
             Router-->>Caller: Return error event
         else Handler found
             Router->>Handler: execute(event, {inheritFrom: 'execution'})
-            
+
             alt Handler execution successful
                 Handler-->>Router: Results
                 Router->>Router: Add execution units

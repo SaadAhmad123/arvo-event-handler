@@ -47,32 +47,36 @@ const myHandler = createArvoEventHandler({
     '0.0.1': async ({ event, source }) => {
       // Version-specific handling
       logToSpan({
-        level: "DEBUG",
-        message: "Processing v0.0.1 event"
+        level: 'DEBUG',
+        message: 'Processing v0.0.1 event',
       });
       return {
         type: 'event.processed',
-        data: {/* v0.0.1 response */}
+        data: {
+          /* v0.0.1 response */
+        },
       };
     },
     // Handler for version 0.0.2
     '0.0.2': async ({ event, source }) => {
       logToSpan({
-        level: "DEBUG",
-        message: "Processing v0.0.2 event"
+        level: 'DEBUG',
+        message: 'Processing v0.0.2 event',
       });
       return {
         type: 'event.processed',
-        data: {/* v0.0.2 response */}
+        data: {
+          /* v0.0.2 response */
+        },
       };
-    }
-  }
+    },
+  },
 });
 
 // Execute the handler
 const event = createArvoEvent({
   // Event with version-specific schema
-  dataschema: "http://example.com/schema/0.0.1"
+  dataschema: 'http://example.com/schema/0.0.1',
 });
 const results = await myHandler.execute(event);
 ```
@@ -80,17 +84,20 @@ const results = await myHandler.execute(event);
 ## Key Features
 
 1. **Version Management**:
+
    - Support for multiple contract versions
    - Version-specific handlers
    - Automatic version detection from event schema
 
 2. **Telemetry**:
+
    - OpenTelemetry span creation
    - Attribute propagation
    - Distributed tracing support
    - Error tracking
 
 3. **Type Safety**:
+
    - Version-specific type checking
    - Contract validation
    - Runtime schema validation
@@ -103,15 +110,18 @@ const results = await myHandler.execute(event);
 ## Event Processing Flow
 
 1. **Initialization**:
+
    - Create telemetry span
    - Set execution context
 
 2. **Version Resolution**:
+
    - Parse event schema version
    - Select appropriate handler
    - Validate against version contract
 
 3. **Execution**:
+
    - Run version-specific handler
    - Collect telemetry
    - Track execution units
@@ -124,6 +134,7 @@ const results = await myHandler.execute(event);
 ## Advanced Features
 
 ### Telemetry Configuration
+
 ```typescript
 const handler = createArvoEventHandler({
   contract: myContract,
@@ -131,8 +142,8 @@ const handler = createArvoEventHandler({
   spanKind: {
     openInference: OpenInferenceSpanKind.CHAIN,
     arvoExecution: ArvoExecutionSpanKind.EVENT_HANDLER,
-    openTelemetry: SpanKind.INTERNAL
-  }
+    openTelemetry: SpanKind.INTERNAL,
+  },
 });
 ```
 
@@ -152,6 +163,7 @@ const handler = createArvoEventHandler({
 - Telemetry context is preserved across the execution chain
 
 For detailed API documentation, see the inline code documentation.
+
 ## Execution diagrams
 
 See the MermaidMD diagram [here](https://github.com/SaadAhmad123/arvo-event-handler/tree/main/src/ArvoEventHandler/ExecutionDiagrams.md)

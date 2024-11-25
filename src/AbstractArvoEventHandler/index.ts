@@ -14,16 +14,16 @@ import { OpenTelemetryConfig } from '../OpenTelemetry/types';
 export default abstract class AbstractArvoEventHandler {
   /**
    * The source identifier for the event handler.
-   * 
+   *
    * @description
    * Uniquely identifies the '<ArvoEvent>.type' of events processed by this handler.
-   * 
+   *
    * @remarks
    * - Should be unique across all event handlers in the system
    * - Typically follows a dotted notation pattern (e.g., 'domain.entity.action')
    * - Used for routing, logging, and observability purposes
    */
-  public abstract readonly source: string
+  public abstract readonly source: string;
 
   /**
    * Executes the event handling logic for a given Arvo event.

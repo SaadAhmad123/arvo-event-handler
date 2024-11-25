@@ -23,7 +23,7 @@
 ## [1.1.0] - 2024-09-30
 
 - Added Abstract handler class and bound all handlers to it
+
 ## [2.0.0] - 2024-11-26
 
 - Added support for versioned contracts in event handler for better versioning support
-

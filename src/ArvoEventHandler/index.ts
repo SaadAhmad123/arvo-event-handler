@@ -17,12 +17,7 @@ import {
   ArvoEventHandlerFunctionOutput,
 } from './types';
 import { CloudEventContextSchema } from 'arvo-core/dist/ArvoEvent/schema';
-import {
-  context,
-  SpanKind,
-  SpanStatusCode,
-  trace,
-} from '@opentelemetry/api';
+import { context, SpanKind, SpanStatusCode, trace } from '@opentelemetry/api';
 import { eventHandlerOutputEventCreator } from '../utils';
 import AbstractArvoEventHandler from '../AbstractArvoEventHandler';
 import { fetchOpenTelemetryTracer } from '../OpenTelemetry';
@@ -100,8 +95,10 @@ export default class ArvoEventHandler<
       param.spanKind?.openTelemetry ?? this.openTelemetrySpanKind;
 
     for (const contractVersions of Object.keys(this.contract.versions)) {
-      if(!this._handler[contractVersions as ArvoSemanticVersion]) {
-        throw new Error(`The event handler for contract (uri=${this.contract.uri}) must contain a handler for version ${contractVersions}.`)
+      if (!this._handler[contractVersions as ArvoSemanticVersion]) {
+        throw new Error(
+          `The event handler for contract (uri=${this.contract.uri}) must contain a handler for version ${contractVersions}.`,
+        );
       }
     }
   }
@@ -166,8 +163,8 @@ export default class ArvoEventHandler<
         arvoExecution: this.arvoExecutionSpanKind,
       },
       event: event,
-      opentelemetryConfig: opentelemetry
-    })
+      opentelemetryConfig: opentelemetry,
+    });
 
     return await context.with(
       trace.setSpan(context.active(), span),
@@ -177,24 +174,30 @@ export default class ArvoEventHandler<
           span.setStatus({ code: SpanStatusCode.OK });
 
           if (this.contract.type !== event.type) {
-            throw new Error(`Invalid event type='${event.type}' is provide to handler for type='${this.contract.type}'`)
+            throw new Error(
+              `Invalid event type='${event.type}' is provide to handler for type='${this.contract.type}'`,
+            );
           }
 
-          const parsedDataSchema = parseEventDataSchema(event)
+          const parsedDataSchema = parseEventDataSchema(event);
           if (!parsedDataSchema?.version) {
             logToSpan({
-              level: "WARNING",
-              message: `Unable to resolve the event version from dataschema "${event.dataschema}". Defaulting to the latest version.`
-            })
+              level: 'WARNING',
+              message: `Unable to resolve the event version from dataschema "${event.dataschema}". Defaulting to the latest version.`,
+            });
           }
 
-          const handlerContract = this.contract.version(parsedDataSchema?.version ?? 'latest')
-          
+          const handlerContract = this.contract.version(
+            parsedDataSchema?.version ?? 'latest',
+          );
+
           Object.entries(event.otelAttributes).forEach(([key, value]) =>
             span.setAttribute(`to_process.0.${key}`, value),
           );
 
-          const inputEventValidation = handlerContract.accepts.schema.safeParse(event.data);
+          const inputEventValidation = handlerContract.accepts.schema.safeParse(
+            event.data,
+          );
           if (inputEventValidation.error) {
             throw new Error(
               `Invalid event payload: ${inputEventValidation.error}`,
@@ -208,14 +211,16 @@ export default class ArvoEventHandler<
 
           if (!_handleOutput) return [];
 
-          let outputs: ArvoEventHandlerFunctionOutput<VersionedArvoContract<TContract, typeof handlerContract.version>>[] = [];
+          let outputs: ArvoEventHandlerFunctionOutput<
+            VersionedArvoContract<TContract, typeof handlerContract.version>
+          >[] = [];
           if (Array.isArray(_handleOutput)) {
             outputs = _handleOutput;
           } else {
             outputs = [_handleOutput];
           }
 
-          const eventFactory = createArvoEventFactory(handlerContract)
+          const eventFactory = createArvoEventFactory(handlerContract);
           return eventHandlerOutputEventCreator(
             outputs,
             otelSpanHeaders,
@@ -228,7 +233,9 @@ export default class ArvoEventHandler<
               }),
           );
         } catch (error) {
-          const eventFactory = createArvoEventFactory(this.contract.version('any'))
+          const eventFactory = createArvoEventFactory(
+            this.contract.version('any'),
+          );
           exceptionToSpan(error as Error);
           span.setStatus({
             code: SpanStatusCode.ERROR,

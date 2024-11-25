@@ -1,9 +1,4 @@
-import {
-  context,
-  SpanKind,
-  SpanStatusCode,
-  trace,
-} from '@opentelemetry/api';
+import { context, SpanKind, SpanStatusCode, trace } from '@opentelemetry/api';
 import {
   ArvoEvent,
   ArvoExecutionSpanKind,
@@ -155,8 +150,8 @@ export default class MultiArvoEventHandler extends AbstractArvoEventHandler {
         arvoExecution: this.arvoExecutionSpanKind,
       },
       event: event,
-      opentelemetryConfig: opentelemetry
-    })
+      opentelemetryConfig: opentelemetry,
+    });
 
     return await context.with(
       trace.setSpan(context.active(), span),
