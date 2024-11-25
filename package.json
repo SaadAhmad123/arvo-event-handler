@@ -1,7 +1,7 @@
 {
   "name": "arvo-event-handler",
   "version": "2.0.1",
-  "description": "This package contains class and function for event handlers in an Arvo Event Driven system",
+  "description": "ype-safe event handler system with versioning, telemetry, and contract validation for distributed Arvo event-driven architectures, featuring routing and multi-handler support.",
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
