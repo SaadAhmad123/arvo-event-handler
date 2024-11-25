@@ -1,4 +1,4 @@
-import { Span, SpanKind, SpanOptions, Tracer } from '@opentelemetry/api';
+import { SpanKind, Tracer } from '@opentelemetry/api';
 import {
   ArvoEvent,
   ArvoExecutionSpanKind,

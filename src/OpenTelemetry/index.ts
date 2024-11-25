@@ -1,10 +1,8 @@
-import { trace, propagation, Context, context } from '@opentelemetry/api';
-import { getPackageInfo } from './utils';
+import { trace } from '@opentelemetry/api';
 
 /**
  * Returns a tracer instance for the ArvoEventHandler package.
  */
 export const fetchOpenTelemetryTracer = () => {
-  const pkg = getPackageInfo('arvo-event-handler');
-  return trace.getTracer(pkg.name, pkg.version);
+  return trace.getTracer('arvo-instrumentation');
 };
