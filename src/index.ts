@@ -29,8 +29,6 @@ import { createOtelSpan } from './OpenTelemetry/utils';
 import { OpenTelemetryConfig } from './OpenTelemetry/types';
 import { deleteOtelHeaders } from './ArvoEventRouter/utils';
 
-
-
 export {
   ArvoEventHandler,
   createArvoEventHandler,

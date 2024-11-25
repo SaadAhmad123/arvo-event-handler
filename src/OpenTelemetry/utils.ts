@@ -17,7 +17,6 @@ import {
 import { fetchOpenTelemetryTracer } from '.';
 import { ICreateOtelSpan } from './types';
 
-
 // Helper function to extract context from traceparent and tracestate
 export const extractContext = (
   traceparent: string,
