@@ -15,7 +15,7 @@ import { z } from 'zod';
  * @template TAccepts - The type of ArvoContractRecord that the handler accepts.
  */
 export type ArvoEventHandlerFunctionInput<
-  TContract extends VersionedArvoContract<ArvoContract, ArvoSemanticVersion>,
+  TContract extends VersionedArvoContract<any, any>,
 > = {
   /** The ArvoEvent object. */
   event: ArvoEvent<
@@ -33,7 +33,7 @@ export type ArvoEventHandlerFunctionInput<
  * @template TContract - The type of ArvoContract that the handler is associated with.
  */
 export type ArvoEventHandlerFunctionOutput<
-  TContract extends VersionedArvoContract<ArvoContract, ArvoSemanticVersion>,
+  TContract extends VersionedArvoContract<any, any>,
 > = {
   [K in keyof TContract['emits']]: Omit<
     CreateArvoEvent<z.infer<TContract['emits'][K]>, K & string>,

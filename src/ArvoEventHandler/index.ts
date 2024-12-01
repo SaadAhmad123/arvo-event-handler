@@ -9,7 +9,7 @@ import {
   currentOpenTelemetryHeaders,
   exceptionToSpan,
   logToSpan,
-  parseEventDataSchema,
+  EventDataschemaUtil,
 } from 'arvo-core';
 import {
   IArvoEventHandler,
@@ -179,17 +179,27 @@ export default class ArvoEventHandler<
             );
           }
 
-          const parsedDataSchema = parseEventDataSchema(event);
+          logToSpan({
+            level: 'INFO',
+            message: `Event type validated againt the required event tyoe imposed by contract (uri=${this.contract.uri})`,
+          });
+
+          const parsedDataSchema = EventDataschemaUtil.parse(event);
           if (!parsedDataSchema?.version) {
             logToSpan({
               level: 'WARNING',
-              message: `Unable to resolve the event version from dataschema "${event.dataschema}". Defaulting to the latest version.`,
+              message: `Unable to resolve the event version from event dataschema "${event.dataschema}"`,
             });
           }
 
           const handlerContract = this.contract.version(
             parsedDataSchema?.version ?? 'latest',
           );
+
+          logToSpan({
+            level: 'INFO',
+            message: `Using contract and handler version (=${handlerContract.version}) to handle the event`,
+          });
 
           Object.entries(event.otelAttributes).forEach(([key, value]) =>
             span.setAttribute(`to_process.0.${key}`, value),
@@ -203,6 +213,11 @@ export default class ArvoEventHandler<
               `Invalid event payload: ${inputEventValidation.error}`,
             );
           }
+
+          logToSpan({
+            level: 'INFO',
+            message: `Event payload validated against contract (uri=${handlerContract.uri}, version=${handlerContract.version})`,
+          });
 
           const _handleOutput = await this._handler[handlerContract.version]({
             event,
@@ -221,7 +236,7 @@ export default class ArvoEventHandler<
           }
 
           const eventFactory = createArvoEventFactory(handlerContract);
-          return eventHandlerOutputEventCreator(
+          const result = eventHandlerOutputEventCreator(
             outputs,
             otelSpanHeaders,
             this.source,
@@ -232,9 +247,16 @@ export default class ArvoEventHandler<
                 tracer: opentelemetry?.tracer ?? fetchOpenTelemetryTracer(),
               }),
           );
+
+          logToSpan({
+            level: 'INFO',
+            message: 'Event handled successfully',
+          });
+
+          return result;
         } catch (error) {
           const eventFactory = createArvoEventFactory(
-            this.contract.version('any'),
+            this.contract.version('latest'),
           );
           exceptionToSpan(error as Error);
           span.setStatus({
