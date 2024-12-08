@@ -1,10 +1,5 @@
-import { SpanKind } from '@opentelemetry/api';
-import {
-  ArvoEvent,
-  ArvoExecutionSpanKind,
-  CreateArvoEvent,
-  OpenInferenceSpanKind,
-} from 'arvo-core';
+import { Span, SpanOptions } from '@opentelemetry/api';
+import { ArvoEvent, CreateArvoEvent } from 'arvo-core';
 
 /**
  * Represents the input for a Multi ArvoEvent handler function.
@@ -15,6 +10,9 @@ export type MultiArvoEventHandlerFunctionInput = {
 
   /** The source field data of the handler */
   source: string;
+
+  /** The OpenTelemetry span */
+  span: Span
 };
 
 /**
@@ -79,16 +77,6 @@ export interface IMultiArvoEventHandler {
    */
   handler: MultiArvoEventHandlerFunction;
 
-  /**
-   * The OpenTelemetry span kind attributes for the handler
-   * executor.
-   * @param [openInference] - The OpenInference span kind. Default is "CHAIN"
-   * @param [arvoExecution] - The ArvoExecution span kind. Default is "EVENT_HANDLER"
-   * @param [openTelemetry] - The OpenTelemetry span kind. Default is "INTERNAL"
-   */
-  spanKind?: {
-    openInference?: OpenInferenceSpanKind;
-    arvoExecution?: ArvoExecutionSpanKind;
-    openTelemetry?: SpanKind;
-  };
+  /** The OpenTelemetry span options */
+  spanOptions?: SpanOptions;
 }

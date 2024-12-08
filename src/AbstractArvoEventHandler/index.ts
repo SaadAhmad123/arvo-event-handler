@@ -1,5 +1,5 @@
 import { ArvoContractRecord, ArvoEvent } from 'arvo-core';
-import { OpenTelemetryConfig } from '../OpenTelemetry/types';
+import { ArvoEventHandlerOpenTelemetryOptions } from '../types';
 
 /**
  * Abstract base class for Arvo event handlers.
@@ -13,27 +13,13 @@ import { OpenTelemetryConfig } from '../OpenTelemetry/types';
  */
 export default abstract class AbstractArvoEventHandler {
   /**
-   * The source identifier for the event handler.
-   *
-   * @description
-   * Uniquely identifies the '<ArvoEvent>.type' of events processed by this handler.
-   *
-   * @remarks
-   * - Should be unique across all event handlers in the system
-   * - Typically follows a dotted notation pattern (e.g., 'domain.entity.action')
-   * - Used for routing, logging, and observability purposes
-   */
-  public abstract readonly source: string;
-
-  /**
    * Executes the event handling logic for a given Arvo event.
    *
    * @abstract
-   * @param {ArvoEvent} event - The Arvo event to be processed. This event should conform
+   * @param event - The Arvo event to be processed. This event should conform
    *                           to the expected schema for the specific handler implementation.
-   * @param {OpenTelemetryConfig} opentelemetry - Configuration for OpenTelemetry
-   *                                                             integration, including tracing options
-   *                                                             and context inheritance settings.
+   * @param opentelemetry - Configuration for OpenTelemetry integration
+   *
    * @returns {Promise<ArvoEvent[]>} A promise that resolves to an array of resulting Arvo events.
    *                                 These events represent the outcome of processing the input event.
    *
@@ -68,7 +54,7 @@ export default abstract class AbstractArvoEventHandler {
    */
   public abstract execute(
     event: ArvoEvent,
-    opentelemetry?: OpenTelemetryConfig,
+    opentelemetry: ArvoEventHandlerOpenTelemetryOptions,
   ): Promise<ArvoEvent[]>;
 
   /**

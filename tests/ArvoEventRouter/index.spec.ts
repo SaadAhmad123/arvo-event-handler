@@ -294,11 +294,7 @@ describe('ArvoEventRouter', () => {
 
       const result = await router.execute(event);
       expect(result[0].data.errorMessage).toBe(
-        cleanString(`
-        Invalid event. The 'event.to' is wrong-router while this handler
-        listens to only 'event.to' equal to test.router. If this is a mistake,
-        please update the 'source' field of the handler
-      `),
+        "Event destination mismatch: Received destination 'wrong-router', but router accepts only 'test.router'",
       );
       span.end();
     });
@@ -314,10 +310,7 @@ describe('ArvoEventRouter', () => {
     });
     const result = await router.execute(event);
     expect(result[0].data.errorMessage).toBe(
-      cleanString(`
-      Invalid event (type=com.user.unhandled). No valid handler
-      <handler[*].contract.type> found in the router.
-    `),
+      "No registered handler found for event type 'com.user.unhandled'",
     );
   });
 
@@ -348,11 +341,7 @@ describe('ArvoEventRouter', () => {
         handlers: [userRegisterHandler, userReadHandler, userRegisterHandler],
       });
     }).toThrow(
-      cleanString(`
-      Duplicate handlers for event.type=com.user.register found. There are same 'contract.accept.types' in
-      contracts 'uri=#/test/user/register' and 'uri=#/test/user/register'. This router does not support handlers
-      with the same 'contract.accept.type'.
-    `),
+      "Duplicate handler registration detected for event type 'com.user.register'. Conflicts between contracts: #/test/user/register and #/test/user/register",
     );
   });
 
@@ -364,7 +353,7 @@ describe('ArvoEventRouter', () => {
         handlers: [userRegisterHandler, userReadHandler, userRegisterHandler],
       });
     }).toThrow(
-      "Invalid 'source' = 'invalid source with spaces'. The 'source' must only contain alphanumeric characters e.g. test.router",
+      "Invalid source identifier 'invalid source with spaces': Must contain only alphanumeric characters (example: payment.service)",
     );
   });
 });

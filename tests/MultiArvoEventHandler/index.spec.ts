@@ -78,7 +78,7 @@ describe('MultiArvoEventHandler', () => {
         source: 'test source with spaces',
       });
     }).toThrow(
-      "Invalid 'source' = 'test source with spaces'. The 'source' must only contain alphanumeric characters e.g. test.handler",
+      "Invalid source identifier 'test source with spaces': Must contain only alphanumeric characters (example: order.handler)",
     );
   });
 
@@ -130,11 +130,7 @@ describe('MultiArvoEventHandler', () => {
     expect(result[0].type).toBe('sys.multi.event.handler.error');
     expect(result[0].source).toBe('multi.event.handler');
     expect(result[0].data.errorMessage).toBe(
-      cleanString(`
-      Invalid event. The 'event.to' is multi.event.handler.invalid while this handler
-      listens to only 'event.to' equal to multi.event.handler. If this is a mistake,
-      please update the 'source' field of the handler  
-    `),
+      "Event destination mismatch: Expected 'multi.event.handler', received 'multi.event.handler.invalid'",
     );
     expect(result[0].source).toBe('multi.event.handler');
     expect(result[0].executionunits).toBe(100);

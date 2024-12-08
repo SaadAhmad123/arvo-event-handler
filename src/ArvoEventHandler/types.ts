@@ -1,10 +1,8 @@
-import { SpanKind } from '@opentelemetry/api';
+import { Span, SpanOptions } from '@opentelemetry/api';
 import {
   ArvoContract,
   ArvoEvent,
   CreateArvoEvent,
-  OpenInferenceSpanKind,
-  ArvoExecutionSpanKind,
   VersionedArvoContract,
   ArvoSemanticVersion,
 } from 'arvo-core';
@@ -12,7 +10,6 @@ import { z } from 'zod';
 
 /**
  * Represents the input for an ArvoEvent handler function.
- * @template TAccepts - The type of ArvoContractRecord that the handler accepts.
  */
 export type ArvoEventHandlerFunctionInput<
   TContract extends VersionedArvoContract<any, any>,
@@ -26,18 +23,20 @@ export type ArvoEventHandlerFunctionInput<
 
   /** The source field data of the handler */
   source: string;
+
+  /** The OpenTelemetry span */
+  span: Span;
 };
 
 /**
  * Represents the output of an ArvoEvent handler function.
- * @template TContract - The type of ArvoContract that the handler is associated with.
  */
 export type ArvoEventHandlerFunctionOutput<
   TContract extends VersionedArvoContract<any, any>,
 > = {
-  [K in keyof TContract['emits']]: Omit<
+  [K in keyof TContract['emits']]: Pick<
     CreateArvoEvent<z.infer<TContract['emits'][K]>, K & string>,
-    'subject' | 'source' | 'executionunits' | 'traceparent' | 'tracestate'
+    'id' | 'time' | 'type' | 'data' | 'to' | 'accesscontrol' | 'redirectto'
   > & {
     /**
      * An optional override for the execution units of this specific event.
@@ -54,7 +53,6 @@ export type ArvoEventHandlerFunctionOutput<
 
 /**
  * Defines the structure of an ArvoEvent handler function.
- * @template TContract - The type of ArvoContract that the handler is associated with.
  */
 export type ArvoEventHandlerFunction<TContract extends ArvoContract> = {
   [V in ArvoSemanticVersion & keyof TContract['versions']]: (
@@ -68,23 +66,8 @@ export type ArvoEventHandlerFunction<TContract extends ArvoContract> = {
 
 /**
  * Interface for an ArvoEvent handler.
- * @template T - The type of the contract (defaults to string).
- * @template TAccepts - The type of ArvoContractRecord that the handler accepts.
- * @template TEmits - The type of ArvoContractRecord that the handler emits.
  */
 export interface IArvoEventHandler<TContract extends ArvoContract> {
-  /**
-   * An override source for emitted events.
-   * @remarks
-   * When provided, this value will be used as the source for emitted events
-   * instead of the `contract.accepts.type`. Use this very carefully as it may
-   * reduce system transparency and make event tracking more difficult.
-   *
-   * It's recommended to rely on the default source (`contract.accepts.type`)
-   * whenever possible to maintain consistent and traceable event chains.
-   */
-  source?: string;
-
   /**
    * The contract for the handler defining its input and outputs as well as the description.
    */
@@ -104,15 +87,7 @@ export interface IArvoEventHandler<TContract extends ArvoContract> {
   handler: ArvoEventHandlerFunction<TContract>;
 
   /**
-   * The OpenTelemetry span kind attributes for the handler
-   * executor.
-   * @param [openInference] - The OpenInference span kind. Default is "CHAIN"
-   * @param [arvoExecution] - The ArvoExecution span kind. Default is "EVENT_HANDLER"
-   * @param [openTelemetry] - The OpenTelemetry span kind. Default is "INTERNAL"
+   * The OpenTelemetry span options
    */
-  spanKind?: {
-    openInference?: OpenInferenceSpanKind;
-    arvoExecution?: ArvoExecutionSpanKind;
-    openTelemetry?: SpanKind;
-  };
+  spanOptions?: SpanOptions;
 }

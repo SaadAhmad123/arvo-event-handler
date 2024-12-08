@@ -6,7 +6,7 @@ import {
   IArvoEventHandler,
 } from './ArvoEventHandler/types';
 import { createArvoEventHandler } from './ArvoEventHandler/helpers';
-import { PartialExcept } from './types';
+import { PartialExcept, ArvoEventHandlerOpenTelemetryOptions } from './types';
 import MultiArvoEventHandler from './MultiArvoEventHandler';
 import {
   MultiArvoEventHandlerFunctionInput,
@@ -25,8 +25,6 @@ import { IArvoEventRouter } from './ArvoEventRouter/types';
 import { ArvoEventRouter } from './ArvoEventRouter';
 import { createArvoEventRouter } from './ArvoEventRouter/helpers';
 import AbstractArvoEventHandler from './AbstractArvoEventHandler';
-import { createOtelSpan } from './OpenTelemetry/utils';
-import { OpenTelemetryConfig } from './OpenTelemetry/types';
 import { deleteOtelHeaders } from './ArvoEventRouter/utils';
 
 export {
@@ -51,7 +49,6 @@ export {
   ArvoEventRouter,
   createArvoEventRouter,
   AbstractArvoEventHandler,
-  OpenTelemetryConfig,
-  createOtelSpan,
   deleteOtelHeaders,
+  ArvoEventHandlerOpenTelemetryOptions,
 };

@@ -74,27 +74,6 @@ describe('ArvoEventHandler', () => {
     expect(handler.source).toBe(mockContract.type);
   });
 
-  it('should create an instance with custom source', () => {
-    const handler = new ArvoEventHandler({
-      contract: mockContract,
-      executionunits: 100,
-      handler: mockHandlerFunction,
-      source: 'custom-source',
-    });
-    expect(handler.source).toBe('custom-source');
-  });
-
-  it('should throw an error for invalid source', () => {
-    expect(() => {
-      new ArvoEventHandler({
-        contract: mockContract,
-        executionunits: 100,
-        handler: mockHandlerFunction,
-        source: 'test source with spaces',
-      });
-    }).toThrow("The provided 'source' is not a valid string");
-  });
-
   it('should execute handler successfully', async () => {
     const handler = new ArvoEventHandler({
       contract: mockContract,
@@ -129,7 +108,7 @@ describe('ArvoEventHandler', () => {
     expect(result[0].executionunits).toBe(100);
     expect(result[0].type).toBe('sys.com.hello.world.error');
     expect(result[0].data.errorMessage).toBe(
-      "Invalid event type='com.saad.invalid.test' is provide to handler for type='com.hello.world'",
+      "Event type mismatch: Received 'com.saad.invalid.test', expected 'com.hello.world'",
     );
   });
 
@@ -193,7 +172,9 @@ describe('ArvoEventHandler', () => {
       expect(result).toBeDefined();
       expect(result[0].type).toBe('sys.com.hello.world.error');
       expect(
-        result[0].data.errorMessage.includes('Invalid event payload'),
+        result[0].data.errorMessage.includes(
+          'Event payload validation failed:',
+        ),
       ).toBe(true);
 
       const inputTraceparent = otelHeaders.traceparent?.split('-')?.[1];

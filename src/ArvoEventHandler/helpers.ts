@@ -3,33 +3,22 @@ import { IArvoEventHandler } from './types';
 import ArvoEventHandler from '.';
 
 /**
- * Creates an ArvoEventHandler instance for a given ArvoContract.
+ * Creates an ArvoEventHandler for processing events defined by a specific contract.
+ * Each handler manages event validation, processing, and telemetry for its contract.
  *
- * @template TContract - The type of ArvoContract this handler is associated with.
- * @param param - The configuration parameters for the event handler.
- * @returns A new instance of ArvoEventHandler<TContract>.
- *
- * @remarks
- * This function is a factory for creating ArvoEventHandler instances.
- * It encapsulates the creation process and provides a convenient way to instantiate
- * handlers for specific Arvo contracts.
+ * @param param Configuration including contract, execution metrics and version handlers
+ * @returns Configured ArvoEventHandler instance for the specified contract
  *
  * @example
- * ```typescript
- * const myContract = new ArvoContract(...);
- * const myHandler = createArvoEventHandler({
- *   contract: myContract,
- *   executionunits: 100,
+ * const handler = createArvoEventHandler({
+ *   contract: userContract,
+ *   executionunits: 10,
  *   handler: {
- *      '0.0.1': async ({ event }) => {
- *          // Handler implementation
- *      }
+ *     '1.0.0': async ({ event }) => {
+ *       // Process event according to contract v1.0.0
+ *     }
  *   }
  * });
- * ```
- *
- * @see {@link IArvoEventHandler} for the full configuration options
- * @see {@link ArvoEventHandler} for the handler class implementation
  */
 export const createArvoEventHandler = <TContract extends ArvoContract>(
   param: IArvoEventHandler<TContract>,

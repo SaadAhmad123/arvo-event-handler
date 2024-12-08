@@ -10,185 +10,166 @@ import {
   exceptionToSpan,
   logToSpan,
   EventDataschemaUtil,
+  ArvoExecution,
+  OpenInference,
+  ArvoOpenTelemetry,
 } from 'arvo-core';
 import {
   IArvoEventHandler,
   ArvoEventHandlerFunction,
   ArvoEventHandlerFunctionOutput,
 } from './types';
-import { CloudEventContextSchema } from 'arvo-core/dist/ArvoEvent/schema';
-import { context, SpanKind, SpanStatusCode, trace } from '@opentelemetry/api';
+import {
+  context,
+  SpanStatusCode,
+  SpanOptions,
+  SpanKind,
+} from '@opentelemetry/api';
 import { eventHandlerOutputEventCreator } from '../utils';
 import AbstractArvoEventHandler from '../AbstractArvoEventHandler';
-import { fetchOpenTelemetryTracer } from '../OpenTelemetry';
-import { OpenTelemetryConfig } from '../OpenTelemetry/types';
-import { createOtelSpan } from '../OpenTelemetry/utils';
+import { ArvoEventHandlerOpenTelemetryOptions } from '../types';
 
 /**
- * Represents an event handler for Arvo contracts.
+ * ArvoEventHandler manages the execution and processing of events in accordance with
+ * Arvo contracts. This class serves as the cornerstone for event handling operations,
+ * integrating contract validation, telemetry management, and event processing.
  *
- * @template TContract - The type of ArvoContract this handler is associated with.
- *
- * @remarks
- * This class is the core component for handling Arvo events. It encapsulates the logic
- * for executing event handlers, managing telemetry, and ensuring proper contract validation.
- * It's designed to be flexible and reusable across different Arvo contract implementations.
+ * The handler implements a robust execution flow that ensures proper validation,
+ * versioning, and error handling while maintaining detailed telemetry through
+ * OpenTelemetry integration. It supports versioned contracts and handles routing
+ * of both successful and error events.
  */
 export default class ArvoEventHandler<
   TContract extends ArvoContract,
 > extends AbstractArvoEventHandler {
-  /** The contract of the handler to which it is bound */
-  readonly contract: TContract;
+  /** Contract instance that defines the event schema and validation rules */
+  public readonly contract: TContract;
 
-  /** The default execution cost associated with this handler */
-  readonly executionunits: number;
+  /** Computational cost metric associated with event handling operations */
+  public readonly executionunits: number;
 
-  /**
-   * The source identifier for events produced by this handler
-   *
-   * @remarks
-   * For all the events which are emitted by the handler, this is
-   * the source field value of them all.
-   */
-  readonly source: string;
+  /** OpenTelemetry configuration for event handling spans */
+  public readonly spanOptions: SpanOptions;
 
-  readonly openInferenceSpanKind: OpenInferenceSpanKind =
-    OpenInferenceSpanKind.CHAIN;
-  readonly arvoExecutionSpanKind: ArvoExecutionSpanKind =
-    ArvoExecutionSpanKind.EVENT_HANDLER;
-  readonly openTelemetrySpanKind: SpanKind = SpanKind.INTERNAL;
+  /** Version-specific event handler implementation map */
+  public readonly handler: ArvoEventHandlerFunction<TContract>;
 
-  private readonly _handler: ArvoEventHandlerFunction<TContract>;
+  /** The source identifier for events produced by this handler */
+  public get source(): TContract['type'] {
+    return this.contract.type;
+  }
 
   /**
-   * Creates an instance of ArvoEventHandler.
+   * Initializes a new ArvoEventHandler instance with the specified contract and configuration.
+   * Validates handler implementations against contract versions during initialization.
    *
-   * @param param - The configuration parameters for the event handler.
+   * The constructor ensures that handler implementations exist for all supported contract
+   * versions and configures OpenTelemetry span attributes for monitoring event handling.
    *
-   * @throws {Error} Throws an error if the provided source is invalid.
-   *
-   * @remarks
-   * The constructor validates the source parameter against the CloudEventContextSchema.
-   * If no source is provided, it defaults to the contract's accepted event type.
+   * @param param - Handler configuration including contract, execution units, and handler implementations
+   * @throws When handler implementations are missing for any contract version
    */
   constructor(param: IArvoEventHandler<TContract>) {
     super();
     this.contract = param.contract;
     this.executionunits = param.executionunits;
-    this._handler = param.handler;
-    if (param.source) {
-      const { error } = CloudEventContextSchema.pick({
-        source: true,
-      }).safeParse({ source: param.source });
-      if (error) {
-        throw new Error(
-          `The provided 'source' is not a valid string. Error: ${error.message}`,
-        );
-      }
-    }
-    this.source = param.source ?? this.contract.type;
-    this.arvoExecutionSpanKind =
-      param.spanKind?.arvoExecution ?? this.arvoExecutionSpanKind;
-    this.openInferenceSpanKind =
-      param.spanKind?.openInference ?? this.openInferenceSpanKind;
-    this.openTelemetrySpanKind =
-      param.spanKind?.openTelemetry ?? this.openTelemetrySpanKind;
+    this.handler = param.handler;
 
     for (const contractVersions of Object.keys(this.contract.versions)) {
-      if (!this._handler[contractVersions as ArvoSemanticVersion]) {
+      if (!this.handler[contractVersions as ArvoSemanticVersion]) {
         throw new Error(
-          `The event handler for contract (uri=${this.contract.uri}) must contain a handler for version ${contractVersions}.`,
+          `Contract ${this.contract.uri} requires handler implementation for version ${contractVersions}`,
         );
       }
     }
+
+    this.spanOptions = {
+      kind: SpanKind.CONSUMER,
+      ...param.spanOptions,
+      attributes: {
+        [ArvoExecution.ATTR_SPAN_KIND]: ArvoExecutionSpanKind.EVENT_HANDLER,
+        [OpenInference.ATTR_SPAN_KIND]: OpenInferenceSpanKind.CHAIN,
+        ...(param.spanOptions?.attributes ?? {}),
+        'arvo.contract.uri': this.contract.uri,
+        'arvo.handler.source': this.source,
+      },
+    };
   }
 
   /**
-   * Executes the event handler for a given event.
+   * Processes an event according to the contract specifications. The execution flow encompasses
+   * span management, validation, handler execution, and error processing phases.
    *
-   * @param event - The event to handle.
-   * @param opentelemetry - Configuration for OpenTelemetry integration, including tracing options
-   *                        and context inheritance settings. Default is inherit from event and internal tracer
-   * @returns A promise that resolves to an array of resulting ArvoEvents.
+   * Event Routing Logic:
+   * - Success events: Routes based on priority (handler result -> redirectto -> source)
+   * - Error events: Always routes back to the source
    *
-   * This method performs the following steps:
-   * 1. Creates an OpenTelemetry span for the execution.
-   * 2. Validates the input event against the contract.
-   * 3. Executes the handler function.
-   * 4. Creates and returns the result event(s).
-   * 5. Handles any errors and creates an error event if necessary.
+   * Telemetry Integration:
+   * - Creates and manages OpenTelemetry spans for execution tracking
+   * - Propagates trace context through the event chain
+   * - Records execution metrics and error details
    *
-   * All telemetry data is properly set and propagated throughout the execution.
+   * Version Resolution:
+   * - Extracts version from event dataschema
+   * - Falls back to latest version if unspecified
+   * - Validates event data against versioned contract schema
    *
-   * @example
-   * ```typescript
-   * const contract = createArvoContract({ ... })
-   * const handler = createArvoEventHandler({
-   *    contract: contract,
-   *    ...
-   * });
-   * const inputEvent: ArvoEvent<...> = createArvoEvent({ ... });
-   * const resultEvents = await handler.execute(inputEvent);
-   * ```
+   * Error Handling:
+   * - Converts all errors to system error events
+   * - Maintains telemetry context for error scenarios
+   * - Ensures proper error event routing
    *
-   * @throws All error throw during the execution are returned as a system error event
-   *
-   * **Routing**
-   *
-   * The routing of the resulting events is determined as follows:
-   * - The `to` field of the output event is set in this priority:
-   *   1. The `to` field provided by the handler result
-   *   2. The `redirectto` field from the input event
-   *   3. The `source` field from the input event (as a form of reply)
-   * - For system error events, the `to` field is always set to the `source` of the input event.
-   *
-   * **Telemetry**
-   *
-   * - Creates a new span for each execution as per the traceparent and tracestate field
-   *   of the event. If those are not present, then a brand new span is created and distributed
-   *   tracing is disabled
-   * - Sets span attributes for input and output events
-   * - Propagates trace context to output events
-   * - Handles error cases and sets appropriate span status
+   * @param event - The event to process
+   * @param opentelemetry - Configuration for OpenTelemetry context inheritance
+   * @returns Promise resolving to array of result events or error event
    */
   public async execute(
     event: ArvoEvent,
-    opentelemetry?: OpenTelemetryConfig,
+    opentelemetry: ArvoEventHandlerOpenTelemetryOptions = {
+      inheritFrom: 'EVENT',
+    },
   ): Promise<ArvoEvent[]> {
-    const span = createOtelSpan({
-      spanName: `ArvoEventHandler<${this.contract.uri}>.execute<${event.type}>`,
-      spanKinds: {
-        kind: this.openTelemetrySpanKind,
-        openInference: this.openInferenceSpanKind,
-        arvoExecution: this.arvoExecutionSpanKind,
-      },
-      event: event,
-      opentelemetryConfig: opentelemetry,
-    });
-
-    return await context.with(
-      trace.setSpan(context.active(), span),
-      async () => {
+    return await ArvoOpenTelemetry.getInstance().startActiveSpan({
+      name: 'ArvoEventHandler',
+      spanOptions: this.spanOptions,
+      disableSpanManagement: true,
+      context:
+        opentelemetry.inheritFrom === 'EVENT'
+          ? {
+              inheritFrom: 'TRACE_HEADERS',
+              traceHeaders: {
+                traceparent: event.traceparent,
+                tracestate: event.tracestate,
+              },
+            }
+          : {
+              inheritFrom: 'CONTEXT',
+              context: context.active(),
+            },
+      fn: async (span) => {
         const otelSpanHeaders = currentOpenTelemetryHeaders();
         try {
           span.setStatus({ code: SpanStatusCode.OK });
+          Object.entries(event.otelAttributes).forEach(([key, value]) =>
+            span.setAttribute(`to_process.0.${key}`, value),
+          );
 
           if (this.contract.type !== event.type) {
             throw new Error(
-              `Invalid event type='${event.type}' is provide to handler for type='${this.contract.type}'`,
+              `Event type mismatch: Received '${event.type}', expected '${this.contract.type}'`,
             );
           }
 
           logToSpan({
             level: 'INFO',
-            message: `Event type validated againt the required event tyoe imposed by contract (uri=${this.contract.uri})`,
+            message: `Event type '${event.type}' validated against contract '${this.contract.uri}'`,
           });
 
           const parsedDataSchema = EventDataschemaUtil.parse(event);
           if (!parsedDataSchema?.version) {
             logToSpan({
               level: 'WARNING',
-              message: `Unable to resolve the event version from event dataschema "${event.dataschema}"`,
+              message: `Version resolution failed for event with dataschema '${event.dataschema}'. Defaulting to latest version (=${this.contract.version('latest').version}) of contract (uri=${this.contract.uri})`,
             });
           }
 
@@ -198,30 +179,32 @@ export default class ArvoEventHandler<
 
           logToSpan({
             level: 'INFO',
-            message: `Using contract and handler version (=${handlerContract.version}) to handle the event`,
+            message: `Processing event with contract version ${handlerContract.version}`,
           });
-
-          Object.entries(event.otelAttributes).forEach(([key, value]) =>
-            span.setAttribute(`to_process.0.${key}`, value),
-          );
 
           const inputEventValidation = handlerContract.accepts.schema.safeParse(
             event.data,
           );
           if (inputEventValidation.error) {
             throw new Error(
-              `Invalid event payload: ${inputEventValidation.error}`,
+              `Event payload validation failed: ${inputEventValidation.error}`,
             );
           }
 
           logToSpan({
             level: 'INFO',
-            message: `Event payload validated against contract (uri=${handlerContract.uri}, version=${handlerContract.version})`,
+            message: `Event payload validated successfully against contract ${EventDataschemaUtil.create(handlerContract)}`,
           });
 
-          const _handleOutput = await this._handler[handlerContract.version]({
+          logToSpan({
+            level: 'INFO',
+            message: `Executing handler for event type '${event.type}'`,
+          });
+
+          const _handleOutput = await this.handler[handlerContract.version]({
             event,
             source: this.source,
+            span: span,
           });
 
           if (!_handleOutput) return [];
@@ -242,11 +225,13 @@ export default class ArvoEventHandler<
             this.source,
             event,
             this.executionunits,
-            (param, extension) =>
-              eventFactory.emits(param, extension, {
-                tracer: opentelemetry?.tracer ?? fetchOpenTelemetryTracer(),
-              }),
+            (param, extensions) => eventFactory.emits(param, extensions),
           );
+
+          logToSpan({
+            level: 'INFO',
+            message: `Event processing completed successfully. Generated ${result.length} event(s)`,
+          });
 
           logToSpan({
             level: 'INFO',
@@ -261,7 +246,7 @@ export default class ArvoEventHandler<
           exceptionToSpan(error as Error);
           span.setStatus({
             code: SpanStatusCode.ERROR,
-            message: (error as Error).message,
+            message: `Event processing failed: ${(error as Error).message}`,
           });
           const result = eventFactory.systemError(
             {
@@ -277,7 +262,6 @@ export default class ArvoEventHandler<
               accesscontrol: event.accesscontrol ?? undefined,
             },
             {},
-            { tracer: opentelemetry?.tracer ?? fetchOpenTelemetryTracer() },
           );
           Object.entries(result.otelAttributes).forEach(([key, value]) =>
             span.setAttribute(`to_emit.0.${key}`, value),
@@ -287,23 +271,16 @@ export default class ArvoEventHandler<
           span.end();
         }
       },
-    );
+    });
   }
 
   /**
-   * Provides the schema for system error events.
+   * Provides access to the system error event schema configuration.
+   * The schema defines the structure of error events emitted during execution failures.
    *
-   * @returns An object containing the error event type and schema.
-   *
-   * @remarks
-   * This getter defines the structure for system error events that may be emitted
-   * when an unexpected error occurs during event handling. The error event type
-   * is prefixed with 'sys.' followed by the contract's accepted event type and '.error'.
-   * The schema used for these error events is the standard ArvoErrorSchema.
-   *
-   * @example
-   * // If the contract's accepted event type is 'user.created'
-   * // The system error event type would be 'sys.user.created.error'
+   * Error events follow the naming convention: sys.<contract-type>.error
+   * For example, a contract handling 'user.created' events will emit error events
+   * with the type 'sys.user.created.error'.
    */
   public get systemErrorSchema() {
     return this.contract.systemError;

@@ -1,88 +1,139 @@
-# ArvoEventRouter.execute
+# ArvoEventRouter
 
-Below are the execution flow diagrams of the execute function for the handler
+The ArvoEventRouter class provides a robust event routing mechanism for ArvoEvents, directing incoming events to their appropriate handlers while maintaining comprehensive telemetry through OpenTelemetry integration.
+
+## Key Features
+
+- Event routing based on type matching
+- Automatic span and telemetry management
+- Comprehensive error handling and propagation
+- Support for execution cost tracking
+- Handler validation and lifecycle management
+
+## Core Execution Flow
+
+The router's execution process consists of four main phases:
+
+1. **Span Management**
+
+   - Creates and configures OpenTelemetry spans
+   - Establishes tracing context from events or execution environment
+
+2. **Validation Phase**
+
+   - Validates event destination against router source
+   - Locates appropriate handler for event type
+
+3. **Handler Execution**
+
+   - Processes events through matched handlers
+   - Manages event results and transformations
+
+4. **Error Processing**
+   - Creates system error events for failures
+   - Maintains error context and telemetry
+
+## Usage Example
+
+```typescript
+const router = createArvoEventRouter({
+  source: 'order.service',
+  executionunits: 1,
+  handlers: [orderCreatedHandler, orderUpdatedHandler],
+});
+
+const event = createArvoEvent({
+  type: 'order.created',
+  to: 'order.service',
+  // ... other event properties
+});
+
+const results = await router.execute(event);
+```
+
+## Error Handling
+
+The router provides comprehensive error handling for various failure scenarios:
+
+- Invalid event destination
+- Missing handlers
+- Handler execution failures
+- System errors
+
+All errors are transformed into system error events and propagated with appropriate telemetry context.
+
+## Telemetry Integration
+
+OpenTelemetry integration provides detailed execution tracking:
+
+- Span creation and management
+- Error tracking and status updates
+- Event attribute propagation
+- Execution context maintenance
+
+## Implementation Details
+
+See the execution flow and sequence diagrams above for detailed visualization of the router's operation. These diagrams illustrate the complete lifecycle of event processing from initial span creation through to final event delivery or error handling.
+
+For more details on specific components or integration patterns, refer to the related documentation sections:
+
+- ArvoEventHandler
+- OpenTelemetry Integration Guide
+- Event Contract Specifications
 
 ## Execution flow diagram
 
 ```mermaid
-graph TD
-    A[Start] --> B[Create Handler Execution Span]
+stateDiagram-v2
+    [*] --> StartExecution
 
-    subgraph Span Creation
-        B --> C{Check OpenTelemetry Config}
-        C -->|inheritFrom='event'| D[Create Span from Event]
-        C -->|inheritFrom=<else>| E[Create New Span from Current Execution Environment]
+    state SpanManagement {
+        StartExecution --> InitializeSpan: Create Span
+        InitializeSpan --> SetContext: Setup Context
+    }
 
-        D --> F[Set OpenInference Attributes]
-        E --> F
-        F --> G[Set ArvoExecution Attributes]
-        G --> H[Set Span Kind]
-    end
+    state ValidationPhase {
+        SetContext --> ValidateDestination: Validate event.to
+        ValidateDestination --> FindHandler: Valid Destination
+        ValidateDestination --> HandleError: Invalid Destination
 
-    H --> I[Delete OTel Headers from Event]
-    I --> J[Set Span Status OK]
+        FindHandler --> PrepareHandler: Handler Found
+        FindHandler --> HandleError: No Handler Found
+    }
 
-    J --> K{Valid event.to?}
-    K -->|No| L[Throw Error]
-    K -->|Yes| M{Find Handler in Map}
+    state HandlerExecution {
+        PrepareHandler --> ExecuteHandler: Execute
+        ExecuteHandler --> ProcessOutput: Success
+        ExecuteHandler --> HandleError: Failure
 
-    M -->|Not Found| N[Throw Error]
-    M -->|Found| O[Execute Handler]
+        ProcessOutput --> CreateEvents: Has Results
+        ProcessOutput --> ReturnEmpty: No Results
+    }
 
-    O --> P{Handler Success?}
-    P -->|Yes| Q[Process Results]
-    P -->|No| R[Handle Error]
+    state ErrorProcessing {
+        HandleError --> CreateSystemError
+    }
 
-    Q --> S[Add Router Execution Units]
-    S --> T[Add OTel Headers]
-    T --> U[Create New Events]
+    CreateEvents --> FinalizeSpan
+    ReturnEmpty --> FinalizeSpan
+    CreateSystemError --> FinalizeSpan
+    FinalizeSpan --> [*]
 
-    L --> V[Create System Error Event]
-    N --> V
-    R --> V
-    V --> W[Set Error Status & Attributes]
+    note right of SpanManagement
+        OpenTelemetry initialization
+    end note
 
-    U --> X[End Span]
-    W --> X
-    X --> Y[End]
+    note right of ValidationPhase
+        Event routing validation
+    end note
 
-    subgraph Error Handling
-        style V fill:#f88,stroke:#333
-        style W fill:#f88,stroke:#333
-        L
-        N
-        R
-        V
-        W
-    end
+    note right of HandlerExecution
+        Core event processing
+    end note
 
-    subgraph Event Processing
-        style Q fill:#8f8,stroke:#333
-        style S fill:#8f8,stroke:#333
-        style T fill:#8f8,stroke:#333
-        style U fill:#8f8,stroke:#333
-        O
-        P
-        Q
-        S
-        T
-        U
-    end
-
-    subgraph Telemetry Operations
-        style F fill:#f9f,stroke:#333
-        style G fill:#f9f,stroke:#333
-        style H fill:#f9f,stroke:#333
-        style I fill:#f9f,stroke:#333
-        style J fill:#f9f,stroke:#333
-        style X fill:#f9f,stroke:#333
-        F
-        G
-        H
-        I
-        J
-        X
-    end
+    note right of ErrorProcessing
+        Error event creation
+    end note
 ```
 
 ## Execution sequence diagram
@@ -91,63 +142,54 @@ graph TD
 sequenceDiagram
     participant Caller
     participant Router as ArvoEventRouter
-    participant Span as SpanCreation
     participant OTel as OpenTelemetry
-    participant Handler
+    participant Handler as EventHandler
     participant Factory as EventFactory
 
-    Caller->>Router: execute(event)
+    Caller->>Router: execute(event, opentelemetry?)
 
-    Router->>Span: createHandlerExecutionSpan()
+    %% Span Management
+    Router->>OTel: startActiveSpan("ArvoEventRouter")
+    activate Router
 
-    alt opentelemetryConfig.inheritFrom === 'event'
-        Span->>OTel: createSpanFromEvent()
-        OTel-->>Span: Event-based span
-    else default config
-        Span->>OTel: startSpan()
-        OTel-->>Span: New span
+    alt inheritFrom = EVENT
+        Router->>OTel: setContext(event.traceHeaders)
+    else inheritFrom = CONTEXT
+        Router->>OTel: setContext(context.active())
     end
 
-    Span->>OTel: Set OpenInference attributes
-    Span->>OTel: Set ArvoExecution attributes
-    Span->>OTel: Set SpanKind
-    Span-->>Router: Configured span
-
-    Router->>Router: Delete OTel headers from event
-    Router->>OTel: Set status OK
-
+    %% Validation & Routing
     alt Invalid event.to
-        Router->>Factory: Create system error event
-        Factory-->>Router: Error event
-        Router->>OTel: Set error attributes
-        Router->>OTel: End span
-        Router-->>Caller: Return error event
+        Router->>Factory: createSystemError(event)
+        Factory-->>Router: errorEvent
+        Router->>OTel: setSpanStatus(ERROR)
+        Router-->>Caller: [errorEvent]
     else Valid event.to
         alt No handler found
-            Router->>Factory: Create system error event
-            Factory-->>Router: Error event
-            Router->>OTel: Set error attributes
-            Router->>OTel: End span
-            Router-->>Caller: Return error event
+            Router->>Factory: createSystemError(event)
+            Factory-->>Router: errorEvent
+            Router->>OTel: setSpanStatus(ERROR)
+            Router-->>Caller: [errorEvent]
         else Handler found
-            Router->>Handler: execute(event, {inheritFrom: 'execution'})
+            Router->>Handler: execute(event)
+            activate Handler
 
-            alt Handler execution successful
-                Handler-->>Router: Results
-                Router->>Router: Add execution units
-                Router->>Router: Add OTel headers
-                Router->>Factory: Create output events
-                Factory-->>Router: Output events
-                Router->>OTel: End span
-                Router-->>Caller: Return output events
-            else Handler execution failed
-                Handler-->>Router: Throw error
-                Router->>Factory: Create system error event
-                Factory-->>Router: Error event
-                Router->>OTel: Set error attributes
-                Router->>OTel: End span
-                Router-->>Caller: Return error event
+            alt Handler Success
+                Handler-->>Router: resultEvents
+                Router->>Factory: createNewEvents(resultEvents)
+                Factory-->>Router: processedEvents
+                Router-->>Caller: processedEvents
+            else Handler Error
+                Handler-->>Router: throws Error
+                Router->>Factory: createSystemError(error)
+                Factory-->>Router: errorEvent
+                Router->>OTel: setSpanStatus(ERROR)
+                Router-->>Caller: [errorEvent]
             end
+            deactivate Handler
         end
     end
+
+    Router->>OTel: span.end()
+    deactivate Router
 ```

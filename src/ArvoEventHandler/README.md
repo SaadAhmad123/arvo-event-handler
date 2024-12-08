@@ -74,10 +74,7 @@ const myHandler = createArvoEventHandler({
 });
 
 // Execute the handler
-const event = createArvoEvent({
-  // Event with version-specific schema
-  dataschema: 'http://example.com/schema/0.0.1',
-});
+const event = createArvoEvent({ ... });
 const results = await myHandler.execute(event);
 ```
 
@@ -139,11 +136,6 @@ const results = await myHandler.execute(event);
 const handler = createArvoEventHandler({
   contract: myContract,
   executionunits: 100,
-  spanKind: {
-    openInference: OpenInferenceSpanKind.CHAIN,
-    arvoExecution: ArvoExecutionSpanKind.EVENT_HANDLER,
-    openTelemetry: SpanKind.INTERNAL,
-  },
 });
 ```
 

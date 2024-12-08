@@ -2,37 +2,20 @@ import { ArvoEventRouter } from '.';
 import { IArvoEventRouter } from './types';
 
 /**
- * Creates and returns a new instance of ArvoEventRouter.
+ * Creates a new ArvoEventRouter instance with the provided configuration.
+ * Validates source format and ensures unique handlers per event type.
  *
- * @param {IArvoEventRouter} param - Configuration object for the ArvoEventRouter.
- * @returns {ArvoEventRouter} A new instance of ArvoEventRouter.
- *
- * @throws {Error} If there are duplicate handlers for the same event type.
- * @throws {Error} If the provided source is an invalid string.
+ * @param param Configuration for router initialization including source,
+ * handlers, and execution metrics
+ * @returns Configured ArvoEventRouter instance
+ * @throws When handlers have duplicate event types or source format is invalid
  *
  * @example
  * const router = createArvoEventRouter({
- *   source: 'my-router',
- *   handlers: [handler1, handler2],
+ *   source: 'payment.service',
+ *   handlers: [paymentHandler, notificationHandler],
  *   executionunits: 10
  * });
- *
- * @remarks
- * This function is a factory method that simplifies the creation of an ArvoEventRouter instance.
- * It encapsulates the instantiation process, allowing for a more concise and readable way to create routers.
- *
- * The `IArvoEventRouter` parameter should include:
- * - `source`: (optional) A string identifying the source of the router. Used to match the `event.to` field.
- * - `handlers`: An array of ArvoEventHandler instances that the router will use to process events.
- * - `executionunits`: A number representing the default execution cost of the function.
- *
- * The created ArvoEventRouter will:
- * - Validate the source string if provided.
- * - Check for and prevent duplicate handlers for the same event type.
- * - Set up internal data structures for efficient event routing.
- *
- * @see {@link ArvoEventRouter} for more details on the router's functionality.
- * @see {@link IArvoEventRouter} for the structure of the configuration object.
  */
 export const createArvoEventRouter = (param: IArvoEventRouter) =>
   new ArvoEventRouter(param);
