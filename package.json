@@ -1,6 +1,6 @@
 {
   "name": "arvo-event-handler",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "description": "Type-safe event handler system with versioning, telemetry, and contract validation for distributed Arvo event-driven architectures, featuring routing and multi-handler support.",
   "main": "dist/index.js",
   "scripts": {

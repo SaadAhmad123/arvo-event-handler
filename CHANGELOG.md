@@ -27,3 +27,7 @@
 ## [2.0.0] - 2024-11-26
 
 - Added support for versioned contracts in event handler for better versioning support
+## [2.1.1] - 2024-12-10
+
+- Updated the telemetry implementation to be more streamlined, fixed some minor bugs and added better telemetry logging
+
