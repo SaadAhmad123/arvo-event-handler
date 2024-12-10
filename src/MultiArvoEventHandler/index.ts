@@ -1,9 +1,7 @@
 import {
-  context,
   SpanKind,
   SpanOptions,
   SpanStatusCode,
-  trace,
 } from '@opentelemetry/api';
 import {
   ArvoEvent,
@@ -12,7 +10,6 @@ import {
   currentOpenTelemetryHeaders,
   createArvoEvent,
   ArvoErrorSchema,
-  cleanString,
   ArvoExecution,
   OpenInference,
   ArvoOpenTelemetry,
@@ -30,6 +27,7 @@ import {
 } from '../utils';
 import AbstractArvoEventHandler from '../AbstractArvoEventHandler';
 import { ArvoEventHandlerOpenTelemetryOptions } from '../types';
+import { createEventHandlerTelemetryConfig } from '../utils';
 
 /**
  * MultiArvoEventHandler processes multiple event types without being bound to specific contracts.
@@ -98,23 +96,14 @@ export default class MultiArvoEventHandler extends AbstractArvoEventHandler {
       inheritFrom: 'EVENT',
     },
   ): Promise<ArvoEvent[]> {
+    const otelConfig = createEventHandlerTelemetryConfig(
+      'MutliArvoEventHandler',
+      this.spanOptions,
+      opentelemetry,
+      event,
+    )
     return await ArvoOpenTelemetry.getInstance().startActiveSpan({
-      name: 'MutliArvoEventHandler',
-      spanOptions: this.spanOptions,
-      disableSpanManagement: true,
-      context:
-        opentelemetry.inheritFrom === 'EVENT'
-          ? {
-              inheritFrom: 'TRACE_HEADERS',
-              traceHeaders: {
-                traceparent: event.traceparent,
-                tracestate: event.tracestate,
-              },
-            }
-          : {
-              inheritFrom: 'CONTEXT',
-              context: context.active(),
-            },
+      ...otelConfig,
       fn: async (span) => {
         const otelSpanHeaders = currentOpenTelemetryHeaders();
         try {

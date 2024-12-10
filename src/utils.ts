@@ -6,7 +6,8 @@ import {
 } from 'arvo-core';
 import { ArvoEventHandlerFunctionOutput } from './ArvoEventHandler/types';
 import { MultiArvoEventHandlerFunctionOutput } from './MultiArvoEventHandler/types';
-import { SpanStatusCode, trace } from '@opentelemetry/api';
+import { context, SpanOptions, SpanStatusCode, trace } from '@opentelemetry/api';
+import { ArvoEventHandlerOpenTelemetryOptions } from './types';
 
 /**
  * Checks if the item is null or undefined.
@@ -190,3 +191,26 @@ export function isLowerAlphanumeric(input: string): boolean {
   const alphanumericRegex = /^[a-z0-9.]+$/;
   return alphanumericRegex.test(input);
 }
+
+export const createEventHandlerTelemetryConfig = (
+  name: string,
+  options: SpanOptions,
+  contextConfig: ArvoEventHandlerOpenTelemetryOptions,
+  event: ArvoEvent
+) => ({
+  name: name,
+  disableSpanManagement: true,
+  context: contextConfig.inheritFrom === 'EVENT'
+  ? {
+      inheritFrom: 'TRACE_HEADERS' as const,
+      traceHeaders: {
+        traceparent: event.traceparent,
+        tracestate: event.tracestate,
+      },
+    }
+  : {
+      inheritFrom: 'CONTEXT' as const,
+      context: context.active(),
+    },
+    
+})

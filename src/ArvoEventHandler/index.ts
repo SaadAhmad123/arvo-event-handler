@@ -20,12 +20,11 @@ import {
   ArvoEventHandlerFunctionOutput,
 } from './types';
 import {
-  context,
   SpanStatusCode,
   SpanOptions,
   SpanKind,
 } from '@opentelemetry/api';
-import { eventHandlerOutputEventCreator } from '../utils';
+import { createEventHandlerTelemetryConfig, eventHandlerOutputEventCreator } from '../utils';
 import AbstractArvoEventHandler from '../AbstractArvoEventHandler';
 import { ArvoEventHandlerOpenTelemetryOptions } from '../types';
 
@@ -90,8 +89,8 @@ export default class ArvoEventHandler<
         [ArvoExecution.ATTR_SPAN_KIND]: ArvoExecutionSpanKind.EVENT_HANDLER,
         [OpenInference.ATTR_SPAN_KIND]: OpenInferenceSpanKind.CHAIN,
         ...(param.spanOptions?.attributes ?? {}),
-        'arvo.contract.uri': this.contract.uri,
         'arvo.handler.source': this.source,
+        'arvo.contract.uri': this.contract.uri,
       },
     };
   }
@@ -129,23 +128,14 @@ export default class ArvoEventHandler<
       inheritFrom: 'EVENT',
     },
   ): Promise<ArvoEvent[]> {
+    const otelConfig = createEventHandlerTelemetryConfig(
+      'ArvoEventHandler',
+      this.spanOptions,
+      opentelemetry,
+      event
+    )
     return await ArvoOpenTelemetry.getInstance().startActiveSpan({
-      name: 'ArvoEventHandler',
-      spanOptions: this.spanOptions,
-      disableSpanManagement: true,
-      context:
-        opentelemetry.inheritFrom === 'EVENT'
-          ? {
-              inheritFrom: 'TRACE_HEADERS',
-              traceHeaders: {
-                traceparent: event.traceparent,
-                tracestate: event.tracestate,
-              },
-            }
-          : {
-              inheritFrom: 'CONTEXT',
-              context: context.active(),
-            },
+      ...otelConfig,
       fn: async (span) => {
         const otelSpanHeaders = currentOpenTelemetryHeaders();
         try {
