@@ -66,7 +66,7 @@ describe('ArvoEventHandler', () => {
   };
 
   it('should create an instance with default source', () => {
-    const handler = new ArvoEventHandler({
+    const handler = createArvoEventHandler({
       contract: mockContract,
       executionunits: 100,
       handler: mockHandlerFunction,
@@ -75,7 +75,7 @@ describe('ArvoEventHandler', () => {
   });
 
   it('should execute handler successfully', async () => {
-    const handler = new ArvoEventHandler({
+    const handler = createArvoEventHandler({
       contract: mockContract,
       executionunits: 100,
       handler: mockHandlerFunction,
@@ -86,7 +86,7 @@ describe('ArvoEventHandler', () => {
   });
 
   it('should handle validation error', async () => {
-    const handler = new ArvoEventHandler({
+    const handler = createArvoEventHandler({
       contract: mockContract,
       executionunits: 100,
       handler: mockHandlerFunction,
@@ -129,7 +129,7 @@ describe('ArvoEventHandler', () => {
         traceparent: otelHeaders.traceparent ?? undefined,
         tracestate: otelHeaders.tracestate ?? undefined,
       });
-      const handler = new ArvoEventHandler({
+      const handler = createArvoEventHandler({
         contract: mockContract,
         executionunits: 100,
         handler: {
@@ -161,11 +161,11 @@ describe('ArvoEventHandler', () => {
         traceparent: otelHeaders.traceparent ?? undefined,
         tracestate: otelHeaders.tracestate ?? undefined,
       });
-      const handler = new ArvoEventHandler({
+      const handler = createArvoEventHandler({
         contract: mockContract,
         executionunits: 100,
         handler: {
-          '0.0.1': async () => {},
+          '0.0.1': async () => { },
         },
       });
       const result = await handler.execute(mockEvent);
@@ -223,7 +223,7 @@ describe('ArvoEventHandler', () => {
   });
 
   it('should allow to discover the system error message', () => {
-    const handler = new ArvoEventHandler({
+    const handler = createArvoEventHandler({
       contract: mockContract,
       executionunits: 100,
       handler: mockHandlerFunction,
@@ -235,15 +235,180 @@ describe('ArvoEventHandler', () => {
   });
 
   it('should not return any output if the handler does not', async () => {
-    const handler = new ArvoEventHandler({
+    const handler = createArvoEventHandler({
       contract: mockContract,
       executionunits: 100,
       handler: {
-        '0.0.1': async () => {},
+        '0.0.1': async () => { },
       },
     });
 
     const events = await handler.execute(mockEvent);
     expect(events.length).toBe(0);
   });
+
+  it('should handle multiple contract versions', () => {
+    const multiVersionContract = createArvoContract({
+      uri: '#/test/MultiVersion',
+      type: 'com.hello.world',
+      versions: {
+        '0.0.1': {
+          accepts: z.object({
+            name: z.string(),
+          }),
+          emits: {
+            'evt.hello.success': z.object({ result: z.string() }),
+          }
+        },
+        '0.0.2': {
+          accepts: z.object({
+            name: z.string(),
+            title: z.string(),
+          }),
+          emits: {
+            'evt.hello.success': z.object({ result: z.string() }),
+          }
+        }
+      }
+    });
+
+    const handler = createArvoEventHandler({
+      contract: multiVersionContract,
+      executionunits: 100,
+      handler: {
+        '0.0.1': async ({ event }) => ({
+          type: 'evt.hello.success',
+          data: { result: `Hello ${event.data.name}` }
+        }),
+        '0.0.2': async ({ event }) => ({
+          type: 'evt.hello.success',
+          data: { result: `Hello ${event.data.title} ${event.data.name}` }
+        })
+      }
+    });
+
+    expect(handler).toBeDefined();
+  });
+
+  it('should throw error when handler implementation is missing for a version', () => {
+    const contract = createArvoContract({
+      uri: '#/test/Missing',
+      type: 'com.hello.world',
+      versions: {
+        '0.0.1': {
+          accepts: z.object({ name: z.string() }),
+          emits: {
+            'evt.hello.success': z.object({ result: z.string() }),
+          }
+        },
+        '0.0.2': {
+          accepts: z.object({ name: z.string() }),
+          emits: {
+            'evt.hello.success': z.object({ result: z.string() }),
+          }
+        }
+      }
+    });
+
+    expect(() => createArvoEventHandler({
+      contract,
+      executionunits: 100,
+      // @ts-ignore
+      handler: {
+        '0.0.1': async () => ({
+          type: 'evt.hello.success',
+          data: { result: 'hello' }
+        })
+        // Missing 0.0.2 handler
+      }
+    })).toThrow(/requires handler implementation/);
+  });
+
+  it('should handle events with dataschema version specification', async () => {
+    const eventWithSchema = createArvoEvent({
+      type: 'com.hello.world',
+      source: 'test',
+      subject: 'test',
+      to: 'com.hello.world',
+      dataschema: '#/test/ArvoEventHandler/0.0.1',
+      data: {
+        name: 'Test',
+        age: 25
+      }
+    });
+
+    const handler = createArvoEventHandler({
+      contract: mockContract,
+      executionunits: 100,
+      handler: mockHandlerFunction,
+    });
+
+    const result = await handler.execute(eventWithSchema);
+    expect(result[0].type).toBe('evt.hello.world.success');
+  });
+
+  it('should reject events with mismatched contract URI in dataschema', async () => {
+    const eventWithWrongSchema = createArvoEvent({
+      type: 'com.hello.world',
+      source: 'test',
+      subject: 'test',
+      to: 'com.hello.world',
+      dataschema: '#/wrong/contract/0.0.1',
+      data: {
+        name: 'Test',
+        age: 25
+      }
+    });
+
+    const handler = createArvoEventHandler({
+      contract: mockContract,
+      executionunits: 100,
+      handler: mockHandlerFunction,
+    });
+
+    const result = await handler.execute(eventWithWrongSchema);
+    expect(result[0].type).toBe('sys.com.hello.world.error');
+    console.log(result[0].data.errorMessage)
+    expect(result[0].data.errorMessage).toContain(`Contract URI mismatch: Handler expects '#/test/ArvoEventHandler' but event dataschema specifies '#/wrong/contract/0.0.1'. Events must reference the same contract URI as their handler.`);
+  });
+
+  it('should support custom span options', async () => {
+    const customSpanOptions = {
+      attributes: {
+        'custom.attribute': 'test-value'
+      }
+    };
+
+    const handler = createArvoEventHandler({
+      contract: mockContract,
+      executionunits: 100,
+      handler: mockHandlerFunction,
+      spanOptions: customSpanOptions
+    });
+
+    expect(handler.spanOptions.attributes?.['custom.attribute']).toBe('test-value');
+    const result = await handler.execute(mockEvent);
+    expect(result[0].type).toBe('evt.hello.world.success');
+  });
+
+  it('should handle single output as non-array', async () => {
+    const handler = createArvoEventHandler({
+      contract: mockContract,
+      executionunits: 100,
+      handler: {
+        '0.0.1': async ({ event }) => ({
+          type: 'evt.hello.world.success',
+          data: {
+            result: `Single output for ${event.data.name}`
+          }
+        })
+      }
+    });
+
+    const result = await handler.execute(mockEvent);
+    expect(result).toHaveLength(1);
+    expect(result[0].type).toBe('evt.hello.world.success');
+  });
+
+
 });

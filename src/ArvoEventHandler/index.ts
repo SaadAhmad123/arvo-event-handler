@@ -154,8 +154,12 @@ export default class ArvoEventHandler<
             level: 'INFO',
             message: `Event type '${event.type}' validated against contract '${this.contract.uri}'`,
           });
-
           const parsedDataSchema = EventDataschemaUtil.parse(event);
+          if (parsedDataSchema?.uri && parsedDataSchema?.uri !== this.contract.uri) {
+            throw new Error(
+              `Contract URI mismatch: Handler expects '${this.contract.uri}' but event dataschema specifies '${event.dataschema}'. Events must reference the same contract URI as their handler.`
+            );
+          }
           if (!parsedDataSchema?.version) {
             logToSpan({
               level: 'WARNING',
