@@ -19,12 +19,11 @@ import {
   ArvoEventHandlerFunction,
   ArvoEventHandlerFunctionOutput,
 } from './types';
+import { SpanStatusCode, SpanOptions, SpanKind } from '@opentelemetry/api';
 import {
-  SpanStatusCode,
-  SpanOptions,
-  SpanKind,
-} from '@opentelemetry/api';
-import { createEventHandlerTelemetryConfig, eventHandlerOutputEventCreator } from '../utils';
+  createEventHandlerTelemetryConfig,
+  eventHandlerOutputEventCreator,
+} from '../utils';
 import AbstractArvoEventHandler from '../AbstractArvoEventHandler';
 import { ArvoEventHandlerOpenTelemetryOptions } from '../types';
 
@@ -132,8 +131,8 @@ export default class ArvoEventHandler<
       'ArvoEventHandler',
       this.spanOptions,
       opentelemetry,
-      event
-    )
+      event,
+    );
     return await ArvoOpenTelemetry.getInstance().startActiveSpan({
       ...otelConfig,
       fn: async (span) => {
@@ -155,9 +154,12 @@ export default class ArvoEventHandler<
             message: `Event type '${event.type}' validated against contract '${this.contract.uri}'`,
           });
           const parsedDataSchema = EventDataschemaUtil.parse(event);
-          if (parsedDataSchema?.uri && parsedDataSchema?.uri !== this.contract.uri) {
+          if (
+            parsedDataSchema?.uri &&
+            parsedDataSchema?.uri !== this.contract.uri
+          ) {
             throw new Error(
-              `Contract URI mismatch: Handler expects '${this.contract.uri}' but event dataschema specifies '${event.dataschema}'. Events must reference the same contract URI as their handler.`
+              `Contract URI mismatch: Handler expects '${this.contract.uri}' but event dataschema specifies '${event.dataschema}'. Events must reference the same contract URI as their handler.`,
             );
           }
           if (!parsedDataSchema?.version) {

@@ -165,7 +165,7 @@ describe('ArvoEventHandler', () => {
         contract: mockContract,
         executionunits: 100,
         handler: {
-          '0.0.1': async () => { },
+          '0.0.1': async () => {},
         },
       });
       const result = await handler.execute(mockEvent);
@@ -239,7 +239,7 @@ describe('ArvoEventHandler', () => {
       contract: mockContract,
       executionunits: 100,
       handler: {
-        '0.0.1': async () => { },
+        '0.0.1': async () => {},
       },
     });
 
@@ -258,7 +258,7 @@ describe('ArvoEventHandler', () => {
           }),
           emits: {
             'evt.hello.success': z.object({ result: z.string() }),
-          }
+          },
         },
         '0.0.2': {
           accepts: z.object({
@@ -267,9 +267,9 @@ describe('ArvoEventHandler', () => {
           }),
           emits: {
             'evt.hello.success': z.object({ result: z.string() }),
-          }
-        }
-      }
+          },
+        },
+      },
     });
 
     const handler = createArvoEventHandler({
@@ -278,13 +278,13 @@ describe('ArvoEventHandler', () => {
       handler: {
         '0.0.1': async ({ event }) => ({
           type: 'evt.hello.success',
-          data: { result: `Hello ${event.data.name}` }
+          data: { result: `Hello ${event.data.name}` },
         }),
         '0.0.2': async ({ event }) => ({
           type: 'evt.hello.success',
-          data: { result: `Hello ${event.data.title} ${event.data.name}` }
-        })
-      }
+          data: { result: `Hello ${event.data.title} ${event.data.name}` },
+        }),
+      },
     });
 
     expect(handler).toBeDefined();
@@ -299,29 +299,31 @@ describe('ArvoEventHandler', () => {
           accepts: z.object({ name: z.string() }),
           emits: {
             'evt.hello.success': z.object({ result: z.string() }),
-          }
+          },
         },
         '0.0.2': {
           accepts: z.object({ name: z.string() }),
           emits: {
             'evt.hello.success': z.object({ result: z.string() }),
-          }
-        }
-      }
+          },
+        },
+      },
     });
 
-    expect(() => createArvoEventHandler({
-      contract,
-      executionunits: 100,
-      // @ts-ignore
-      handler: {
-        '0.0.1': async () => ({
-          type: 'evt.hello.success',
-          data: { result: 'hello' }
-        })
-        // Missing 0.0.2 handler
-      }
-    })).toThrow(/requires handler implementation/);
+    expect(() =>
+      createArvoEventHandler({
+        contract,
+        executionunits: 100,
+        // @ts-ignore
+        handler: {
+          '0.0.1': async () => ({
+            type: 'evt.hello.success',
+            data: { result: 'hello' },
+          }),
+          // Missing 0.0.2 handler
+        },
+      }),
+    ).toThrow(/requires handler implementation/);
   });
 
   it('should handle events with dataschema version specification', async () => {
@@ -333,8 +335,8 @@ describe('ArvoEventHandler', () => {
       dataschema: '#/test/ArvoEventHandler/0.0.1',
       data: {
         name: 'Test',
-        age: 25
-      }
+        age: 25,
+      },
     });
 
     const handler = createArvoEventHandler({
@@ -356,8 +358,8 @@ describe('ArvoEventHandler', () => {
       dataschema: '#/wrong/contract/0.0.1',
       data: {
         name: 'Test',
-        age: 25
-      }
+        age: 25,
+      },
     });
 
     const handler = createArvoEventHandler({
@@ -368,25 +370,29 @@ describe('ArvoEventHandler', () => {
 
     const result = await handler.execute(eventWithWrongSchema);
     expect(result[0].type).toBe('sys.com.hello.world.error');
-    console.log(result[0].data.errorMessage)
-    expect(result[0].data.errorMessage).toContain(`Contract URI mismatch: Handler expects '#/test/ArvoEventHandler' but event dataschema specifies '#/wrong/contract/0.0.1'. Events must reference the same contract URI as their handler.`);
+    console.log(result[0].data.errorMessage);
+    expect(result[0].data.errorMessage).toContain(
+      `Contract URI mismatch: Handler expects '#/test/ArvoEventHandler' but event dataschema specifies '#/wrong/contract/0.0.1'. Events must reference the same contract URI as their handler.`,
+    );
   });
 
   it('should support custom span options', async () => {
     const customSpanOptions = {
       attributes: {
-        'custom.attribute': 'test-value'
-      }
+        'custom.attribute': 'test-value',
+      },
     };
 
     const handler = createArvoEventHandler({
       contract: mockContract,
       executionunits: 100,
       handler: mockHandlerFunction,
-      spanOptions: customSpanOptions
+      spanOptions: customSpanOptions,
     });
 
-    expect(handler.spanOptions.attributes?.['custom.attribute']).toBe('test-value');
+    expect(handler.spanOptions.attributes?.['custom.attribute']).toBe(
+      'test-value',
+    );
     const result = await handler.execute(mockEvent);
     expect(result[0].type).toBe('evt.hello.world.success');
   });
@@ -399,16 +405,14 @@ describe('ArvoEventHandler', () => {
         '0.0.1': async ({ event }) => ({
           type: 'evt.hello.world.success',
           data: {
-            result: `Single output for ${event.data.name}`
-          }
-        })
-      }
+            result: `Single output for ${event.data.name}`,
+          },
+        }),
+      },
     });
 
     const result = await handler.execute(mockEvent);
     expect(result).toHaveLength(1);
     expect(result[0].type).toBe('evt.hello.world.success');
   });
-
-
 });

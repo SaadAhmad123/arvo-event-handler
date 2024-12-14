@@ -7,52 +7,52 @@ Below are the execution flow diagrams of the execute function for the handler
 ```mermaid
 stateDiagram-v2
     [*] --> StartExecution
-    
+
     state SpanManagement {
         StartExecution --> InitializeSpan
         InitializeSpan --> SetContext: Configure Context
         SetContext --> SetAttributes: Set Initial Attributes
     }
-    
+
     state EventValidation {
         SetAttributes --> ValidateDestination
         ValidateDestination --> ExecuteHandler: Valid Destination
         ValidateDestination --> HandleError: Invalid Destination
     }
-    
+
     state HandlerExecution {
         ExecuteHandler --> ProcessOutput: Success
         ExecuteHandler --> HandleError: Failure
-        
+
         ProcessOutput --> CreateEvents: Has Output
         ProcessOutput --> ReturnEmpty: No Output
     }
-    
+
     state ErrorProcessing {
         HandleError --> CreateSystemError
         CreateSystemError --> SetErrorAttributes
     }
-    
+
     CreateEvents --> FinalizeSpan
     ReturnEmpty --> FinalizeSpan
     SetErrorAttributes --> FinalizeSpan
     FinalizeSpan --> [*]
-    
+
     note right of SpanManagement
         OpenTelemetry initialization
         and context setup
     end note
-    
+
     note right of EventValidation
         Validates event destination
         matches handler source
     end note
-    
+
     note right of HandlerExecution
         Processes events through
         handler function
     end note
-    
+
     note right of ErrorProcessing
         Handles errors and creates
         error events
@@ -70,19 +70,19 @@ sequenceDiagram
     participant Factory as EventFactory
 
     Caller->>Handler: execute(event, opentelemetry?)
-    
+
     %% Span Management
     Handler->>OTel: startActiveSpan("MultiArvoEventHandler")
     activate Handler
-    
+
     alt inheritFrom = EVENT
         Handler->>OTel: setContext(event.traceHeaders)
     else inheritFrom = CONTEXT
         Handler->>OTel: setContext(context.active())
     end
-    
+
     Handler->>OTel: setAttributes(event.otelAttributes)
-    
+
     %% Event Validation
     alt Invalid Destination
         Handler->>Factory: createHandlerErrorOutputEvent()
@@ -91,7 +91,7 @@ sequenceDiagram
         Handler-->>Caller: [errorEvent]
     else Valid Destination
         Handler->>Function: handler(event, source)
-        
+
         alt Handler Success
             Function-->>Handler: output
             Handler->>Factory: eventHandlerOutputEventCreator()
@@ -108,7 +108,7 @@ sequenceDiagram
             Handler-->>Caller: [errorEvent]
         end
     end
-    
+
     Handler->>OTel: span.end()
     deactivate Handler
 ```

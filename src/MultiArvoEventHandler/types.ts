@@ -12,7 +12,7 @@ export type MultiArvoEventHandlerFunctionInput = {
   source: string;
 
   /** The OpenTelemetry span */
-  span: Span
+  span: Span;
 };
 
 /**

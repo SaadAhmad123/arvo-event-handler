@@ -6,7 +6,12 @@ import {
 } from 'arvo-core';
 import { ArvoEventHandlerFunctionOutput } from './ArvoEventHandler/types';
 import { MultiArvoEventHandlerFunctionOutput } from './MultiArvoEventHandler/types';
-import { context, SpanOptions, SpanStatusCode, trace } from '@opentelemetry/api';
+import {
+  context,
+  SpanOptions,
+  SpanStatusCode,
+  trace,
+} from '@opentelemetry/api';
 import { ArvoEventHandlerOpenTelemetryOptions } from './types';
 
 /**
@@ -196,21 +201,21 @@ export const createEventHandlerTelemetryConfig = (
   name: string,
   options: SpanOptions,
   contextConfig: ArvoEventHandlerOpenTelemetryOptions,
-  event: ArvoEvent
+  event: ArvoEvent,
 ) => ({
   name: name,
   disableSpanManagement: true,
-  context: contextConfig.inheritFrom === 'EVENT'
-  ? {
-      inheritFrom: 'TRACE_HEADERS' as const,
-      traceHeaders: {
-        traceparent: event.traceparent,
-        tracestate: event.tracestate,
-      },
-    }
-  : {
-      inheritFrom: 'CONTEXT' as const,
-      context: context.active(),
-    },
-    
-})
+  context:
+    contextConfig.inheritFrom === 'EVENT'
+      ? {
+          inheritFrom: 'TRACE_HEADERS' as const,
+          traceHeaders: {
+            traceparent: event.traceparent,
+            tracestate: event.tracestate,
+          },
+        }
+      : {
+          inheritFrom: 'CONTEXT' as const,
+          context: context.active(),
+        },
+});

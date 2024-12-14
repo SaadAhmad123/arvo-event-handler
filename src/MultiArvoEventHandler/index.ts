@@ -1,8 +1,4 @@
-import {
-  SpanKind,
-  SpanOptions,
-  SpanStatusCode,
-} from '@opentelemetry/api';
+import { SpanKind, SpanOptions, SpanStatusCode } from '@opentelemetry/api';
 import {
   ArvoEvent,
   ArvoExecutionSpanKind,
@@ -101,7 +97,7 @@ export default class MultiArvoEventHandler extends AbstractArvoEventHandler {
       this.spanOptions,
       opentelemetry,
       event,
-    )
+    );
     return await ArvoOpenTelemetry.getInstance().startActiveSpan({
       ...otelConfig,
       fn: async (span) => {
@@ -126,7 +122,7 @@ export default class MultiArvoEventHandler extends AbstractArvoEventHandler {
           const _handlerOutput = await this.handler({
             event,
             source: this.source,
-            span
+            span,
           });
 
           if (!_handlerOutput) return [];
