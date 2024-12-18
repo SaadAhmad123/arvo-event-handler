@@ -102,6 +102,21 @@ export default class ArvoEventHandler<
    * - Success events: Routes based on priority (handler result -> redirectto -> source)
    * - Error events: Always routes back to the source
    *
+   * Telemetry Integration:
+   * - Creates and manages OpenTelemetry spans for execution tracking
+   * - Propagates trace context through the event chain
+   * - Records execution metrics and error details
+   *
+   * Version Resolution:
+   * - Extracts version from event dataschema
+   * - Falls back to latest version if unspecified
+   * - Validates event data against versioned contract schema
+   *
+   * Error Handling:
+   * - Converts all errors to system error events
+   * - Maintains telemetry context for error scenarios
+   * - Ensures proper error event routing
+   *
    * @param event - The event to process
    * @param opentelemetry - Configuration for OpenTelemetry context inheritance
    * @returns Promise resolving to array of result events or error event
