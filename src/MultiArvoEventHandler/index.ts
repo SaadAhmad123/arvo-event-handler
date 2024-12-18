@@ -20,10 +20,10 @@ import {
   createHandlerErrorOutputEvent,
   eventHandlerOutputEventCreator,
   isLowerAlphanumeric,
+  createEventHandlerTelemetryConfig
 } from '../utils';
 import AbstractArvoEventHandler from '../AbstractArvoEventHandler';
 import { ArvoEventHandlerOpenTelemetryOptions } from '../types';
-import { createEventHandlerTelemetryConfig } from '../utils';
 
 /**
  * MultiArvoEventHandler processes multiple event types without being bound to specific contracts.
