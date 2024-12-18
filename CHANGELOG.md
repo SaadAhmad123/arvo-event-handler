@@ -31,3 +31,7 @@
 ## [2.1.1] - 2024-12-10
 
 - Updated the telemetry implementation to be more streamlined, fixed some minor bugs and added better telemetry logging
+## [2.1.3] - 2024-12-19
+
+- Updated the opentelemetry core version and arvo core versions
+
