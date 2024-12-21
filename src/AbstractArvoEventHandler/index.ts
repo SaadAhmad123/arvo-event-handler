@@ -13,6 +13,11 @@ import { ArvoEventHandlerOpenTelemetryOptions } from '../types';
  */
 export default abstract class AbstractArvoEventHandler {
   /**
+   * Unique identifier for the event handler source system
+   */
+  public abstract source: string
+
+  /**
    * Executes the event handling logic for a given Arvo event.
    *
    * @abstract
