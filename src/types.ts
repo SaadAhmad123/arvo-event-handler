@@ -28,10 +28,11 @@ export type ArvoEventHandlerOpenTelemetryOptions = {
 };
 
 /**
- * Factory function type for creating event handlers
- *
- * @template T - Configuration parameter type
+ * Type definition for event handler factory functions.
+ * Creates configured event handlers from given parameters.
+ * 
+ * @template T - Configuration object type
  */
-export type EventHandlerFactory<
-  T extends Record<string, any> = Record<string, any>,
-> = (param: T) => AbstractArvoEventHandler;
+export type EventHandlerFactory<T = void> = T extends void 
+  ? () => AbstractArvoEventHandler 
+  : (config: T) => AbstractArvoEventHandler;
