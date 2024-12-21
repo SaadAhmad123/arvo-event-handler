@@ -35,4 +35,3 @@
 ## [2.1.4] - 2024-12-19
 
 - Updated the opentelemetry core version and arvo core versions
-

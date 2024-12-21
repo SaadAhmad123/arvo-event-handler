@@ -20,7 +20,7 @@ import {
   createHandlerErrorOutputEvent,
   eventHandlerOutputEventCreator,
   isLowerAlphanumeric,
-  createEventHandlerTelemetryConfig
+  createEventHandlerTelemetryConfig,
 } from '../utils';
 import AbstractArvoEventHandler from '../AbstractArvoEventHandler';
 import { ArvoEventHandlerOpenTelemetryOptions } from '../types';
