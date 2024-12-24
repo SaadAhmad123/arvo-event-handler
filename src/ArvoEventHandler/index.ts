@@ -128,7 +128,7 @@ export default class ArvoEventHandler<
     },
   ): Promise<ArvoEvent[]> {
     const otelConfig = createEventHandlerTelemetryConfig(
-      'ArvoEventHandler',
+      `ArvoEventHandler<${this.contract.uri}>`,
       this.spanOptions,
       opentelemetry,
       event,

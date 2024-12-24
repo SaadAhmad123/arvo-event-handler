@@ -205,6 +205,7 @@ export const createEventHandlerTelemetryConfig = (
 ) => ({
   name: name,
   disableSpanManagement: true,
+  spanOptions: options,
   context:
     contextConfig.inheritFrom === 'EVENT'
       ? {
