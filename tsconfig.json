@@ -24,7 +24,8 @@
     "plugin": [
       "typedoc-plugin-zod",
       "typedoc-plugin-mermaid",
-      "typedoc-github-theme"
+      "typedoc-github-theme",
+      "typedoc-plugin-coverage"
     ],
     "out": "docs"
   }
