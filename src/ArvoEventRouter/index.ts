@@ -5,7 +5,6 @@ import {
   ArvoExecution,
   ArvoExecutionSpanKind,
   ArvoOpenTelemetry,
-  cleanString,
   createArvoEvent,
   currentOpenTelemetryHeaders,
   logToSpan,
