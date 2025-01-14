@@ -13,6 +13,7 @@ import {
   ArvoExecution,
   OpenInference,
   ArvoOpenTelemetry,
+  ArvoContractViolationError,
 } from 'arvo-core';
 import {
   IArvoEventHandler,
@@ -26,6 +27,7 @@ import {
 } from '../utils';
 import AbstractArvoEventHandler from '../AbstractArvoEventHandler';
 import { ArvoEventHandlerOpenTelemetryOptions } from '../types';
+import { ArvoHandlerExecutionError } from '../errors';
 
 /**
  * ArvoEventHandler manages the execution and processing of events in accordance with
@@ -144,7 +146,7 @@ export default class ArvoEventHandler<
           );
 
           if (this.contract.type !== event.type) {
-            throw new Error(
+            throw new ArvoContractViolationError(
               `Event type mismatch: Received '${event.type}', expected '${this.contract.type}'`,
             );
           }
@@ -158,7 +160,7 @@ export default class ArvoEventHandler<
             parsedDataSchema?.uri &&
             parsedDataSchema?.uri !== this.contract.uri
           ) {
-            throw new Error(
+            throw new ArvoContractViolationError(
               `Contract URI mismatch: Handler expects '${this.contract.uri}' but event dataschema specifies '${event.dataschema}'. Events must reference the same contract URI as their handler.`,
             );
           }
@@ -182,7 +184,7 @@ export default class ArvoEventHandler<
             event.data,
           );
           if (inputEventValidation.error) {
-            throw new Error(
+            throw new ArvoContractViolationError(
               `Event payload validation failed: ${inputEventValidation.error}`,
             );
           }
@@ -236,14 +238,23 @@ export default class ArvoEventHandler<
 
           return result;
         } catch (error) {
-          const eventFactory = createArvoEventFactory(
-            this.contract.version('latest'),
-          );
           exceptionToSpan(error as Error);
           span.setStatus({
             code: SpanStatusCode.ERROR,
             message: `Event processing failed: ${(error as Error).message}`,
           });
+
+          if ((error as ArvoContractViolationError).name === 'ArvoContractViolationError') {
+            throw error
+          }
+
+          if ((error as ArvoHandlerExecutionError).name === 'ArvoHandlerExecutionError') {
+            throw error
+          }
+
+          const eventFactory = createArvoEventFactory(
+            this.contract.version('latest'),
+          );
           const result = eventFactory.systemError(
             {
               source: this.source,

@@ -8,7 +8,7 @@ import {
 import { telemetrySdkStart, telemetrySdkStop } from '../utils';
 import { z } from 'zod';
 import {
-  ArvoEventHandler,
+  ArvoHandlerExecutionError,
   ArvoEventHandlerFunction,
   createArvoEventHandler,
 } from '../../src';
@@ -92,24 +92,19 @@ describe('ArvoEventHandler', () => {
       handler: mockHandlerFunction,
     });
 
-    const result = await handler.execute(
-      createArvoEvent({
-        type: 'com.saad.invalid.test',
-        source: 'test',
-        subject: 'test',
-        to: 'com.saad.exe',
-        data: {
-          name: 'saad',
-        },
-      }) as any,
-    );
-
-    expect(result[0]).toBeDefined();
-    expect(result[0].executionunits).toBe(100);
-    expect(result[0].type).toBe('sys.com.hello.world.error');
-    expect(result[0].data.errorMessage).toBe(
-      "Event type mismatch: Received 'com.saad.invalid.test', expected 'com.hello.world'",
-    );
+    expect(async () => {
+      await handler.execute(
+        createArvoEvent({
+          type: 'com.saad.invalid.test',
+          source: 'test',
+          subject: 'test',
+          to: 'com.saad.exe',
+          data: {
+            name: 'saad',
+          },
+        }) as any,
+      );
+    }).rejects.toThrow("Event type mismatch: Received 'com.saad.invalid.test', expected 'com.hello.world'")
   });
 
   it('should handle handler error', async () => {
@@ -146,6 +141,41 @@ describe('ArvoEventHandler', () => {
     });
   });
 
+  it('should throw Exectuion error which are supposed to be thrown', async () => {
+    const tracer = trace.getTracer('test-tracer');
+    await tracer.startActiveSpan('test', async (span) => {
+      const otelHeaders = currentOpenTelemetryHeaders();
+      const mockEvent = createArvoEventFactory(
+        mockContract.version('0.0.1'),
+      ).accepts({
+        to: 'com.hello.world',
+        source: 'com.test.env',
+        subject: 'test-subject',
+        data: {
+          name: 'Saad',
+          age: 10,
+        },
+        traceparent: otelHeaders.traceparent ?? undefined,
+        tracestate: otelHeaders.tracestate ?? undefined,
+      });
+      const handler = createArvoEventHandler({
+        contract: mockContract,
+        executionunits: 100,
+        handler: {
+          '0.0.1': async () => {
+            throw new ArvoHandlerExecutionError('Test error');
+          },
+        },
+      });
+      
+      expect(async () => {
+        await handler.execute(mockEvent);
+      }).rejects.toThrow('Test error')
+
+      span.end();
+    });
+  });
+
   it('should validate the input and throw error on invalid', async () => {
     const tracer = trace.getTracer('test-tracer');
     await tracer.startActiveSpan('test', async (span) => {
@@ -168,26 +198,11 @@ describe('ArvoEventHandler', () => {
           '0.0.1': async () => {},
         },
       });
-      const result = await handler.execute(mockEvent);
-      expect(result).toBeDefined();
-      expect(result[0].type).toBe('sys.com.hello.world.error');
-      expect(
-        result[0].data.errorMessage.includes(
-          'Event payload validation failed:',
-        ),
-      ).toBe(true);
 
-      const inputTraceparent = otelHeaders.traceparent?.split('-')?.[1];
-      const outputTraceparent = result[0].traceparent?.split('-')?.[1];
-      const inputTraceId = otelHeaders.traceparent?.split('-')?.[2];
-      const outputTraceId = result[0].traceparent?.split('-')?.[2];
+      expect(async () => {
+        const result = await handler.execute(mockEvent);
+      }).rejects.toThrow('Event payload validation failed:')
 
-      if (process.env.ENABLE_OTEL === 'TRUE') {
-        expect(inputTraceparent).toBeDefined();
-        expect(outputTraceparent).toBeDefined();
-        expect(inputTraceparent).toBe(outputTraceparent);
-        expect(inputTraceId).not.toBe(outputTraceId);
-      }
       span.end();
     });
   });
@@ -368,12 +383,9 @@ describe('ArvoEventHandler', () => {
       handler: mockHandlerFunction,
     });
 
-    const result = await handler.execute(eventWithWrongSchema);
-    expect(result[0].type).toBe('sys.com.hello.world.error');
-    console.log(result[0].data.errorMessage);
-    expect(result[0].data.errorMessage).toContain(
-      `Contract URI mismatch: Handler expects '#/test/ArvoEventHandler' but event dataschema specifies '#/wrong/contract/0.0.1'. Events must reference the same contract URI as their handler.`,
-    );
+    expect(async () => {
+      await handler.execute(eventWithWrongSchema);
+    }).rejects.toThrow(`Contract URI mismatch: Handler expects '#/test/ArvoEventHandler' but event dataschema specifies '#/wrong/contract/0.0.1'. Events must reference the same contract URI as their handler.`,)
   });
 
   it('should support custom span options', async () => {

@@ -26,6 +26,7 @@ import { ArvoEventRouter } from './ArvoEventRouter';
 import { createArvoEventRouter } from './ArvoEventRouter/helpers';
 import AbstractArvoEventHandler from './AbstractArvoEventHandler';
 import { deleteOtelHeaders } from './ArvoEventRouter/utils';
+import { ArvoHandlerExecutionError } from './errors';
 
 export {
   ArvoEventHandler,
@@ -52,4 +53,5 @@ export {
   deleteOtelHeaders,
   ArvoEventHandlerOpenTelemetryOptions,
   EventHandlerFactory,
+  ArvoHandlerExecutionError,
 };
