@@ -8,9 +8,9 @@ import {
 import { telemetrySdkStart, telemetrySdkStop } from '../utils';
 import { z } from 'zod';
 import {
-  ArvoHandlerExecutionError,
   ArvoEventHandlerFunction,
   createArvoEventHandler,
+  ExecutionViolation,
 } from '../../src';
 import { trace } from '@opentelemetry/api';
 
@@ -165,7 +165,7 @@ describe('ArvoEventHandler', () => {
         executionunits: 100,
         handler: {
           '0.0.1': async () => {
-            throw new ArvoHandlerExecutionError('Test error');
+            throw new ExecutionViolation('Test error');
           },
         },
       });
@@ -203,7 +203,9 @@ describe('ArvoEventHandler', () => {
 
       expect(async () => {
         const result = await handler.execute(mockEvent);
-      }).rejects.toThrow('Event payload validation failed:');
+      }).rejects.toThrow(
+        'ViolationError<Contract> Input event payload validation failed:',
+      );
 
       span.end();
     });

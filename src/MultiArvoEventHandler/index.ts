@@ -24,6 +24,7 @@ import {
 } from '../utils';
 import AbstractArvoEventHandler from '../AbstractArvoEventHandler';
 import { ArvoEventHandlerOpenTelemetryOptions } from '../types';
+import { ConfigViolation } from '../errors';
 
 /**
  * MultiArvoEventHandler processes multiple event types without being bound to specific contracts.
@@ -114,7 +115,7 @@ export default class MultiArvoEventHandler extends AbstractArvoEventHandler {
           });
 
           if (event.to !== this.source) {
-            throw new Error(
+            throw new ConfigViolation(
               `Event destination mismatch: Expected '${this.source}', received '${event.to}'`,
             );
           }

@@ -115,28 +115,24 @@ describe('MultiArvoEventHandler', () => {
       handler: mockHandlerFunction,
     });
 
-    const result = await handler.execute(
-      createArvoEvent({
-        to: 'multi.event.handler.invalid',
-        type: 'com.user.register',
-        source: 'test',
-        subject: 'test',
-        data: {
-          name: 'Saad Ahmad',
-        },
-      }),
+    expect(async () => {
+      await handler.execute(
+        createArvoEvent({
+          to: 'multi.event.handler.invalid',
+          type: 'com.user.register',
+          source: 'test',
+          subject: 'test',
+          data: {
+            name: 'Saad Ahmad',
+          },
+        }),
+      );
+    }).rejects.toThrow(
+      "ViolationError<Config> Event destination mismatch: Expected 'multi.event.handler', received 'multi.event.handler.invalid'",
     );
-    expect(result).toBeDefined();
-    expect(result[0].type).toBe('sys.multi.event.handler.error');
-    expect(result[0].source).toBe('multi.event.handler');
-    expect(result[0].data.errorMessage).toBe(
-      "Event destination mismatch: Expected 'multi.event.handler', received 'multi.event.handler.invalid'",
-    );
-    expect(result[0].source).toBe('multi.event.handler');
-    expect(result[0].executionunits).toBe(100);
   });
 
-  it('should execute handler with invalid error and return error event', async () => {
+  it('should handle event with redirection', async () => {
     const tracer = trace.getTracer('test-tracer');
     await tracer.startActiveSpan('test', async (span) => {
       const otelHeaders = currentOpenTelemetryHeaders();

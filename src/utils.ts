@@ -1,9 +1,9 @@
 import {
-  ArvoContractViolationError,
   ArvoEvent,
   CreateArvoEvent,
   exceptionToSpan,
   OpenTelemetryHeaders,
+  ViolationError,
 } from 'arvo-core';
 import { ArvoEventHandlerFunctionOutput } from './ArvoEventHandler/types';
 import { MultiArvoEventHandlerFunctionOutput } from './MultiArvoEventHandler/types';
@@ -14,7 +14,6 @@ import {
   trace,
 } from '@opentelemetry/api';
 import { ArvoEventHandlerOpenTelemetryOptions } from './types';
-import { ArvoHandlerExecutionError } from './errors';
 
 /**
  * Checks if the item is null or undefined.
@@ -143,7 +142,6 @@ export const eventHandlerOutputEventCreator = (
 };
 
 export const handleArvoEventHandlerCommonError = (
-  strategy: 'EVENT' | 'THROW',
   error: Error,
   otelSpanHeaders: OpenTelemetryHeaders,
   type: string,
@@ -161,23 +159,9 @@ export const handleArvoEventHandlerCommonError = (
     message: error.message,
   });
 
-  if (
-    (error as ArvoContractViolationError).name === 'ArvoContractViolationError'
-  ) {
+  if ((error as ViolationError).name.includes('ViolationError')) {
     throw error;
   }
-
-  if (
-    (error as ArvoHandlerExecutionError).name === 'ArvoHandlerExecutionError'
-  ) {
-    throw error;
-  }
-
-  if (strategy === 'THROW') {
-    throw error
-  }
-
-  
 
   const result = factory({
     type,
