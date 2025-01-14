@@ -1,4 +1,5 @@
 import {
+  ArvoContractViolationError,
   ArvoEvent,
   CreateArvoEvent,
   exceptionToSpan,
@@ -13,6 +14,7 @@ import {
   trace,
 } from '@opentelemetry/api';
 import { ArvoEventHandlerOpenTelemetryOptions } from './types';
+import { ArvoHandlerExecutionError } from './errors';
 
 /**
  * Checks if the item is null or undefined.
@@ -140,7 +142,8 @@ export const eventHandlerOutputEventCreator = (
   });
 };
 
-export const createHandlerErrorOutputEvent = (
+export const handleArvoEventHandlerCommonError = (
+  strategy: 'EVENT' | 'THROW',
   error: Error,
   otelSpanHeaders: OpenTelemetryHeaders,
   type: string,
@@ -157,6 +160,25 @@ export const createHandlerErrorOutputEvent = (
     code: SpanStatusCode.ERROR,
     message: error.message,
   });
+
+  if (
+    (error as ArvoContractViolationError).name === 'ArvoContractViolationError'
+  ) {
+    throw error;
+  }
+
+  if (
+    (error as ArvoHandlerExecutionError).name === 'ArvoHandlerExecutionError'
+  ) {
+    throw error;
+  }
+
+  if (strategy === 'THROW') {
+    throw error
+  }
+
+  
+
   const result = factory({
     type,
     source,

@@ -1,5 +1,6 @@
 [![SonarCloud](https://sonarcloud.io/images/project_badges/sonarcloud-white.svg)](https://sonarcloud.io/summary/new_code?id=SaadAhmad123_arvo-event-handler)
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=SaadAhmad123_arvo-event-handler&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=SaadAhmad123_arvo-event-handler)
+
 # Arvo
 
 ## What is Arvo

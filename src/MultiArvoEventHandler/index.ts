@@ -17,7 +17,7 @@ import {
   MultiArvoEventHandlerFunctionOutput,
 } from './types';
 import {
-  createHandlerErrorOutputEvent,
+  handleArvoEventHandlerCommonError,
   eventHandlerOutputEventCreator,
   isLowerAlphanumeric,
   createEventHandlerTelemetryConfig,
@@ -147,7 +147,7 @@ export default class MultiArvoEventHandler extends AbstractArvoEventHandler {
           });
           return resultingEvents;
         } catch (error) {
-          return createHandlerErrorOutputEvent(
+          return handleArvoEventHandlerCommonError(
             error as Error,
             otelSpanHeaders,
             `sys.${this.source}.error`,

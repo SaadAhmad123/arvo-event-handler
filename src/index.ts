@@ -6,7 +6,11 @@ import {
   IArvoEventHandler,
 } from './ArvoEventHandler/types';
 import { createArvoEventHandler } from './ArvoEventHandler/helpers';
-import { PartialExcept, ArvoEventHandlerOpenTelemetryOptions, EventHandlerFactory } from './types';
+import {
+  PartialExcept,
+  ArvoEventHandlerOpenTelemetryOptions,
+  EventHandlerFactory,
+} from './types';
 import MultiArvoEventHandler from './MultiArvoEventHandler';
 import {
   MultiArvoEventHandlerFunctionInput,

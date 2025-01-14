@@ -104,7 +104,9 @@ describe('ArvoEventHandler', () => {
           },
         }) as any,
       );
-    }).rejects.toThrow("Event type mismatch: Received 'com.saad.invalid.test', expected 'com.hello.world'")
+    }).rejects.toThrow(
+      "Event type mismatch: Received 'com.saad.invalid.test', expected 'com.hello.world'",
+    );
   });
 
   it('should handle handler error', async () => {
@@ -167,10 +169,10 @@ describe('ArvoEventHandler', () => {
           },
         },
       });
-      
+
       expect(async () => {
         await handler.execute(mockEvent);
-      }).rejects.toThrow('Test error')
+      }).rejects.toThrow('Test error');
 
       span.end();
     });
@@ -201,7 +203,7 @@ describe('ArvoEventHandler', () => {
 
       expect(async () => {
         const result = await handler.execute(mockEvent);
-      }).rejects.toThrow('Event payload validation failed:')
+      }).rejects.toThrow('Event payload validation failed:');
 
       span.end();
     });
@@ -385,7 +387,9 @@ describe('ArvoEventHandler', () => {
 
     expect(async () => {
       await handler.execute(eventWithWrongSchema);
-    }).rejects.toThrow(`Contract URI mismatch: Handler expects '#/test/ArvoEventHandler' but event dataschema specifies '#/wrong/contract/0.0.1'. Events must reference the same contract URI as their handler.`,)
+    }).rejects.toThrow(
+      `Contract URI mismatch: Handler expects '#/test/ArvoEventHandler' but event dataschema specifies '#/wrong/contract/0.0.1'. Events must reference the same contract URI as their handler.`,
+    );
   });
 
   it('should support custom span options', async () => {

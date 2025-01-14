@@ -13,7 +13,7 @@ import {
 } from 'arvo-core';
 import ArvoEventHandler from '../ArvoEventHandler';
 import { IArvoEventRouter } from './types';
-import { createHandlerErrorOutputEvent, isLowerAlphanumeric } from '../utils';
+import { handleArvoEventHandlerCommonError, isLowerAlphanumeric } from '../utils';
 import {
   context,
   SpanKind,
@@ -216,7 +216,7 @@ export class ArvoEventRouter extends AbstractArvoEventHandler {
           );
           return resultingEvents;
         } catch (error) {
-          return createHandlerErrorOutputEvent(
+          return handleArvoEventHandlerCommonError(
             error as Error,
             otelSpanHeaders,
             this.systemErrorSchema.type,

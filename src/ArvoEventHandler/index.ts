@@ -244,12 +244,18 @@ export default class ArvoEventHandler<
             message: `Event processing failed: ${(error as Error).message}`,
           });
 
-          if ((error as ArvoContractViolationError).name === 'ArvoContractViolationError') {
-            throw error
+          if (
+            (error as ArvoContractViolationError).name ===
+            'ArvoContractViolationError'
+          ) {
+            throw error;
           }
 
-          if ((error as ArvoHandlerExecutionError).name === 'ArvoHandlerExecutionError') {
-            throw error
+          if (
+            (error as ArvoHandlerExecutionError).name ===
+            'ArvoHandlerExecutionError'
+          ) {
+            throw error;
           }
 
           const eventFactory = createArvoEventFactory(
