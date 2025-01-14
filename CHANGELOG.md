@@ -39,3 +39,7 @@
 ## [2.2.0] - 2024-12-25
 
 - Stable release for arvo event handler version 2
+
+## [2.2.5] - 2024-12-25
+
+- Added better error boundaries for the handlers
