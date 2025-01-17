@@ -13,7 +13,10 @@ import {
 } from 'arvo-core';
 import ArvoEventHandler from '../ArvoEventHandler';
 import { IArvoEventRouter } from './types';
-import { createHandlerErrorOutputEvent, isLowerAlphanumeric } from '../utils';
+import {
+  handleArvoEventHandlerCommonError,
+  isLowerAlphanumeric,
+} from '../utils';
 import {
   context,
   SpanKind,
@@ -23,6 +26,7 @@ import {
 import { deleteOtelHeaders } from './utils';
 import AbstractArvoEventHandler from '../AbstractArvoEventHandler';
 import { ArvoEventHandlerOpenTelemetryOptions } from '../types';
+import { ConfigViolation } from '../errors';
 
 /**
  * ArvoEventRouter manages event routing and execution within the Arvo event system. It directs
@@ -155,14 +159,14 @@ export class ArvoEventRouter extends AbstractArvoEventHandler {
           });
 
           if (newEvent.to !== this.source) {
-            throw new Error(
+            throw new ConfigViolation(
               `Event destination mismatch: Received destination '${newEvent.to}', ` +
                 `but router accepts only '${this.source}'`,
             );
           }
 
           if (!this.handlersMap[newEvent.type]) {
-            throw new Error(
+            throw new ConfigViolation(
               `No registered handler found for event type '${newEvent.type}'`,
             );
           }
@@ -216,7 +220,7 @@ export class ArvoEventRouter extends AbstractArvoEventHandler {
           );
           return resultingEvents;
         } catch (error) {
-          return createHandlerErrorOutputEvent(
+          return handleArvoEventHandlerCommonError(
             error as Error,
             otelSpanHeaders,
             this.systemErrorSchema.type,

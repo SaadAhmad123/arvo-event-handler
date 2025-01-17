@@ -6,7 +6,11 @@ import {
   IArvoEventHandler,
 } from './ArvoEventHandler/types';
 import { createArvoEventHandler } from './ArvoEventHandler/helpers';
-import { PartialExcept, ArvoEventHandlerOpenTelemetryOptions, EventHandlerFactory } from './types';
+import {
+  PartialExcept,
+  ArvoEventHandlerOpenTelemetryOptions,
+  EventHandlerFactory,
+} from './types';
 import MultiArvoEventHandler from './MultiArvoEventHandler';
 import {
   MultiArvoEventHandlerFunctionInput,
@@ -26,6 +30,11 @@ import { ArvoEventRouter } from './ArvoEventRouter';
 import { createArvoEventRouter } from './ArvoEventRouter/helpers';
 import AbstractArvoEventHandler from './AbstractArvoEventHandler';
 import { deleteOtelHeaders } from './ArvoEventRouter/utils';
+import {
+  ContractViolation,
+  ConfigViolation,
+  ExecutionViolation,
+} from './errors';
 
 export {
   ArvoEventHandler,
@@ -52,4 +61,7 @@ export {
   deleteOtelHeaders,
   ArvoEventHandlerOpenTelemetryOptions,
   EventHandlerFactory,
+  ContractViolation,
+  ConfigViolation,
+  ExecutionViolation,
 };

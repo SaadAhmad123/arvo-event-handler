@@ -1,8 +1,10 @@
 import {
   ArvoErrorSchema,
+  ArvoEvent,
   cleanString,
   createArvoContract,
   createArvoEvent,
+  createArvoEventFactory,
   currentOpenTelemetryHeaders,
   exceptionToSpan,
 } from 'arvo-core';
@@ -10,6 +12,7 @@ import {
   ArvoEventRouter,
   createArvoEventHandler,
   createArvoEventRouter,
+  ExecutionViolation,
 } from '../../src';
 import { z } from 'zod';
 import { telemetrySdkStart, telemetrySdkStop } from '../utils';
@@ -292,9 +295,10 @@ describe('ArvoEventRouter', () => {
         tracestate: otelHeaders.tracestate ?? undefined,
       });
 
-      const result = await router.execute(event);
-      expect(result[0].data.errorMessage).toBe(
-        "Event destination mismatch: Received destination 'wrong-router', but router accepts only 'test.router'",
+      expect(async () => {
+        await router.execute(event);
+      }).rejects.toThrow(
+        "ViolationError<Config> Event destination mismatch: Received destination 'wrong-router', but router accepts only 'test.router'",
       );
       span.end();
     });
@@ -308,9 +312,10 @@ describe('ArvoEventRouter', () => {
       to: 'test.router',
       data: {},
     });
-    const result = await router.execute(event);
-    expect(result[0].data.errorMessage).toBe(
-      "No registered handler found for event type 'com.user.unhandled'",
+    expect(async () => {
+      await router.execute(event);
+    }).rejects.toThrow(
+      "ViolationError<Config> No registered handler found for event type 'com.user.unhandled'",
     );
   });
 
@@ -355,5 +360,54 @@ describe('ArvoEventRouter', () => {
     }).toThrow(
       "Invalid source identifier 'invalid source with spaces': Must contain only alphanumeric characters (example: payment.service)",
     );
+  });
+
+  it('should throw execution error internal to the event handler', () => {
+    const errorHandler = createArvoEventHandler({
+      contract: userRegisterContract,
+      executionunits: 1,
+      handler: {
+        '0.0.1': async () => {
+          throw new ExecutionViolation('execution error');
+        },
+      },
+    });
+
+    const router = createArvoEventRouter({
+      source: 'com.multi.handler',
+      executionunits: 1,
+      handlers: [errorHandler],
+    });
+
+    let event: ArvoEvent = createArvoEventFactory(
+      userRegisterContract.version('0.0.1'),
+    ).accepts({
+      subject: 'test',
+      source: 'com.test.test',
+      to: 'com.multi.handler',
+      data: {
+        name: 'arvo',
+        age: 10,
+      },
+    });
+
+    expect(async () => {
+      await router.execute(event, { inheritFrom: 'EVENT' });
+    }).rejects.toThrow('ViolationError<Execution> execution error');
+
+    event = createArvoEvent({
+      type: userRegisterContract.type,
+      source: 'com.test.test',
+      subject: 'test',
+      to: 'com.multi.handler',
+      data: {
+        name: 'arvo',
+        age: '10',
+      }
+    })
+
+    expect(async () => {
+      await router.execute(event, { inheritFrom: 'EVENT' });
+    }).rejects.toThrow("ViolationError<Contract> Input event payload validation failed:");
   });
 });

@@ -3,6 +3,7 @@ import {
   CreateArvoEvent,
   exceptionToSpan,
   OpenTelemetryHeaders,
+  ViolationError,
 } from 'arvo-core';
 import { ArvoEventHandlerFunctionOutput } from './ArvoEventHandler/types';
 import { MultiArvoEventHandlerFunctionOutput } from './MultiArvoEventHandler/types';
@@ -140,7 +141,7 @@ export const eventHandlerOutputEventCreator = (
   });
 };
 
-export const createHandlerErrorOutputEvent = (
+export const handleArvoEventHandlerCommonError = (
   error: Error,
   otelSpanHeaders: OpenTelemetryHeaders,
   type: string,
@@ -157,6 +158,11 @@ export const createHandlerErrorOutputEvent = (
     code: SpanStatusCode.ERROR,
     message: error.message,
   });
+
+  if ((error as ViolationError).name.includes('ViolationError')) {
+    throw error;
+  }
+
   const result = factory({
     type,
     source,
