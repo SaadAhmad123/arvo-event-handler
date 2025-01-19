@@ -1,21 +1,21 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<coverage generated="1736855121833" clover="3.2.0">
-  <project timestamp="1736855121833" name="All files">
+<coverage generated="1737267210194" clover="3.2.0">
+  <project timestamp="1737267210194" name="All files">
     <metrics statements="241" coveredstatements="234" conditionals="151" coveredconditionals="113" methods="64" coveredmethods="53" elements="456" coveredelements="400" complexity="0" loc="241" ncloc="241" packages="5" files="11" classes="11"/>
     <package name="src">
       <metrics statements="70" coveredstatements="66" conditionals="54" coveredconditionals="28" methods="29" coveredmethods="20"/>
       <file name="errors.ts" path="/Users/saadahmad/Projects/Arvo/event-handler/src/errors.ts">
         <metrics statements="10" coveredstatements="10" conditionals="6" coveredconditionals="3" methods="6" coveredmethods="6"/>
         <line num="1" count="3" type="stmt"/>
-        <line num="3" count="3" type="stmt"/>
-        <line num="5" count="4" type="cond" truecount="1" falsecount="1"/>
-        <line num="11" count="3" type="stmt"/>
-        <line num="13" count="3" type="stmt"/>
-        <line num="15" count="3" type="cond" truecount="1" falsecount="1"/>
-        <line num="21" count="3" type="stmt"/>
-        <line num="23" count="3" type="stmt"/>
-        <line num="25" count="2" type="cond" truecount="1" falsecount="1"/>
-        <line num="31" count="3" type="stmt"/>
+        <line num="7" count="3" type="stmt"/>
+        <line num="9" count="4" type="cond" truecount="1" falsecount="1"/>
+        <line num="15" count="3" type="stmt"/>
+        <line num="22" count="3" type="stmt"/>
+        <line num="24" count="3" type="cond" truecount="1" falsecount="1"/>
+        <line num="30" count="3" type="stmt"/>
+        <line num="51" count="3" type="stmt"/>
+        <line num="53" count="2" type="cond" truecount="1" falsecount="1"/>
+        <line num="59" count="3" type="stmt"/>
       </file>
       <file name="index.ts" path="/Users/saadahmad/Projects/Arvo/event-handler/src/index.ts">
         <metrics statements="25" coveredstatements="25" conditionals="0" coveredconditionals="0" methods="12" coveredmethods="4"/>
