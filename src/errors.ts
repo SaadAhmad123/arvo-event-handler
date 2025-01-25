@@ -36,12 +36,12 @@ export class ConfigViolation extends ViolationError<'Config'> {
  * of an Arvo event handler. Otherwise, the the error throw during exection are
  * converted to system error event and require to be handled by the workflow
  * orchestration.
- * 
+ *
  * @example
  * ```typescript
  * throw new ExecutionViolation(
  *   'API rate limit exceeded',
- *   { 
+ *   {
  *     rateLimitRemaining: 0,
  *     resetAfterSeconds: 60
  *   }

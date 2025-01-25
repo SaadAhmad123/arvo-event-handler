@@ -403,11 +403,13 @@ describe('ArvoEventRouter', () => {
       data: {
         name: 'arvo',
         age: '10',
-      }
-    })
+      },
+    });
 
     expect(async () => {
       await router.execute(event, { inheritFrom: 'EVENT' });
-    }).rejects.toThrow("ViolationError<Contract> Input event payload validation failed:");
+    }).rejects.toThrow(
+      'ViolationError<Contract> Input event payload validation failed:',
+    );
   });
 });
