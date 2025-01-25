@@ -1,17 +1,16 @@
+import { trace } from '@opentelemetry/api';
 import {
   ArvoErrorSchema,
-  ArvoEvent,
-  cleanString,
+  type ArvoEvent,
   createArvoContract,
   createArvoEvent,
   createArvoEventFactory,
   currentOpenTelemetryHeaders,
   exceptionToSpan,
 } from 'arvo-core';
-import { ArvoEventRouter, createArvoEventHandler, createArvoEventRouter, ExecutionViolation } from '../../src';
 import { z } from 'zod';
+import { type ArvoEventRouter, ExecutionViolation, createArvoEventHandler, createArvoEventRouter } from '../../src';
 import { telemetrySdkStart, telemetrySdkStop } from '../utils';
-import { trace } from '@opentelemetry/api';
 
 describe('ArvoEventRouter', () => {
   beforeAll(() => {
@@ -123,40 +122,21 @@ describe('ArvoEventRouter', () => {
         try {
           // Simulating a user read operation
           const user = await findUser(event.data.name);
-
-          if (user) {
-            return [
-              {
-                type: 'evt.user.read.success',
-                data: {
-                  created: true,
-                  name: user.name,
-                },
+          return [
+            {
+              type: 'evt.user.read.success',
+              data: {
+                created: Boolean(user),
+                name: user?.name ?? event.data.name,
               },
-              {
-                type: 'notif.user.read',
-                data: {
-                  message: `User read: ${user.name}`,
-                },
+            },
+            {
+              type: 'notif.user.read',
+              data: {
+                message: user?.name ? `User read: ${user.name}` : `User not found: ${event.data.name}`,
               },
-            ];
-          } else {
-            return [
-              {
-                type: 'evt.user.read.success',
-                data: {
-                  created: false,
-                  name: event.data.name,
-                },
-              },
-              {
-                type: 'notif.user.read',
-                data: {
-                  message: `User not found: ${event.data.name}`,
-                },
-              },
-            ];
-          }
+            },
+          ];
         } catch (e) {
           return {
             type: 'evt.user.read.error',
@@ -324,9 +304,9 @@ describe('ArvoEventRouter', () => {
 
     const results = await router.execute(event);
 
-    results.forEach((result) => {
+    for (const result of results) {
       expect(result.executionunits).toBe(11); // 10 from handler + 1 from router
-    });
+    }
   });
 
   it('should throw error on duplication', () => {

@@ -1,4 +1,4 @@
-import AbstractArvoEventHandler from './AbstractArvoEventHandler';
+import type AbstractArvoEventHandler from './AbstractArvoEventHandler';
 
 /**
  * Makes properties optional except specified keys

@@ -1,6 +1,6 @@
-import { ArvoContract } from 'arvo-core';
-import { IArvoEventHandler } from './types';
+import type { ArvoContract } from 'arvo-core';
 import ArvoEventHandler from '.';
+import type { IArvoEventHandler } from './types';
 
 /**
  * Creates an ArvoEventHandler for processing events defined by a specific contract.

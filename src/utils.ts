@@ -1,8 +1,14 @@
-import { ArvoEvent, CreateArvoEvent, exceptionToSpan, OpenTelemetryHeaders, ViolationError } from 'arvo-core';
-import { ArvoEventHandlerFunctionOutput } from './ArvoEventHandler/types';
-import { MultiArvoEventHandlerFunctionOutput } from './MultiArvoEventHandler/types';
-import { context, SpanOptions, SpanStatusCode, trace } from '@opentelemetry/api';
-import { ArvoEventHandlerOpenTelemetryOptions } from './types';
+import { type SpanOptions, SpanStatusCode, context, trace } from '@opentelemetry/api';
+import {
+  type ArvoEvent,
+  type CreateArvoEvent,
+  type OpenTelemetryHeaders,
+  type ViolationError,
+  exceptionToSpan,
+} from 'arvo-core';
+import type { ArvoEventHandlerFunctionOutput } from './ArvoEventHandler/types';
+import type { MultiArvoEventHandlerFunctionOutput } from './MultiArvoEventHandler/types';
+import type { ArvoEventHandlerOpenTelemetryOptions } from './types';
 
 /**
  * Checks if the item is null or undefined.
@@ -104,9 +110,11 @@ export const eventHandlerOutputEventCreator = (
       },
       __extensions,
     );
-    Object.entries(result.otelAttributes).forEach(([key, value]) =>
-      trace.getActiveSpan()?.setAttribute(`to_emit.${index}.${key}`, value),
-    );
+
+    const activeSpan = trace.getActiveSpan();
+    for (const [key, value] of Object.entries(result.otelAttributes)) {
+      activeSpan?.setAttribute(`to_emit.${index}.${key}`, value);
+    }
     return result;
   });
 };
@@ -149,9 +157,10 @@ export const handleArvoEventHandlerCommonError = (
     accesscontrol: originalEvent.accesscontrol ?? undefined,
   });
 
-  Object.entries(result.otelAttributes).forEach(([key, value]) =>
-    trace.getActiveSpan()?.setAttribute(`to_emit.0.${key}`, value),
-  );
+  const activeSpan = trace.getActiveSpan();
+  for (const [key, value] of Object.entries(result.otelAttributes)) {
+    activeSpan?.setAttribute(`to_emit.0.${key}`, value);
+  }
   return [result];
 };
 

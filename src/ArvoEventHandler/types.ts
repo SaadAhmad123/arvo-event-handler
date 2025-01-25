@@ -1,6 +1,6 @@
-import { Span, SpanOptions } from '@opentelemetry/api';
-import { ArvoContract, ArvoEvent, CreateArvoEvent, VersionedArvoContract, ArvoSemanticVersion } from 'arvo-core';
-import { z } from 'zod';
+import type { Span, SpanOptions } from '@opentelemetry/api';
+import type { ArvoContract, ArvoEvent, ArvoSemanticVersion, CreateArvoEvent, VersionedArvoContract } from 'arvo-core';
+import type { z } from 'zod';
 
 /**
  * Represents the input for an ArvoEvent handler function.
@@ -46,6 +46,7 @@ export type ArvoEventHandlerFunction<TContract extends ArvoContract> = {
   ) => Promise<
     | Array<ArvoEventHandlerFunctionOutput<VersionedArvoContract<TContract, V>>>
     | ArvoEventHandlerFunctionOutput<VersionedArvoContract<TContract, V>>
+    // biome-ignore lint/suspicious/noConfusingVoidType : Not a copnfusing void. Biome is getting confused
     | void
   >;
 };

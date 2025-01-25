@@ -1,24 +1,24 @@
+import { SpanKind, type SpanOptions, SpanStatusCode, context } from '@opentelemetry/api';
 import {
-  ArvoContract,
+  type ArvoContract,
   ArvoErrorSchema,
   ArvoEvent,
   ArvoExecution,
   ArvoExecutionSpanKind,
   ArvoOpenTelemetry,
+  OpenInference,
+  OpenInferenceSpanKind,
   createArvoEvent,
   currentOpenTelemetryHeaders,
   logToSpan,
-  OpenInference,
-  OpenInferenceSpanKind,
 } from 'arvo-core';
-import ArvoEventHandler from '../ArvoEventHandler';
-import { IArvoEventRouter } from './types';
-import { handleArvoEventHandlerCommonError, isLowerAlphanumeric } from '../utils';
-import { context, SpanKind, SpanOptions, SpanStatusCode } from '@opentelemetry/api';
-import { deleteOtelHeaders } from './utils';
 import AbstractArvoEventHandler from '../AbstractArvoEventHandler';
-import { ArvoEventHandlerOpenTelemetryOptions } from '../types';
+import type ArvoEventHandler from '../ArvoEventHandler';
 import { ConfigViolation } from '../errors';
+import type { ArvoEventHandlerOpenTelemetryOptions } from '../types';
+import { handleArvoEventHandlerCommonError, isLowerAlphanumeric } from '../utils';
+import type { IArvoEventRouter } from './types';
+import { deleteOtelHeaders } from './utils';
 
 /**
  * ArvoEventRouter manages event routing and execution within the Arvo event system. It directs
@@ -141,9 +141,9 @@ export class ArvoEventRouter extends AbstractArvoEventHandler {
         const newEvent = deleteOtelHeaders(event);
         try {
           span.setStatus({ code: SpanStatusCode.OK });
-          Object.entries(event.otelAttributes).forEach(([key, value]) =>
-            span.setAttribute(`to_process.0.${key}`, value),
-          );
+          for (const [key, value] of Object.entries(event.otelAttributes)) {
+            span.setAttribute(`to_process.0.${key}`, value);
+          }
 
           logToSpan({
             level: 'INFO',
@@ -199,11 +199,12 @@ export class ArvoEventRouter extends AbstractArvoEventHandler {
             message: `Event processing completed successfully - Generated ${resultingEvents.length} new event(s)`,
           });
 
-          resultingEvents.forEach((event, index) =>
-            Object.entries(event.otelAttributes).forEach(([key, value]) =>
-              span.setAttribute(`to_emit.${index}.${key}`, value),
-            ),
-          );
+          for (let index = 0; index < resultingEvents.length; index++) {
+            for (const [key, value] of Object.entries(resultingEvents[index].otelAttributes)) {
+              span.setAttribute(`to_emit.${index}.${key}`, value);
+            }
+          }
+
           return resultingEvents;
         } catch (error) {
           return handleArvoEventHandlerCommonError(

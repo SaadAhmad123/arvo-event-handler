@@ -1,3 +1,4 @@
+import { trace } from '@opentelemetry/api';
 import {
   ArvoErrorSchema,
   createArvoContract,
@@ -5,10 +6,9 @@ import {
   createArvoEventFactory,
   currentOpenTelemetryHeaders,
 } from 'arvo-core';
-import { telemetrySdkStart, telemetrySdkStop } from '../utils';
 import { z } from 'zod';
-import { ArvoEventHandlerFunction, createArvoEventHandler, ExecutionViolation } from '../../src';
-import { trace } from '@opentelemetry/api';
+import { type ArvoEventHandlerFunction, ExecutionViolation, createArvoEventHandler } from '../../src';
+import { telemetrySdkStart, telemetrySdkStop } from '../utils';
 
 describe('ArvoEventHandler', () => {
   beforeAll(() => {

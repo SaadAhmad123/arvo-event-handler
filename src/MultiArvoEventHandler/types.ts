@@ -1,5 +1,5 @@
-import { Span, SpanOptions } from '@opentelemetry/api';
-import { ArvoEvent, CreateArvoEvent } from 'arvo-core';
+import type { Span, SpanOptions } from '@opentelemetry/api';
+import type { ArvoEvent, CreateArvoEvent } from 'arvo-core';
 
 /**
  * Represents the input for a Multi ArvoEvent handler function.
@@ -41,6 +41,7 @@ export type MultiArvoEventHandlerFunctionOutput = Omit<
  */
 export type MultiArvoEventHandlerFunction = (
   param: MultiArvoEventHandlerFunctionInput,
+  // biome-ignore lint/suspicious/noConfusingVoidType: Not a real issue. Biome is getting confused
 ) => Promise<Array<MultiArvoEventHandlerFunctionOutput> | MultiArvoEventHandlerFunctionOutput | void>;
 
 /**

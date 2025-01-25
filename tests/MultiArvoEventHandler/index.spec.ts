@@ -1,7 +1,7 @@
-import { cleanString, createArvoEvent, currentOpenTelemetryHeaders } from 'arvo-core';
-import { createMultiArvoEventHandler, MultiArvoEventHandlerFunction } from '../../src';
-import { telemetrySdkStart, telemetrySdkStop } from '../utils';
 import { trace } from '@opentelemetry/api';
+import { createArvoEvent, currentOpenTelemetryHeaders } from 'arvo-core';
+import { type MultiArvoEventHandlerFunction, createMultiArvoEventHandler } from '../../src';
+import { telemetrySdkStart, telemetrySdkStop } from '../utils';
 
 describe('MultiArvoEventHandler', () => {
   beforeAll(() => {
@@ -184,6 +184,6 @@ describe('MultiArvoEventHandler', () => {
       handler: mockHandlerFunction,
     });
 
-    expect(handler.systemErrorSchema.type).toBe(`sys.multi.event.handler.error`);
+    expect(handler.systemErrorSchema.type).toBe('sys.multi.event.handler.error');
   });
 });

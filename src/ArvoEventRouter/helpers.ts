@@ -1,5 +1,5 @@
 import { ArvoEventRouter } from '.';
-import { IArvoEventRouter } from './types';
+import type { IArvoEventRouter } from './types';
 
 /**
  * Creates a new ArvoEventRouter instance with the provided configuration.

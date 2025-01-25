@@ -1,5 +1,5 @@
-import { ArvoContractRecord, ArvoEvent } from 'arvo-core';
-import { ArvoEventHandlerOpenTelemetryOptions } from '../types';
+import type { ArvoContractRecord, ArvoEvent } from 'arvo-core';
+import type { ArvoEventHandlerOpenTelemetryOptions } from '../types';
 
 /**
  * Abstract base class for Arvo event handlers.

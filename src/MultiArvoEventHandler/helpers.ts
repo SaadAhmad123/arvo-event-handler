@@ -1,5 +1,5 @@
 import MultiArvoEventHandler from '.';
-import { IMultiArvoEventHandler } from './types';
+import type { IMultiArvoEventHandler } from './types';
 
 /**
  * Creates a MultiArvoEventHandler instance capable of handling multiple event types across different ArvoContracts.

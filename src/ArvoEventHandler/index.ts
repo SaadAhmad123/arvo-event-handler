@@ -1,26 +1,26 @@
+import { SpanKind, type SpanOptions, SpanStatusCode } from '@opentelemetry/api';
 import {
-  ArvoContract,
-  ArvoEvent,
+  type ArvoContract,
+  type ArvoEvent,
+  ArvoExecution,
   ArvoExecutionSpanKind,
-  ArvoSemanticVersion,
+  ArvoOpenTelemetry,
+  type ArvoSemanticVersion,
+  EventDataschemaUtil,
+  OpenInference,
   OpenInferenceSpanKind,
-  VersionedArvoContract,
+  type VersionedArvoContract,
+  type ViolationError,
   createArvoEventFactory,
   currentOpenTelemetryHeaders,
   exceptionToSpan,
   logToSpan,
-  EventDataschemaUtil,
-  ArvoExecution,
-  OpenInference,
-  ArvoOpenTelemetry,
-  ViolationError,
 } from 'arvo-core';
-import { IArvoEventHandler, ArvoEventHandlerFunction, ArvoEventHandlerFunctionOutput } from './types';
-import { SpanStatusCode, SpanOptions, SpanKind } from '@opentelemetry/api';
-import { createEventHandlerTelemetryConfig, eventHandlerOutputEventCreator } from '../utils';
 import AbstractArvoEventHandler from '../AbstractArvoEventHandler';
-import { ArvoEventHandlerOpenTelemetryOptions } from '../types';
 import { ContractViolation } from '../errors';
+import type { ArvoEventHandlerOpenTelemetryOptions } from '../types';
+import { createEventHandlerTelemetryConfig, eventHandlerOutputEventCreator } from '../utils';
+import type { ArvoEventHandlerFunction, ArvoEventHandlerFunctionOutput, IArvoEventHandler } from './types';
 
 /**
  * ArvoEventHandler manages the execution and processing of events in accordance with
@@ -132,9 +132,9 @@ export default class ArvoEventHandler<TContract extends ArvoContract> extends Ab
         const otelSpanHeaders = currentOpenTelemetryHeaders();
         try {
           span.setStatus({ code: SpanStatusCode.OK });
-          Object.entries(event.otelAttributes).forEach(([key, value]) =>
-            span.setAttribute(`to_process.0.${key}`, value),
-          );
+          for (const [key, value] of Object.entries(event.otelAttributes)) {
+            span.setAttribute(`to_process.0.${key}`, value);
+          }
 
           if (this.contract.type !== event.type) {
             throw new ContractViolation(
@@ -252,7 +252,9 @@ export default class ArvoEventHandler<TContract extends ArvoContract> extends Ab
             },
             {},
           );
-          Object.entries(result.otelAttributes).forEach(([key, value]) => span.setAttribute(`to_emit.0.${key}`, value));
+          for (const [key, value] of Object.entries(result.otelAttributes)) {
+            span.setAttribute(`to_emit.0.${key}`, value);
+          }
           return [result];
         } finally {
           span.end();

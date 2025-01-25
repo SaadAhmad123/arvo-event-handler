@@ -1,6 +1,6 @@
-import { ArvoContract } from 'arvo-core';
-import ArvoEventHandler from '../ArvoEventHandler';
-import { SpanOptions } from '@opentelemetry/api';
+import type { SpanOptions } from '@opentelemetry/api';
+import type { ArvoContract } from 'arvo-core';
+import type ArvoEventHandler from '../ArvoEventHandler';
 
 /**
  * Interface for defining an Arvo Event Router.

@@ -1,26 +1,30 @@
-import { SpanKind, SpanOptions, SpanStatusCode } from '@opentelemetry/api';
+import { SpanKind, type SpanOptions, SpanStatusCode } from '@opentelemetry/api';
 import {
-  ArvoEvent,
-  ArvoExecutionSpanKind,
-  OpenInferenceSpanKind,
-  currentOpenTelemetryHeaders,
-  createArvoEvent,
   ArvoErrorSchema,
+  type ArvoEvent,
   ArvoExecution,
-  OpenInference,
+  ArvoExecutionSpanKind,
   ArvoOpenTelemetry,
+  OpenInference,
+  OpenInferenceSpanKind,
+  createArvoEvent,
+  currentOpenTelemetryHeaders,
   logToSpan,
 } from 'arvo-core';
-import { IMultiArvoEventHandler, MultiArvoEventHandlerFunction, MultiArvoEventHandlerFunctionOutput } from './types';
-import {
-  handleArvoEventHandlerCommonError,
-  eventHandlerOutputEventCreator,
-  isLowerAlphanumeric,
-  createEventHandlerTelemetryConfig,
-} from '../utils';
 import AbstractArvoEventHandler from '../AbstractArvoEventHandler';
-import { ArvoEventHandlerOpenTelemetryOptions } from '../types';
 import { ConfigViolation } from '../errors';
+import type { ArvoEventHandlerOpenTelemetryOptions } from '../types';
+import {
+  createEventHandlerTelemetryConfig,
+  eventHandlerOutputEventCreator,
+  handleArvoEventHandlerCommonError,
+  isLowerAlphanumeric,
+} from '../utils';
+import type {
+  IMultiArvoEventHandler,
+  MultiArvoEventHandlerFunction,
+  MultiArvoEventHandlerFunctionOutput,
+} from './types';
 
 /**
  * MultiArvoEventHandler processes multiple event types without being bound to specific contracts.
@@ -101,9 +105,9 @@ export default class MultiArvoEventHandler extends AbstractArvoEventHandler {
         const otelSpanHeaders = currentOpenTelemetryHeaders();
         try {
           span.setStatus({ code: SpanStatusCode.OK });
-          Object.entries(event.otelAttributes).forEach(([key, value]) =>
-            span.setAttribute(`to_process.0.${key}`, value),
-          );
+          for (const [key, value] of Object.entries(event.otelAttributes)) {
+            span.setAttribute(`to_process.0.${key}`, value);
+          }
 
           logToSpan({
             level: 'INFO',
