@@ -146,8 +146,8 @@ export default class ArvoEventHandler<TContract extends ArvoContract> extends Ab
    * @param opentelemetry - Configuration for OpenTelemetry context inheritance
    * @returns Promise resolving to an array of output events or error events
    * @throws `ContractViolation` when input or output event data violates the contract
-   * @throws `ConfigViolation` when event type doesn't match contract type or the 
-   *                           contract version expected by the event does not exist 
+   * @throws `ConfigViolation` when event type doesn't match contract type or the
+   *                           contract version expected by the event does not exist
    *                           in handler configuration
    * @throws `ExecutionViolation` for explicitly handled runtime errors
    */
@@ -198,8 +198,8 @@ export default class ArvoEventHandler<TContract extends ArvoContract> extends Ab
               message: `Version resolution failed for event with dataschema '${event.dataschema}'. Defaulting to latest version (=${this.contract.version('latest').version}) of contract (uri=${this.contract.uri})`,
             });
           }
-           
-          let handlerContract: VersionedArvoContract<any, any>
+
+          let handlerContract: VersionedArvoContract<any, any>;
           try {
             handlerContract = this.contract.version(parsedDataSchema?.version ?? 'latest');
           } catch (error) {
