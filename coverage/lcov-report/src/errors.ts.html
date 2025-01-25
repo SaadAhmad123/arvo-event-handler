@@ -128,6 +128,32 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">4x</span>
@@ -137,31 +163,6 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -180,74 +181,73 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { ViolationError } from 'arvo-core';
+<span class="cline-any cline-yes">3x</span></td><td class="text"><pre class="prettyprint lang-js">import { ViolationError } from 'arvo-core';
 &nbsp;
 /**
- * Represents violations of service contracts, typically involving invalid inputs,
- * outputs, or state transitions that break expected invariants.
+ * ContractViolation indicates a critical mismatch between services where event data 
+ * violates the receiving handler's contract. This represents a serious system issue 
+ * where services are out of sync with their contracts. Common causes include:
+ * - Upstream services sending malformed data
+ * - Breaking changes in contracts without proper version management
+ * - Implicit assumptions in handlers not covered by contracts
+ * 
+ * Requires explicit handling as it signals potential system-wide contract violations.
  */
 export class ContractViolation extends ViolationError&lt;'Contract'&gt; {
   constructor(message: string, metadata?: Record&lt;string, any&gt;) {
-    super({
-      type: 'Contract',
-      message,
-      metadata,
-    })<span class="branch-1 cbranch-no" title="branch not covered" >;</span>
+      super({
+          type: 'Contract',
+          message,
+          metadata,
+      })<span class="branch-1 cbranch-no" title="branch not covered" >;</span>
   }
 }
 &nbsp;
 /**
- * Represents violations related to system configuration, typically involving
- * missing, invalid, or conflicting configuration requirement by the event
- * being processed.
+ * ConfigViolation indicates system configuration or routing issues where events 
+ * are mismatched with their handlers. This occurs separately from contract 
+ * violations and represents problems with the system topology itself, such as:
+ * - Events sent to handlers not configured to process them
+ * - Mismatched event types not covered by handler contracts
+ * - Configuration conflicts between services
+ * 
+ * Requires explicit resolution as it indicates fundamental routing or setup issues.
  */
 export class ConfigViolation extends ViolationError&lt;'Config'&gt; {
   constructor(message: string, metadata?: Record&lt;string, any&gt;) {
-    super({
-      type: 'Config',
-      message,
-      metadata,
-    })<span class="branch-1 cbranch-no" title="branch not covered" >;</span>
+      super({
+          type: 'Config',
+          message,
+          metadata,
+      })<span class="branch-1 cbranch-no" title="branch not covered" >;</span>
   }
 }
 &nbsp;
 /**
- * Represents violations that occur during system execution, typically involving
- * runtime failures that require explicit handling or intervention. This allow
- * the developer to throw an error which must be handled explicity at `.execute`
- * of an Arvo event handler. Otherwise, the the error throw during exection are
- * converted to system error event and require to be handled by the workflow
- * orchestration.
- *
- * @example
- * ```typescript
- * throw new ExecutionViolation(
- *   'API rate limit exceeded',
- *   {
- *     rateLimitRemaining: 0,
- *     resetAfterSeconds: 60
- *   }
- * );
- * ```
+ * ExecutionViolation represents runtime failures requiring explicit intervention
+ * outside normal error flow. Unlike regular errors that convert to system error 
+ * events, these violations demand special handling at the handler's .execute level.
+ * 
+ * Use sparingly - most runtime errors should flow through standard system error 
+ * events. Reserve ExecutionViolation for cases requiring custom error handling
+ * logic that can't be managed through normal event patterns.
  */
 export class ExecutionViolation extends ViolationError&lt;'Execution'&gt; {
   constructor(message: string, metadata?: Record&lt;string, any&gt;) {
-    super({
-      type: 'Execution',
-      message,
-      metadata,
-    })<span class="branch-1 cbranch-no" title="branch not covered" >;</span>
+      super({
+          type: 'Execution',
+          message,
+          metadata,
+      })<span class="branch-1 cbranch-no" title="branch not covered" >;</span>
   }
-}
-&nbsp;</pre></td></tr></table></pre>
+}</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
             </div><!-- /wrapper -->
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-01-25T13:50:33.576Z
+                at 2025-01-25T14:26:58.840Z
             </div>
         <script src="../prettify.js"></script>
         <script>

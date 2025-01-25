@@ -20,66 +20,79 @@ stateDiagram-v2
 
     state SpanManagement {
         StartExecution --> InitializeSpan: Start Active Span
-        InitializeSpan --> SetContext: Set from Event/Active Context
-        SetContext --> SetInitialAttributes: Set OTEL Headers
+        InitializeSpan --> SetSpanStatus: Set SpanStatusCode.OK
+        SetSpanStatus --> SetEventAttributes: Set OTEL Attributes
     }
 
     state ValidationPhase {
-        SetInitialAttributes --> ValidateEventType
-        ValidateEventType --> ParseDataSchema: Valid Type
-        ValidateEventType --> HandleError: Invalid Type
+        SetEventAttributes --> ValidateEventType: Contract Type Check
+        ValidateEventType --> ValidateContractUri: Success
+        ValidateEventType --> ThrowConfigViolation: Mismatch with configured contract type
+        
+        ValidateContractUri --> ResolveVersion: Success
+        ValidateContractUri --> ThrowContractViolation: URI Mismatch
 
-        ParseDataSchema --> ResolveVersion: Success
-        ParseDataSchema --> LogWarningUseLatest: No Version Found
-        LogWarningUseLatest --> ResolveVersion
-
-        ResolveVersion --> LoadHandlerContract: Get Contract Version
-        LoadHandlerContract --> ValidatePayload: Use Contract Schema
+        ResolveVersion --> LoadHandlerContract: Get Version
+        LoadHandlerContract --> ValidatePayload: Success
+        LoadHandlerContract --> ThrowConfigViolation: Version does not exist
+        ValidatePayload --> ExecuteHandler: Valid
+        ValidatePayload --> ThrowContractViolation: Invalid
     }
 
     state HandlerExecution {
-        ValidatePayload --> ExecuteHandler: Valid Payload
-        ValidatePayload --> HandleError: Invalid Payload
-
-        ExecuteHandler --> ProcessOutput: Has Output
-        ExecuteHandler --> ReturnEmpty: No Output
-        ExecuteHandler --> HandleError: Error in handler function
-
-        ProcessOutput --> CreateEvents: Create Result Events
-        CreateEvents --> SetOutputAttributes
+        ExecuteHandler --> ProcessOutput: Success
+        ExecuteHandler --> HandleError: Runtime Error
+        
+        ProcessOutput --> CreateEvents: Has Output
+        ProcessOutput --> ReturnEmpty: No Output
+        
+        CreateEvents --> ValidateOutputEvents: Create via Factory
+        ValidateOutputEvents --> SetOutputAttributes: Valid
+        ValidateOutputEvents --> ThrowContractViolation: Invalid
     }
 
-    state ErrorProcessing {
-        HandleError --> CreateSystemError
-        CreateSystemError --> SetErrorStatus
+    state ErrorHandling {
+        HandleError --> CheckViolationType: Catch Block
+        CheckViolationType --> ThrowViolation: Is Violation
+        CheckViolationType --> CreateSystemError: Runtime Error
+        
+        ThrowConfigViolation --> [*]
+        ThrowContractViolation --> [*]
+        ThrowViolation --> [*]
+        
+        CreateSystemError --> SetErrorSpan
+        SetErrorSpan --> ReturnErrorEvent
     }
 
     SetOutputAttributes --> FinalizeSpan
     ReturnEmpty --> FinalizeSpan
-    SetErrorStatus --> FinalizeSpan
+    ReturnErrorEvent --> FinalizeSpan
     FinalizeSpan --> [*]
 
     note right of SpanManagement
-        Initializes OpenTelemetry span and context
-        Sets initial attributes and headers
+        Manages OpenTelemetry context
+        Sets initial status and attributes
     end note
 
     note right of ValidationPhase
-        Validates event type and schema
-        Resolves contract version
-        Validates payload against contract
+        Validates event structure:
+        - Event type matches contract
+        - Contract URI matches
+        - Schema version resolution
+        - Payload validation
     end note
 
     note right of HandlerExecution
-        Executes handler function
-        Processes outputs
+        Executes version-specific handler
+        Processes and validates outputs
         Creates result events
     end note
 
-    note right of ErrorProcessing
-        Handles all errors uniformly
-        Creates system error events
-        Sets error status on span
+    note right of ErrorHandling
+        Handles three error types:
+        - ConfigViolation (throws)
+        - ContractViolation (throws)
+        - Runtime errors (returns error event)
     end note
 ```
 
@@ -102,59 +115,53 @@ sequenceDiagram
     Handler->>OTel: startActiveSpan("ArvoEventHandler")
     activate Handler
     activate OTel
-    Handler->>OTel: setContext(event/active)
-    Handler->>OTel: currentOpenTelemetryHeaders()
     Handler->>OTel: setSpanStatus(OK)
     Handler->>OTel: setAttributes(event.otelAttributes)
-    deactivate OTel
 
     %% Validation Phase
-    Handler->>Contract: validate(event.type === contract.type)
-    alt Invalid Event Type
-        Contract-->>Handler: throw Error
-        Handler->>Factory: createArvoEventFactory(contract.latest)
-        Handler->>Factory: systemError(event, error)
-        Factory-->>Handler: return errorEvent
-        Handler->>OTel: setSpanStatus(ERROR)
-        Handler-->>Caller: return [errorEvent]
+    Handler->>Contract: validate event.type === contract.type
+    alt Type Mismatch
+        Handler-->>Caller: throw ConfigViolation
     end
 
     Handler->>Contract: EventDataschemaUtil.parse(event)
-    alt No Version Found
-        Handler->>OTel: logToSpan(WARNING)
-        Note over Handler,Contract: Fallback to latest version
+    
+    alt URI Mismatch
+        Handler-->>Caller: throw ContractViolation
     end
 
-    %% Contract Handling
-    Handler->>Contract: resolved version from event or latest
-    activate Contract
-    Handler->>Contract: validate event data
-    alt Invalid Payload
-        Contract-->>Handler: validation error
-        Handler->>Factory: createArvoEventFactory(contract.latest)
-        Handler->>Factory: systemError(event, error)
-        Factory-->>Handler: return errorEvent
-        Handler->>OTel: setSpanStatus(ERROR)
-        Handler-->>Caller: return [errorEvent]
+    alt No Version Found
+        Handler->>OTel: logToSpan(WARNING)
+        Note over Handler,Contract: Use latest version
     end
-    deactivate Contract
+
+    %% Version Resolution
+    Handler->>Contract: version(parsedVersion ?? 'latest')
+    alt Version Not Available
+        Handler-->>Caller: throw ConfigViolation
+    end
+
+    %% Payload Validation
+    Handler->>Contract: validate event.data
+    alt Invalid Payload
+        Handler-->>Caller: throw ContractViolation
+    end
 
     %% Handler Execution
     Handler->>HandlerFn: handler[version](event, source, span)
     activate HandlerFn
+    
     alt Handler Success with Output
         HandlerFn-->>Handler: return output
-        Handler->>Factory: createArvoEventFactory(contract)
-        Handler->>Factory: create ArvoEvents to emit
-        Factory-->>Handler: return result events
-        Handler->>OTel: logToSpan(INFO)
+        Handler->>Factory: create result events
+        Factory-->>Handler: return events
+        Handler->>OTel: logToSpan(SUCCESS)
         Handler-->>Caller: return resultEvents
     else Handler Success No Output
-        HandlerFn-->>Handler: return null/undefined/void
+        HandlerFn-->>Handler: return null
         Handler-->>Caller: return []
-    else Handler Error
+    else Handler Runtime Error
         HandlerFn-->>Handler: throw Error
-        Handler->>Factory: createArvoEventFactory(contract.latest)
         Handler->>Factory: systemError(event, error)
         Factory-->>Handler: return errorEvent
         Handler->>OTel: setSpanStatus(ERROR)
@@ -162,55 +169,13 @@ sequenceDiagram
     end
     deactivate HandlerFn
 
-    %% Cleanup
+    %% Error Handling for Violations
+    opt Any Violation Error (ExecutionViolation)
+        Handler->>OTel: setSpanStatus(ERROR)
+        Handler-->>Caller: throw Violation
+    end
+
     Handler->>OTel: span.end()
+    deactivate OTel
     deactivate Handler
 ```
-
-## Detailed Phase Descriptions
-
-The execution process consists of four main phases:
-
-### Span Management Phase
-
-- Initializes OpenTelemetry context for distributed tracing
-- Sets up span attributes for observability
-- Ensures proper context propagation for distributed systems
-
-### Validation Phase
-
-- Verifies event type matches the contract
-- Parses event data schema for version information
-- Handles version resolution with fallback mechanisms
-- Validates event payload against contract schema
-
-### Handler Execution Phase
-
-- Executes the appropriate version-specific handler
-- Processes handler output
-- Creates result events with proper routing
-- Maintains telemetry throughout execution
-
-### Error Processing Phase
-
-- Provides uniform error handling across all phases
-- Creates properly formatted system error events
-- Ensures proper error reporting in telemetry
-
-## Error Handling Strategy
-
-The handler implements a comprehensive error handling strategy that:
-
-- Catches and processes all errors uniformly
-- Creates system error events with appropriate routing
-- Maintains telemetry context through error scenarios
-- Provides detailed error information for debugging
-
-## Telemetry Integration
-
-OpenTelemetry integration provides:
-
-- Distributed tracing across the event processing lifecycle
-- Detailed span attributes for debugging and monitoring
-- Proper context propagation for distributed systems
-- Performance metrics for each processing phase

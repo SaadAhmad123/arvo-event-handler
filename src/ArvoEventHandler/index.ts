@@ -17,20 +17,52 @@ import {
   logToSpan,
 } from 'arvo-core';
 import AbstractArvoEventHandler from '../AbstractArvoEventHandler';
-import { ContractViolation } from '../errors';
+import { ConfigViolation, ContractViolation } from '../errors';
 import type { ArvoEventHandlerOpenTelemetryOptions } from '../types';
 import { createEventHandlerTelemetryConfig, eventHandlerOutputEventCreator } from '../utils';
 import type { ArvoEventHandlerFunction, ArvoEventHandlerFunctionOutput, IArvoEventHandler } from './types';
 
 /**
- * ArvoEventHandler manages the execution and processing of events in accordance with
- * Arvo contracts. This class serves as the cornerstone for event handling operations,
- * integrating contract validation, telemetry management, and event processing.
+ * ArvoEventHandler is the core component for processing events in the Arvo system. It enforces
+ * contracts between services by ensuring that all events follow their specified formats and rules.
  *
- * The handler implements a robust execution flow that ensures proper validation,
- * versioning, and error handling while maintaining detailed telemetry through
- * OpenTelemetry integration. It supports versioned contracts and handles routing
- * of both successful and error events.
+ * The handler is built on two fundamental patterns: Meyer's Design by Contract and Fowler's
+ * Tolerant Reader. It binds to an ArvoContract that defines what events it can receive and send
+ * across all versions. This versioning is strict - the handler must implement every version defined
+ * in its contract, or it will fail both at compile time and runtime.
+ *
+ * Following the Tolerant Reader pattern, the handler accepts any incoming event but only processes
+ * those that exactly match one of its contract versions. When an event matches, it's handled by
+ * the specific implementation for that version. This approach maintains compatibility while
+ * ensuring precise contract adherence.
+ *
+ * The handler uses Zod for validation, automatically checking both incoming and outgoing events.
+ * This means it not only verifies data formats but also applies default values where needed and
+ * ensures all conditions are met before and after processing.
+ *
+ * Error handling in the handler divides issues into two categories:
+ *
+ * - `Violations` are serious contract breaches that indicate fundamental problems with how services
+ * are communicating. These errors bubble up to the calling code, allowing developers to handle
+ * these critical issues explicitly.
+ *
+ * - `System Error Events` cover normal runtime errors that occur during event processing. These are
+ * typically workflow-related issues that need to be reported back to the event's source but don't
+ * indicate a broken contract.
+ *
+ * * @example
+ * const handler = createArvoEventHandler({
+ *   contract: userContract,
+ *   executionunits: 1,
+ *   handler: {
+ *     '1.0.0': async ({ event }) => {
+ *       // Process event according to contract v1.0.0
+ *     },
+ *     '2.0.0': async ({ event }) => {
+ *       // Process event according to contract v2.0.0
+ *     }
+ *   }
+ * });
  */
 export default class ArvoEventHandler<TContract extends ArvoContract> extends AbstractArvoEventHandler {
   /** Contract instance that defines the event schema and validation rules */
@@ -88,31 +120,36 @@ export default class ArvoEventHandler<TContract extends ArvoContract> extends Ab
   }
 
   /**
-   * Processes an event according to the contract specifications. The execution flow encompasses
-   * span management, validation, handler execution, and error processing phases.
+   * Processes an incoming event according to the handler's contract specifications. This method
+   * handles the complete lifecycle of event processing including validation, execution, and error
+   * handling, while maintaining detailed telemetry through OpenTelemetry.
    *
-   * Event Routing Logic:
-   * - Success events: Routes based on priority (handler result -> redirectto -> source)
-   * - Error events: Always routes back to the source
+   * The execution follows a careful sequence to ensure reliability:
+   * First, it validates that the event matches the handler's contract type. Then it extracts
+   * and validates the event's schema version, defaulting to the latest version if none is specified.
+   * After validation passes, it executes the version-specific handler function and processes its
+   * output into new events.
    *
-   * Telemetry Integration:
-   * - Creates and manages OpenTelemetry spans for execution tracking
-   * - Propagates trace context through the event chain
-   * - Records execution metrics and error details
+   * The method handles routing through three distinct paths:
+   * - For successful execution, events are routed based on handler output or configuration.
+   *    - The 'to' field in the handler's result (if specified)
+   *    - The 'redirectto' field from the source event (if present)
+   *    - Falls back to the source event's 'source' field
+   * - For violations (mismatched types, invalid data), errors bubble up to the caller
+   * - For runtime errors, system error events are created and sent back to the source
    *
-   * Version Resolution:
-   * - Extracts version from event dataschema
-   * - Falls back to latest version if unspecified
-   * - Validates event data against versioned contract schema
+   * Throughout execution, comprehensive telemetry is maintained through OpenTelemetry spans,
+   * tracking the complete event journey including validation steps, processing time, and any
+   * errors that occur. This enables detailed monitoring and debugging of the event flow.
    *
-   * Error Handling:
-   * - Converts all errors to system error events
-   * - Maintains telemetry context for error scenarios
-   * - Ensures proper error event routing
-   *
-   * @param event - The event to process
+   * @param event - The incoming event to process
    * @param opentelemetry - Configuration for OpenTelemetry context inheritance
-   * @returns Promise resolving to array of result events or error event
+   * @returns Promise resolving to an array of output events or error events
+   * @throws `ContractViolation` when input or output event data violates the contract
+   * @throws `ConfigViolation` when event type doesn't match contract type or the 
+   *                           contract version expected by the event does not exist 
+   *                           in handler configuration
+   * @throws `ExecutionViolation` for explicitly handled runtime errors
    */
   public async execute(
     event: ArvoEvent,
@@ -137,7 +174,7 @@ export default class ArvoEventHandler<TContract extends ArvoContract> extends Ab
           }
 
           if (this.contract.type !== event.type) {
-            throw new ContractViolation(
+            throw new ConfigViolation(
               `Event type mismatch: Received '${event.type}', expected '${this.contract.type}'`,
             );
           }
@@ -147,19 +184,29 @@ export default class ArvoEventHandler<TContract extends ArvoContract> extends Ab
             message: `Event type '${event.type}' validated against contract '${this.contract.uri}'`,
           });
           const parsedDataSchema = EventDataschemaUtil.parse(event);
+          // If the URI exists but conflicts with the contract's URI
+          // Here we are only concerned with the URI bit not the version
           if (parsedDataSchema?.uri && parsedDataSchema?.uri !== this.contract.uri) {
             throw new ContractViolation(
               `Contract URI mismatch: Handler expects '${this.contract.uri}' but event dataschema specifies '${event.dataschema}'. Events must reference the same contract URI as their handler.`,
             );
           }
+          // If the version does not exist then just warn. The latest version will be used in this case
           if (!parsedDataSchema?.version) {
             logToSpan({
               level: 'WARNING',
               message: `Version resolution failed for event with dataschema '${event.dataschema}'. Defaulting to latest version (=${this.contract.version('latest').version}) of contract (uri=${this.contract.uri})`,
             });
           }
-
-          const handlerContract = this.contract.version(parsedDataSchema?.version ?? 'latest');
+           
+          let handlerContract: VersionedArvoContract<any, any>
+          try {
+            handlerContract = this.contract.version(parsedDataSchema?.version ?? 'latest');
+          } catch (error) {
+            throw new ConfigViolation(
+              `Invalid contract version: ${parsedDataSchema?.version}. Available versions: ${Object.keys(this.contract.versions).join(', ')}`,
+            );
+          }
 
           logToSpan({
             level: 'INFO',
