@@ -15,16 +15,9 @@ import {
   ArvoOpenTelemetry,
   ViolationError,
 } from 'arvo-core';
-import {
-  IArvoEventHandler,
-  ArvoEventHandlerFunction,
-  ArvoEventHandlerFunctionOutput,
-} from './types';
+import { IArvoEventHandler, ArvoEventHandlerFunction, ArvoEventHandlerFunctionOutput } from './types';
 import { SpanStatusCode, SpanOptions, SpanKind } from '@opentelemetry/api';
-import {
-  createEventHandlerTelemetryConfig,
-  eventHandlerOutputEventCreator,
-} from '../utils';
+import { createEventHandlerTelemetryConfig, eventHandlerOutputEventCreator } from '../utils';
 import AbstractArvoEventHandler from '../AbstractArvoEventHandler';
 import { ArvoEventHandlerOpenTelemetryOptions } from '../types';
 import { ContractViolation } from '../errors';
@@ -39,9 +32,7 @@ import { ContractViolation } from '../errors';
  * OpenTelemetry integration. It supports versioned contracts and handles routing
  * of both successful and error events.
  */
-export default class ArvoEventHandler<
-  TContract extends ArvoContract,
-> extends AbstractArvoEventHandler {
+export default class ArvoEventHandler<TContract extends ArvoContract> extends AbstractArvoEventHandler {
   /** Contract instance that defines the event schema and validation rules */
   public readonly contract: TContract;
 
@@ -156,10 +147,7 @@ export default class ArvoEventHandler<
             message: `Event type '${event.type}' validated against contract '${this.contract.uri}'`,
           });
           const parsedDataSchema = EventDataschemaUtil.parse(event);
-          if (
-            parsedDataSchema?.uri &&
-            parsedDataSchema?.uri !== this.contract.uri
-          ) {
+          if (parsedDataSchema?.uri && parsedDataSchema?.uri !== this.contract.uri) {
             throw new ContractViolation(
               `Contract URI mismatch: Handler expects '${this.contract.uri}' but event dataschema specifies '${event.dataschema}'. Events must reference the same contract URI as their handler.`,
             );
@@ -171,22 +159,16 @@ export default class ArvoEventHandler<
             });
           }
 
-          const handlerContract = this.contract.version(
-            parsedDataSchema?.version ?? 'latest',
-          );
+          const handlerContract = this.contract.version(parsedDataSchema?.version ?? 'latest');
 
           logToSpan({
             level: 'INFO',
             message: `Processing event with contract version ${handlerContract.version}`,
           });
 
-          const inputEventValidation = handlerContract.accepts.schema.safeParse(
-            event.data,
-          );
+          const inputEventValidation = handlerContract.accepts.schema.safeParse(event.data);
           if (inputEventValidation.error) {
-            throw new ContractViolation(
-              `Input event payload validation failed: ${inputEventValidation.error}`,
-            );
+            throw new ContractViolation(`Input event payload validation failed: ${inputEventValidation.error}`);
           }
 
           logToSpan({
@@ -254,9 +236,7 @@ export default class ArvoEventHandler<
             throw error;
           }
 
-          const eventFactory = createArvoEventFactory(
-            this.contract.version('latest'),
-          );
+          const eventFactory = createArvoEventFactory(this.contract.version('latest'));
           const result = eventFactory.systemError(
             {
               source: this.source,
@@ -272,9 +252,7 @@ export default class ArvoEventHandler<
             },
             {},
           );
-          Object.entries(result.otelAttributes).forEach(([key, value]) =>
-            span.setAttribute(`to_emit.0.${key}`, value),
-          );
+          Object.entries(result.otelAttributes).forEach(([key, value]) => span.setAttribute(`to_emit.0.${key}`, value));
           return [result];
         } finally {
           span.end();

@@ -11,11 +11,7 @@ import {
   ArvoOpenTelemetry,
   logToSpan,
 } from 'arvo-core';
-import {
-  IMultiArvoEventHandler,
-  MultiArvoEventHandlerFunction,
-  MultiArvoEventHandlerFunctionOutput,
-} from './types';
+import { IMultiArvoEventHandler, MultiArvoEventHandlerFunction, MultiArvoEventHandlerFunctionOutput } from './types';
 import {
   handleArvoEventHandlerCommonError,
   eventHandlerOutputEventCreator,
@@ -115,9 +111,7 @@ export default class MultiArvoEventHandler extends AbstractArvoEventHandler {
           });
 
           if (event.to !== this.source) {
-            throw new ConfigViolation(
-              `Event destination mismatch: Expected '${this.source}', received '${event.to}'`,
-            );
+            throw new ConfigViolation(`Event destination mismatch: Expected '${this.source}', received '${event.to}'`);
           }
 
           const _handlerOutput = await this.handler({

@@ -1,12 +1,5 @@
-import {
-  cleanString,
-  createArvoEvent,
-  currentOpenTelemetryHeaders,
-} from 'arvo-core';
-import {
-  createMultiArvoEventHandler,
-  MultiArvoEventHandlerFunction,
-} from '../../src';
+import { cleanString, createArvoEvent, currentOpenTelemetryHeaders } from 'arvo-core';
+import { createMultiArvoEventHandler, MultiArvoEventHandlerFunction } from '../../src';
 import { telemetrySdkStart, telemetrySdkStop } from '../utils';
 import { trace } from '@opentelemetry/api';
 
@@ -19,10 +12,7 @@ describe('MultiArvoEventHandler', () => {
     telemetrySdkStop();
   });
 
-  const mockHandlerFunction: MultiArvoEventHandlerFunction = async ({
-    event,
-    source,
-  }) => {
+  const mockHandlerFunction: MultiArvoEventHandlerFunction = async ({ event, source }) => {
     if (event.type === 'com.user.register') {
       return {
         type: 'evt.user.register.success',
@@ -194,8 +184,6 @@ describe('MultiArvoEventHandler', () => {
       handler: mockHandlerFunction,
     });
 
-    expect(handler.systemErrorSchema.type).toBe(
-      `sys.multi.event.handler.error`,
-    );
+    expect(handler.systemErrorSchema.type).toBe(`sys.multi.event.handler.error`);
   });
 });

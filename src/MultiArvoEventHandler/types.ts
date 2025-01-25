@@ -41,11 +41,7 @@ export type MultiArvoEventHandlerFunctionOutput = Omit<
  */
 export type MultiArvoEventHandlerFunction = (
   param: MultiArvoEventHandlerFunctionInput,
-) => Promise<
-  | Array<MultiArvoEventHandlerFunctionOutput>
-  | MultiArvoEventHandlerFunctionOutput
-  | void
->;
+) => Promise<Array<MultiArvoEventHandlerFunctionOutput> | MultiArvoEventHandlerFunctionOutput | void>;
 
 /**
  * Interface for an Multi ArvoEvent handler.

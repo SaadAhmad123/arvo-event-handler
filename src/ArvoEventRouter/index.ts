@@ -13,16 +13,8 @@ import {
 } from 'arvo-core';
 import ArvoEventHandler from '../ArvoEventHandler';
 import { IArvoEventRouter } from './types';
-import {
-  handleArvoEventHandlerCommonError,
-  isLowerAlphanumeric,
-} from '../utils';
-import {
-  context,
-  SpanKind,
-  SpanOptions,
-  SpanStatusCode,
-} from '@opentelemetry/api';
+import { handleArvoEventHandlerCommonError, isLowerAlphanumeric } from '../utils';
+import { context, SpanKind, SpanOptions, SpanStatusCode } from '@opentelemetry/api';
 import { deleteOtelHeaders } from './utils';
 import AbstractArvoEventHandler from '../AbstractArvoEventHandler';
 import { ArvoEventHandlerOpenTelemetryOptions } from '../types';
@@ -166,9 +158,7 @@ export class ArvoEventRouter extends AbstractArvoEventHandler {
           }
 
           if (!this.handlersMap[newEvent.type]) {
-            throw new ConfigViolation(
-              `No registered handler found for event type '${newEvent.type}'`,
-            );
+            throw new ConfigViolation(`No registered handler found for event type '${newEvent.type}'`);
           }
 
           logToSpan({
@@ -176,12 +166,9 @@ export class ArvoEventRouter extends AbstractArvoEventHandler {
             message: `Handler found for event type '${newEvent.type}' - Beginning event processing`,
           });
 
-          const results = await this.handlersMap[newEvent.type].execute(
-            newEvent,
-            {
-              inheritFrom: 'CONTEXT',
-            },
-          );
+          const results = await this.handlersMap[newEvent.type].execute(newEvent, {
+            inheritFrom: 'CONTEXT',
+          });
 
           const resultingEvents = results.map(
             (event) =>
@@ -198,8 +185,7 @@ export class ArvoEventRouter extends AbstractArvoEventHandler {
                   to: event.to,
                   accesscontrol: event.accesscontrol,
                   redirectto: event.redirectto,
-                  executionunits:
-                    (event.executionunits ?? 0) + this.executionunits,
+                  executionunits: (event.executionunits ?? 0) + this.executionunits,
                   traceparent: otelSpanHeaders.traceparent,
                   tracestate: otelSpanHeaders.tracestate,
                 },

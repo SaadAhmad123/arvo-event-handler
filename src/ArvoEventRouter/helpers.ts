@@ -17,5 +17,4 @@ import { IArvoEventRouter } from './types';
  *   executionunits: 10
  * });
  */
-export const createArvoEventRouter = (param: IArvoEventRouter) =>
-  new ArvoEventRouter(param);
+export const createArvoEventRouter = (param: IArvoEventRouter) => new ArvoEventRouter(param);

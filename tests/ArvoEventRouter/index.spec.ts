@@ -8,12 +8,7 @@ import {
   currentOpenTelemetryHeaders,
   exceptionToSpan,
 } from 'arvo-core';
-import {
-  ArvoEventRouter,
-  createArvoEventHandler,
-  createArvoEventRouter,
-  ExecutionViolation,
-} from '../../src';
+import { ArvoEventRouter, createArvoEventHandler, createArvoEventRouter, ExecutionViolation } from '../../src';
 import { z } from 'zod';
 import { telemetrySdkStart, telemetrySdkStop } from '../utils';
 import { trace } from '@opentelemetry/api';
@@ -251,9 +246,7 @@ describe('ArvoEventRouter', () => {
 
       expect(results).toHaveLength(1);
       expect(results[0].type).toBe('evt.user.register.error');
-      expect(results[0].data.errorMessage).toBe(
-        'Age more than 100. It is invalid',
-      );
+      expect(results[0].data.errorMessage).toBe('Age more than 100. It is invalid');
       span.end();
     });
   });
@@ -314,9 +307,7 @@ describe('ArvoEventRouter', () => {
     });
     expect(async () => {
       await router.execute(event);
-    }).rejects.toThrow(
-      "ViolationError<Config> No registered handler found for event type 'com.user.unhandled'",
-    );
+    }).rejects.toThrow("ViolationError<Config> No registered handler found for event type 'com.user.unhandled'");
   });
 
   it('should add execution units to the result events', async () => {
@@ -379,9 +370,7 @@ describe('ArvoEventRouter', () => {
       handlers: [errorHandler],
     });
 
-    let event: ArvoEvent = createArvoEventFactory(
-      userRegisterContract.version('0.0.1'),
-    ).accepts({
+    let event: ArvoEvent = createArvoEventFactory(userRegisterContract.version('0.0.1')).accepts({
       subject: 'test',
       source: 'com.test.test',
       to: 'com.multi.handler',
@@ -408,8 +397,6 @@ describe('ArvoEventRouter', () => {
 
     expect(async () => {
       await router.execute(event, { inheritFrom: 'EVENT' });
-    }).rejects.toThrow(
-      'ViolationError<Contract> Input event payload validation failed:',
-    );
+    }).rejects.toThrow('ViolationError<Contract> Input event payload validation failed:');
   });
 });

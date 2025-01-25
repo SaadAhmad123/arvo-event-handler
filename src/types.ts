@@ -17,8 +17,7 @@ import AbstractArvoEventHandler from './AbstractArvoEventHandler';
  * // Results in: { id: number; name?: string; }
  * ```
  */
-export type PartialExcept<T, K extends keyof T> = Partial<Omit<T, K>> &
-  Pick<T, K>;
+export type PartialExcept<T, K extends keyof T> = Partial<Omit<T, K>> & Pick<T, K>;
 
 /**
  * OpenTelemetry configuration for event handlers

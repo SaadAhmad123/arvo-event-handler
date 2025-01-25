@@ -1,25 +1,13 @@
 import { Span, SpanOptions } from '@opentelemetry/api';
-import {
-  ArvoContract,
-  ArvoEvent,
-  CreateArvoEvent,
-  VersionedArvoContract,
-  ArvoSemanticVersion,
-} from 'arvo-core';
+import { ArvoContract, ArvoEvent, CreateArvoEvent, VersionedArvoContract, ArvoSemanticVersion } from 'arvo-core';
 import { z } from 'zod';
 
 /**
  * Represents the input for an ArvoEvent handler function.
  */
-export type ArvoEventHandlerFunctionInput<
-  TContract extends VersionedArvoContract<any, any>,
-> = {
+export type ArvoEventHandlerFunctionInput<TContract extends VersionedArvoContract<any, any>> = {
   /** The ArvoEvent object. */
-  event: ArvoEvent<
-    z.infer<TContract['accepts']['schema']>,
-    Record<string, any>,
-    TContract['accepts']['type']
-  >;
+  event: ArvoEvent<z.infer<TContract['accepts']['schema']>, Record<string, any>, TContract['accepts']['type']>;
 
   /** The source field data of the handler */
   source: string;
@@ -31,9 +19,7 @@ export type ArvoEventHandlerFunctionInput<
 /**
  * Represents the output of an ArvoEvent handler function.
  */
-export type ArvoEventHandlerFunctionOutput<
-  TContract extends VersionedArvoContract<any, any>,
-> = {
+export type ArvoEventHandlerFunctionOutput<TContract extends VersionedArvoContract<any, any>> = {
   [K in keyof TContract['emits']]: Pick<
     CreateArvoEvent<z.infer<TContract['emits'][K]>, K & string>,
     'id' | 'time' | 'type' | 'data' | 'to' | 'accesscontrol' | 'redirectto'

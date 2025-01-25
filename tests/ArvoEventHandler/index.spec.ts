@@ -7,11 +7,7 @@ import {
 } from 'arvo-core';
 import { telemetrySdkStart, telemetrySdkStop } from '../utils';
 import { z } from 'zod';
-import {
-  ArvoEventHandlerFunction,
-  createArvoEventHandler,
-  ExecutionViolation,
-} from '../../src';
+import { ArvoEventHandlerFunction, createArvoEventHandler, ExecutionViolation } from '../../src';
 import { trace } from '@opentelemetry/api';
 
 describe('ArvoEventHandler', () => {
@@ -42,9 +38,7 @@ describe('ArvoEventHandler', () => {
     },
   });
 
-  const mockEvent = createArvoEventFactory(
-    mockContract.version('0.0.1'),
-  ).accepts({
+  const mockEvent = createArvoEventFactory(mockContract.version('0.0.1')).accepts({
     to: 'com.hello.world',
     source: 'com.test.env',
     subject: 'test-subject',
@@ -104,18 +98,14 @@ describe('ArvoEventHandler', () => {
           },
         }) as any,
       );
-    }).rejects.toThrow(
-      "Event type mismatch: Received 'com.saad.invalid.test', expected 'com.hello.world'",
-    );
+    }).rejects.toThrow("Event type mismatch: Received 'com.saad.invalid.test', expected 'com.hello.world'");
   });
 
   it('should handle handler error', async () => {
     const tracer = trace.getTracer('test-tracer');
     await tracer.startActiveSpan('test', async (span) => {
       const otelHeaders = currentOpenTelemetryHeaders();
-      const mockEvent = createArvoEventFactory(
-        mockContract.version('0.0.1'),
-      ).accepts({
+      const mockEvent = createArvoEventFactory(mockContract.version('0.0.1')).accepts({
         to: 'com.hello.world',
         source: 'com.test.env',
         subject: 'test-subject',
@@ -147,9 +137,7 @@ describe('ArvoEventHandler', () => {
     const tracer = trace.getTracer('test-tracer');
     await tracer.startActiveSpan('test', async (span) => {
       const otelHeaders = currentOpenTelemetryHeaders();
-      const mockEvent = createArvoEventFactory(
-        mockContract.version('0.0.1'),
-      ).accepts({
+      const mockEvent = createArvoEventFactory(mockContract.version('0.0.1')).accepts({
         to: 'com.hello.world',
         source: 'com.test.env',
         subject: 'test-subject',
@@ -203,9 +191,7 @@ describe('ArvoEventHandler', () => {
 
       expect(async () => {
         const result = await handler.execute(mockEvent);
-      }).rejects.toThrow(
-        'ViolationError<Contract> Input event payload validation failed:',
-      );
+      }).rejects.toThrow('ViolationError<Contract> Input event payload validation failed:');
 
       span.end();
     });
@@ -248,9 +234,7 @@ describe('ArvoEventHandler', () => {
       handler: mockHandlerFunction,
     });
 
-    expect(handler.systemErrorSchema.type).toBe(
-      `sys.${handler.contract.type}.error`,
-    );
+    expect(handler.systemErrorSchema.type).toBe(`sys.${handler.contract.type}.error`);
   });
 
   it('should not return any output if the handler does not', async () => {
@@ -408,9 +392,7 @@ describe('ArvoEventHandler', () => {
       spanOptions: customSpanOptions,
     });
 
-    expect(handler.spanOptions.attributes?.['custom.attribute']).toBe(
-      'test-value',
-    );
+    expect(handler.spanOptions.attributes?.['custom.attribute']).toBe('test-value');
     const result = await handler.execute(mockEvent);
     expect(result[0].type).toBe('evt.hello.world.success');
   });

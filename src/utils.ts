@@ -1,18 +1,7 @@
-import {
-  ArvoEvent,
-  CreateArvoEvent,
-  exceptionToSpan,
-  OpenTelemetryHeaders,
-  ViolationError,
-} from 'arvo-core';
+import { ArvoEvent, CreateArvoEvent, exceptionToSpan, OpenTelemetryHeaders, ViolationError } from 'arvo-core';
 import { ArvoEventHandlerFunctionOutput } from './ArvoEventHandler/types';
 import { MultiArvoEventHandlerFunctionOutput } from './MultiArvoEventHandler/types';
-import {
-  context,
-  SpanOptions,
-  SpanStatusCode,
-  trace,
-} from '@opentelemetry/api';
+import { context, SpanOptions, SpanStatusCode, trace } from '@opentelemetry/api';
 import { ArvoEventHandlerOpenTelemetryOptions } from './types';
 
 /**
@@ -33,10 +22,7 @@ export function isNullOrUndefined(item: unknown): item is null | undefined {
  * @param defaultValue - The default value to return if the provided value is null or undefined.
  * @returns The provided value if it's not null or undefined; otherwise, the default value.
  */
-export function getValueOrDefault<T>(
-  value: T | null | undefined,
-  defaultValue: NonNullable<T>,
-): NonNullable<T> {
+export function getValueOrDefault<T>(value: T | null | undefined, defaultValue: NonNullable<T>): NonNullable<T> {
   return isNullOrUndefined(value) ? defaultValue : (value as NonNullable<T>);
 }
 
@@ -48,9 +34,7 @@ export function getValueOrDefault<T>(
  * @param values - The values to coalesce.
  * @returns The first non-null and non-undefined value, or undefined if all are null or undefined.
  */
-export function coalesce<T>(
-  ...values: (T | null | undefined)[]
-): T | undefined {
+export function coalesce<T>(...values: (T | null | undefined)[]): T | undefined {
   for (const value of values) {
     if (!isNullOrUndefined(value)) {
       return value;
@@ -76,10 +60,7 @@ export function coalesce<T>(
  * const result = coalesceOrDefault([null, undefined], 'default');
  * console.log(result); // Output: 'default'
  */
-export function coalesceOrDefault<T>(
-  values: (T | null | undefined)[],
-  _default: NonNullable<T>,
-): NonNullable<T> {
+export function coalesceOrDefault<T>(values: (T | null | undefined)[], _default: NonNullable<T>): NonNullable<T> {
   return getValueOrDefault(coalesce(...values), _default);
 }
 
@@ -96,9 +77,7 @@ export function coalesceOrDefault<T>(
  * @returns An array of ArvoEvents created from the handler output.
  */
 export const eventHandlerOutputEventCreator = (
-  events: Array<
-    ArvoEventHandlerFunctionOutput<any> | MultiArvoEventHandlerFunctionOutput
-  >,
+  events: Array<ArvoEventHandlerFunctionOutput<any> | MultiArvoEventHandlerFunctionOutput>,
   otelSpanHeaders: OpenTelemetryHeaders,
   source: string,
   originalEvent: ArvoEvent,
@@ -119,18 +98,9 @@ export const eventHandlerOutputEventCreator = (
         subject: originalEvent.subject,
         // prioritise returned 'to', 'redirectto' and then
         // 'source'
-        to: coalesceOrDefault(
-          [handlerResult.to, originalEvent.redirectto],
-          originalEvent.source,
-        ),
-        executionunits: coalesce(
-          handlerResult.executionunits,
-          handlerExectionUnits,
-        ),
-        accesscontrol:
-          handlerResult.accesscontrol ??
-          originalEvent.accesscontrol ??
-          undefined,
+        to: coalesceOrDefault([handlerResult.to, originalEvent.redirectto], originalEvent.source),
+        executionunits: coalesce(handlerResult.executionunits, handlerExectionUnits),
+        accesscontrol: handlerResult.accesscontrol ?? originalEvent.accesscontrol ?? undefined,
       },
       __extensions,
     );

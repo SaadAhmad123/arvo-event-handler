@@ -46,6 +46,5 @@ import { IMultiArvoEventHandler } from './types';
  * @see {@link IMultiArvoEventHandler} for the full configuration options
  * @see {@link MultiArvoEventHandler} for the handler class implementation
  */
-export const createMultiArvoEventHandler = (
-  param: IMultiArvoEventHandler,
-): MultiArvoEventHandler => new MultiArvoEventHandler(param);
+export const createMultiArvoEventHandler = (param: IMultiArvoEventHandler): MultiArvoEventHandler =>
+  new MultiArvoEventHandler(param);

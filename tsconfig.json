@@ -21,12 +21,7 @@
       "CHANGELOG.md",
       "LICENSE.md"
     ],
-    "plugin": [
-      "typedoc-plugin-zod",
-      "typedoc-plugin-mermaid",
-      "typedoc-github-theme",
-      "typedoc-plugin-coverage"
-    ],
+    "plugin": ["typedoc-plugin-zod", "typedoc-plugin-mermaid", "typedoc-github-theme", "typedoc-plugin-coverage"],
     "out": "docs"
   }
 }
