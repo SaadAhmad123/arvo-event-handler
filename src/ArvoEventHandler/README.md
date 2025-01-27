@@ -558,5 +558,5 @@ Of course, Arvo isn't a silver bullet - it's one opinionated approach to the cha
 
 ## Appendix
 
-- For an indepth view of the functioning and execution of the ArvoEventHandler, please refer to the [exection diagrams](./ExecutionDiagrams.md) of the `.execute` method.
+- For an indepth view of the functioning and execution of the ArvoEventHandler, please refer to the [exection diagrams](https://github.com/SaadAhmad123/arvo-event-handler/blob/main/src/ArvoEventHandler/ExecutionDiagrams.md) of the `.execute` method.
 - Reade more about the `ArvoContract` in the `arvo-core` [documentation](https://saadahmad123.github.io/arvo-core/documents/ArvoContract.html).

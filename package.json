@@ -1,6 +1,6 @@
 {
   "name": "arvo-event-handler",
-  "version": "2.2.7",
+  "version": "2.2.8",
   "description": "Type-safe event handler system with versioning, telemetry, and contract validation for distributed Arvo event-driven architectures, featuring routing and multi-handler support.",
   "main": "dist/index.js",
   "scripts": {
@@ -12,7 +12,15 @@
     "format": "biome format --fix",
     "doc": "npx typedoc"
   },
-  "keywords": ["arvo", "event-driven architecture", "xorca", "core", "cloudevent", "opentelemetry", "orchestrator"],
+  "keywords": [
+    "arvo",
+    "event-driven architecture",
+    "xorca",
+    "core",
+    "cloudevent",
+    "opentelemetry",
+    "orchestrator"
+  ],
   "author": "Saad Ahmad <saadkwi12@hotmail.com>",
   "license": "MIT",
   "devDependencies": {
@@ -45,7 +53,7 @@
   "dependencies": {
     "@opentelemetry/api": "^1.9.0",
     "@opentelemetry/core": "^1.28.0",
-    "arvo-core": "^2.2.6",
+    "arvo-core": "^2.2.8",
     "uuid": "^10.0.0",
     "zod": "^3.23.8"
   }
