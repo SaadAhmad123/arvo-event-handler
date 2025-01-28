@@ -150,35 +150,33 @@ const handler = createArvoEventHandler({
     handler: {
         // Version-specific implementation
         '1.0.0': async ({event, source, span}) => {
-			/**
-			* The types are:
-			* - event: ArvoEvent
-			* - source: string
-			* - span: Span <from opentelemetry>
-			*/
-			
-	        // Adding some more attributes for logging
-			span.setAttribute('sample-service-name', source)
-			
-			// The function automatically figures of the appropriate span
-			logToSpan({
-				level: 'INFO',
-				message: "Service started"
-			})
-            
+            // The types are:
+            // - event: ArvoEvent
+            // - source: string
+            // - span: Span <from opentelemetry>
+            //
+            // Adding some more attributes for logging
+            span.setAttribute('sample-service-name', source)
+
+            // The function automatically figures of the appropriate span
+            logToSpan({
+                level: 'INFO',
+                message: "Service started"
+            })
+
             const userCreated = createUser(
                 event.data.name,
                 event.data.age
             );
-			
-			// The target span to log event to can explicitly be defined
-	        logToSpan({
-				level: 'INFO',
-				message: "Service started"
-			}, span)
-			
-			span.setAttribute('sample-execution-cost', 10)
-			
+
+            // The target span to log event to can explicitly be defined
+            logToSpan({
+                level: 'INFO',
+                message: "Service started"
+            }, span)
+            
+            span.setAttribute('sample-execution-cost', 10)
+
             return {
                 type: 'evt.create.user.success',
                 data: { created: userCreated },
@@ -358,11 +356,11 @@ The system error events follow a consistent format defined by the `ArvoContract`
 import { type ArvoErrorType, createArvoError, createArvoEvent } from 'arvo-core'
 
 const sampleErrorEvent = createArvoEvent({
-	...rest,
-	type: 'sys.com.user.create.error',
-	data: createArvoError(
-		new Error("Some random error")
-	), // satisfies ArvoErrorType
+    ...rest,
+    type: 'sys.com.user.create.error',
+    data: createArvoError(
+        new Error("Some random error")
+    ), // satisfies ArvoErrorType
 })
 
 /**
@@ -412,14 +410,14 @@ try {
     // Process successful result
 } catch (error) {
     if ((e as ConfigViolation)?.name === 'ViolationError<Config>') {
-	    // Do something...
+        // Do something...
     }
-	if ((e as ContractViolation)?.name === 'ViolationError<Contract>') {
-		// Do something...
-	}
-	if ((e as ExecutionViolation)?.name === 'ViolationError<Execution>') {
-		// Do something...
-	}
+    if ((e as ContractViolation)?.name === 'ViolationError<Contract>') {
+        // Do something...
+    }
+    if ((e as ExecutionViolation)?.name === 'ViolationError<Execution>') {
+        // Do something...
+    }
 }
 ```
 
