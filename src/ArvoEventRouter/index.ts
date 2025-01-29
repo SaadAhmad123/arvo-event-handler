@@ -112,6 +112,10 @@ export class ArvoEventRouter extends AbstractArvoEventHandler {
    * @param event The event to be routed and processed
    * @param opentelemetry Configuration for telemetry context inheritance
    * @returns Promise resolving to resulting events or error events
+   *
+   * @throws {ConfigViolation} When event destination does not match router's source
+   * @throws {ConfigViolation} When no registered handler exists for the event type
+   * @throws Other Violation error which are thrown by the registered event handlers
    */
   async execute(
     event: ArvoEvent,

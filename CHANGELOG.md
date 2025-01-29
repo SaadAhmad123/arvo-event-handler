@@ -43,3 +43,7 @@
 ## [2.2.5] - 2024-12-25
 
 - Added better error boundaries for the handlers
+## [2.2.10] - 2025-01-29
+
+- Updated dependency versions and added more tests
+

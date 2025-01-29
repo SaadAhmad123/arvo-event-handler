@@ -86,6 +86,9 @@ export default class MultiArvoEventHandler extends AbstractArvoEventHandler {
    * @param event Event to process
    * @param opentelemetry Telemetry context configuration
    * @returns Resulting events or error events
+   *
+   * @throws {ConfigViolation} When event destination does not match handler source
+   * @throws Other Violation error which are thrown by the event handler function
    */
   public async execute(
     event: ArvoEvent,

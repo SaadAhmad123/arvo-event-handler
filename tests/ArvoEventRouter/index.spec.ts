@@ -176,6 +176,7 @@ describe('ArvoEventRouter', () => {
     const results = await router.execute(event);
 
     expect(results).toHaveLength(2);
+    expect(results[0].subject).toBe(event.subject);
     expect(results[0].type).toBe('evt.user.register.success');
     expect(results[1].type).toBe('notif.user.register');
   });

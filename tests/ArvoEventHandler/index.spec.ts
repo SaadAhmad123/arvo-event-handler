@@ -1,6 +1,7 @@
 import { trace } from '@opentelemetry/api';
 import {
   ArvoErrorSchema,
+  EventDataschemaUtil,
   createArvoContract,
   createArvoEvent,
   createArvoEventFactory,
@@ -127,6 +128,7 @@ describe('ArvoEventHandler', () => {
       });
       const result = await handler.execute(mockEvent);
       expect(result).toBeDefined();
+      expect(result[0].subject).toBe(mockEvent.subject);
       expect(result[0].type).toBe('sys.com.hello.world.error');
       expect(result[0].data.errorMessage).toBe('Test error');
       span.end();
@@ -414,5 +416,76 @@ describe('ArvoEventHandler', () => {
     const result = await handler.execute(mockEvent);
     expect(result).toHaveLength(1);
     expect(result[0].type).toBe('evt.hello.world.success');
+  });
+
+  it('should throw contract violation error on invlaid event data', async () => {
+    const handler = createArvoEventHandler({
+      contract: mockContract,
+      executionunits: 100,
+      handler: {
+        '0.0.1': async ({ event }) => ({
+          type: 'evt.hello.world.success',
+          data: {
+            result: `Single output for ${event.data.name}`,
+          },
+        }),
+      },
+    });
+
+    const invalidMockEvent = createArvoEvent({
+      subject: 'test-subject',
+      source: 'com.test.test',
+      type: 'com.hello.world',
+      dataschema: EventDataschemaUtil.create(mockContract.version('0.0.1')),
+      data: {
+        input: 2,
+      },
+    });
+
+    expect(() => handler.execute(invalidMockEvent)).rejects.toThrow('ViolationError<Contract>');
+  });
+
+  it('should throw config violation error on invlaid event dataschema version', async () => {
+    const handler = createArvoEventHandler({
+      contract: mockContract,
+      executionunits: 100,
+      handler: {
+        '0.0.1': async ({ event }) => ({
+          type: 'evt.hello.world.success',
+          data: {
+            result: `Single output for ${event.data.name}`,
+          },
+        }),
+      },
+    });
+
+    const invalidMockEvent = createArvoEvent({
+      subject: 'test-subject',
+      source: 'com.test.test',
+      type: 'com.hello.world',
+      dataschema: `${mockContract.uri}/0.0.2`,
+      data: {
+        input: 2,
+      },
+    });
+
+    expect(() => handler.execute(invalidMockEvent)).rejects.toThrow('ViolationError<Config>');
+  });
+
+  it('should throw contract violation error on invlaid event emission', async () => {
+    const handler = createArvoEventHandler({
+      contract: mockContract,
+      executionunits: 100,
+      handler: {
+        '0.0.1': async ({ event }) => ({
+          type: 'evt.hello.world.success',
+          data: {
+            result: 2 as any,
+          },
+        }),
+      },
+    });
+
+    expect(() => handler.execute(mockEvent)).rejects.toThrow('ViolationError<Contract>');
   });
 });

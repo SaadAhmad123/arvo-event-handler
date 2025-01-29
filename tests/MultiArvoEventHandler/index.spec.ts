@@ -79,19 +79,20 @@ describe('MultiArvoEventHandler', () => {
       handler: mockHandlerFunction,
     });
 
-    const result = await handler.execute(
-      createArvoEvent({
-        to: 'multi.event.handler',
-        type: 'com.user.register',
-        source: 'test',
-        subject: 'test',
-        data: {
-          name: 'Saad Ahmad',
-        },
-        accesscontrol: 'role=test-role',
-      }),
-    );
+    const event = createArvoEvent({
+      to: 'multi.event.handler',
+      type: 'com.user.register',
+      source: 'test',
+      subject: 'test',
+      data: {
+        name: 'Saad Ahmad',
+      },
+      accesscontrol: 'role=test-role',
+    });
+
+    const result = await handler.execute(event);
     expect(result).toBeDefined();
+    expect(result[0].subject).toBe(event.subject);
     expect(result[0].type).toBe('evt.user.register.success');
     expect(result[0].executionunits).toBe(150);
     expect(result[0].source).toBe('multi.event.handler');
