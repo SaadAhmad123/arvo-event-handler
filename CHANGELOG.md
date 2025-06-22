@@ -47,3 +47,15 @@
 
 - Updated dependency versions and added more tests
 
+## [2.3.0] - 2025-06-22
+
+Enabling orchestrations to have domained events.
+
+#### Breaking Change
+
+All event handlers now return an object instead of an array:
+
+#### Standard Event Handlers:
+
+**Before**: const events = await handler.execute(event)
+**After**: const { events } = await handler.execute(event)
