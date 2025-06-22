@@ -95,7 +95,9 @@ export default class MultiArvoEventHandler extends AbstractArvoEventHandler {
     opentelemetry: ArvoEventHandlerOpenTelemetryOptions = {
       inheritFrom: 'EVENT',
     },
-  ): Promise<ArvoEvent[]> {
+  ): Promise<{
+    events: ArvoEvent[];
+  }> {
     const otelConfig = createEventHandlerTelemetryConfig(
       'MutliArvoEventHandler',
       this.spanOptions,
@@ -127,7 +129,10 @@ export default class MultiArvoEventHandler extends AbstractArvoEventHandler {
             span,
           });
 
-          if (!_handlerOutput) return [];
+          if (!_handlerOutput)
+            return {
+              events: [],
+            };
           let outputs: MultiArvoEventHandlerFunctionOutput[] = [];
           if (Array.isArray(_handlerOutput)) {
             outputs = _handlerOutput;
@@ -147,9 +152,9 @@ export default class MultiArvoEventHandler extends AbstractArvoEventHandler {
             level: 'INFO',
             message: `Event processing completed successfully - Generated ${resultingEvents.length} new event(s)`,
           });
-          return resultingEvents;
+          return { events: resultingEvents };
         } catch (error) {
-          return handleArvoEventHandlerCommonError(
+          const events = handleArvoEventHandlerCommonError(
             error as Error,
             otelSpanHeaders,
             `sys.${this.source}.error`,
@@ -158,6 +163,7 @@ export default class MultiArvoEventHandler extends AbstractArvoEventHandler {
             this.executionunits,
             (param, extensions) => createArvoEvent(param, extensions),
           );
+          return { events };
         } finally {
           span.end();
         }

@@ -91,12 +91,12 @@ describe('MultiArvoEventHandler', () => {
     });
 
     const result = await handler.execute(event);
-    expect(result).toBeDefined();
-    expect(result[0].subject).toBe(event.subject);
-    expect(result[0].type).toBe('evt.user.register.success');
-    expect(result[0].executionunits).toBe(150);
-    expect(result[0].source).toBe('multi.event.handler');
-    expect(result[0].accesscontrol).toBe('role=test-role');
+    expect(result.events).toBeDefined();
+    expect(result.events[0].subject).toBe(event.subject);
+    expect(result.events[0].type).toBe('evt.user.register.success');
+    expect(result.events[0].executionunits).toBe(150);
+    expect(result.events[0].source).toBe('multi.event.handler');
+    expect(result.events[0].accesscontrol).toBe('role=test-role');
   });
 
   it('should execute handler with invalid error and return error event', async () => {
@@ -148,16 +148,16 @@ describe('MultiArvoEventHandler', () => {
           accesscontrol: 'role=test',
         }),
       );
-      expect(result).toBeDefined();
-      expect(result.length).toBe(2);
-      expect(result[0].type).toBe('notif.user.status');
-      expect(result[0].to).toBe('multi.event.handler.1');
-      expect(result[0].executionunits).toBe(15);
-      expect(result[0].accesscontrol).toBe('role=none');
-      expect(result[1].to).toBe('multi.event.handler.1');
-      expect(result[1].type).toBe('notif.user.name');
-      expect(result[1].executionunits).toBe(15);
-      expect(result[1].accesscontrol).toBe('role=test');
+      expect(result.events).toBeDefined();
+      expect(result.events.length).toBe(2);
+      expect(result.events[0].type).toBe('notif.user.status');
+      expect(result.events[0].to).toBe('multi.event.handler.1');
+      expect(result.events[0].executionunits).toBe(15);
+      expect(result.events[0].accesscontrol).toBe('role=none');
+      expect(result.events[1].to).toBe('multi.event.handler.1');
+      expect(result.events[1].type).toBe('notif.user.name');
+      expect(result.events[1].executionunits).toBe(15);
+      expect(result.events[1].accesscontrol).toBe('role=test');
 
       result = await handler.execute(
         createArvoEvent({
@@ -172,8 +172,8 @@ describe('MultiArvoEventHandler', () => {
           tracestate: otelHeaders.tracestate || undefined,
         }),
       );
-      expect(result).toBeDefined();
-      expect(result.length).toBe(0);
+      expect(result.events).toBeDefined();
+      expect(result.events.length).toBe(0);
       span.end();
     });
   });

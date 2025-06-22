@@ -122,7 +122,9 @@ export class ArvoEventRouter extends AbstractArvoEventHandler {
     opentelemetry: ArvoEventHandlerOpenTelemetryOptions = {
       inheritFrom: 'EVENT',
     },
-  ): Promise<ArvoEvent[]> {
+  ): Promise<{
+    events: ArvoEvent[];
+  }> {
     return await ArvoOpenTelemetry.getInstance().startActiveSpan({
       name: 'ArvoEventRouter',
       spanOptions: this.spanOptions,
@@ -174,7 +176,7 @@ export class ArvoEventRouter extends AbstractArvoEventHandler {
             inheritFrom: 'CONTEXT',
           });
 
-          const resultingEvents = results.map(
+          const resultingEvents = results.events.map(
             (event) =>
               new ArvoEvent(
                 {
@@ -209,9 +211,9 @@ export class ArvoEventRouter extends AbstractArvoEventHandler {
             }
           }
 
-          return resultingEvents;
+          return { events: resultingEvents };
         } catch (error) {
-          return handleArvoEventHandlerCommonError(
+          const events = handleArvoEventHandlerCommonError(
             error as Error,
             otelSpanHeaders,
             this.systemErrorSchema.type,
@@ -220,6 +222,7 @@ export class ArvoEventRouter extends AbstractArvoEventHandler {
             this.executionunits,
             (param, extensions) => createArvoEvent(param, extensions),
           );
+          return { events };
         } finally {
           span.end();
         }

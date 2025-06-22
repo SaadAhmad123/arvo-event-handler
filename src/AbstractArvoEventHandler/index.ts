@@ -57,7 +57,13 @@ export default abstract class AbstractArvoEventHandler {
    * - Properly handling span lifecycle (creation and completion)
    * - Propagating context appropriately
    */
-  public abstract execute(event: ArvoEvent, opentelemetry: ArvoEventHandlerOpenTelemetryOptions): Promise<ArvoEvent[]>;
+  public abstract execute(
+    event: ArvoEvent,
+    opentelemetry: ArvoEventHandlerOpenTelemetryOptions,
+  ): Promise<{
+    events: ArvoEvent[];
+    [key: string]: unknown;
+  }>;
 
   /**
    * Provides the schema for system error events.

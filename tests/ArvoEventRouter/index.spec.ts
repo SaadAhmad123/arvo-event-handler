@@ -175,10 +175,10 @@ describe('ArvoEventRouter', () => {
 
     const results = await router.execute(event);
 
-    expect(results).toHaveLength(2);
-    expect(results[0].subject).toBe(event.subject);
-    expect(results[0].type).toBe('evt.user.register.success');
-    expect(results[1].type).toBe('notif.user.register');
+    expect(results.events).toHaveLength(2);
+    expect(results.events[0].subject).toBe(event.subject);
+    expect(results.events[0].type).toBe('evt.user.register.success');
+    expect(results.events[1].type).toBe('notif.user.register');
   });
 
   it('should route user read event to the correct handler', async () => {
@@ -199,9 +199,9 @@ describe('ArvoEventRouter', () => {
 
       const results = await router.execute(event);
 
-      expect(results).toHaveLength(2);
-      expect(results[0].type).toBe('evt.user.read.success');
-      expect(results[1].type).toBe('notif.user.read');
+      expect(results.events).toHaveLength(2);
+      expect(results.events[0].type).toBe('evt.user.read.success');
+      expect(results.events[1].type).toBe('notif.user.read');
       span.end();
     });
   });
@@ -225,9 +225,9 @@ describe('ArvoEventRouter', () => {
 
       const results = await router.execute(event);
 
-      expect(results).toHaveLength(1);
-      expect(results[0].type).toBe('evt.user.register.error');
-      expect(results[0].data.errorMessage).toBe('Age more than 100. It is invalid');
+      expect(results.events).toHaveLength(1);
+      expect(results.events[0].type).toBe('evt.user.register.error');
+      expect(results.events[0].data.errorMessage).toBe('Age more than 100. It is invalid');
       span.end();
     });
   });
@@ -245,11 +245,11 @@ describe('ArvoEventRouter', () => {
 
     const results = await router.execute(event);
 
-    expect(results).toHaveLength(2);
-    expect(results[0].type).toBe('evt.user.read.success');
-    expect(results[0].data.created).toBe(false);
-    expect(results[1].type).toBe('notif.user.read');
-    expect(results[1].data.message).toBe('User not found: Non Existent User');
+    expect(results.events).toHaveLength(2);
+    expect(results.events[0].type).toBe('evt.user.read.success');
+    expect(results.events[0].data.created).toBe(false);
+    expect(results.events[1].type).toBe('notif.user.read');
+    expect(results.events[1].data.message).toBe('User not found: Non Existent User');
   });
 
   it('should throw an error for mismatched source', async () => {
@@ -305,7 +305,7 @@ describe('ArvoEventRouter', () => {
 
     const results = await router.execute(event);
 
-    for (const result of results) {
+    for (const result of results.events) {
       expect(result.executionunits).toBe(11); // 10 from handler + 1 from router
     }
   });

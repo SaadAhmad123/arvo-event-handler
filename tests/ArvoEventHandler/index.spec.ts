@@ -77,7 +77,7 @@ describe('ArvoEventHandler', () => {
     });
 
     const result = await handler.execute(mockEvent);
-    expect(result).toBeDefined();
+    expect(result.events).toBeDefined();
   });
 
   it('should handle validation error', async () => {
@@ -127,10 +127,10 @@ describe('ArvoEventHandler', () => {
         },
       });
       const result = await handler.execute(mockEvent);
-      expect(result).toBeDefined();
-      expect(result[0].subject).toBe(mockEvent.subject);
-      expect(result[0].type).toBe('sys.com.hello.world.error');
-      expect(result[0].data.errorMessage).toBe('Test error');
+      expect(result.events).toBeDefined();
+      expect(result.events[0].subject).toBe(mockEvent.subject);
+      expect(result.events[0].type).toBe('sys.com.hello.world.error');
+      expect(result.events[0].data.errorMessage).toBe('Test error');
       span.end();
     });
   });
@@ -225,8 +225,8 @@ describe('ArvoEventHandler', () => {
       },
     });
     const result = await handler.execute(mockEvent);
-    expect(result[0].executionunits).toBe(200);
-    expect(result[1].executionunits).toBe(500);
+    expect(result.events[0].executionunits).toBe(200);
+    expect(result.events[1].executionunits).toBe(500);
   });
 
   it('should allow to discover the system error message', () => {
@@ -248,7 +248,7 @@ describe('ArvoEventHandler', () => {
       },
     });
 
-    const events = await handler.execute(mockEvent);
+    const { events } = await handler.execute(mockEvent);
     expect(events.length).toBe(0);
   });
 
@@ -351,7 +351,7 @@ describe('ArvoEventHandler', () => {
     });
 
     const result = await handler.execute(eventWithSchema);
-    expect(result[0].type).toBe('evt.hello.world.success');
+    expect(result.events[0].type).toBe('evt.hello.world.success');
   });
 
   it('should reject events with mismatched contract URI in dataschema', async () => {
@@ -396,7 +396,7 @@ describe('ArvoEventHandler', () => {
 
     expect(handler.spanOptions.attributes?.['custom.attribute']).toBe('test-value');
     const result = await handler.execute(mockEvent);
-    expect(result[0].type).toBe('evt.hello.world.success');
+    expect(result.events[0].type).toBe('evt.hello.world.success');
   });
 
   it('should handle single output as non-array', async () => {
@@ -414,8 +414,8 @@ describe('ArvoEventHandler', () => {
     });
 
     const result = await handler.execute(mockEvent);
-    expect(result).toHaveLength(1);
-    expect(result[0].type).toBe('evt.hello.world.success');
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].type).toBe('evt.hello.world.success');
   });
 
   it('should throw contract violation error on invlaid event data', async () => {

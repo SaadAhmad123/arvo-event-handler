@@ -156,7 +156,9 @@ export default class ArvoEventHandler<TContract extends ArvoContract> extends Ab
     opentelemetry: ArvoEventHandlerOpenTelemetryOptions = {
       inheritFrom: 'EVENT',
     },
-  ): Promise<ArvoEvent[]> {
+  ): Promise<{
+    events: ArvoEvent[];
+  }> {
     const otelConfig = createEventHandlerTelemetryConfig(
       `ArvoEventHandler<${this.contract.uri}>`,
       this.spanOptions,
@@ -234,7 +236,10 @@ export default class ArvoEventHandler<TContract extends ArvoContract> extends Ab
             span: span,
           });
 
-          if (!_handleOutput) return [];
+          if (!_handleOutput)
+            return {
+              events: [],
+            };
 
           let outputs: ArvoEventHandlerFunctionOutput<
             VersionedArvoContract<TContract, typeof handlerContract.version>
@@ -271,7 +276,9 @@ export default class ArvoEventHandler<TContract extends ArvoContract> extends Ab
             message: 'Event handled successfully',
           });
 
-          return result;
+          return {
+            events: result,
+          };
         } catch (error) {
           exceptionToSpan(error as Error);
           span.setStatus({
@@ -302,7 +309,9 @@ export default class ArvoEventHandler<TContract extends ArvoContract> extends Ab
           for (const [key, value] of Object.entries(result.otelAttributes)) {
             span.setAttribute(`to_emit.0.${key}`, value);
           }
-          return [result];
+          return {
+            events: [result],
+          };
         } finally {
           span.end();
         }
