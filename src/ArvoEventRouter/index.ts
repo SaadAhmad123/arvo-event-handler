@@ -194,6 +194,7 @@ export class ArvoEventRouter extends AbstractArvoEventHandler {
                   executionunits: (event.executionunits ?? 0) + this.executionunits,
                   traceparent: otelSpanHeaders.traceparent,
                   tracestate: otelSpanHeaders.tracestate,
+                  parentid: event.parentid,
                 },
                 event.data,
                 event.cloudevent.extensions,

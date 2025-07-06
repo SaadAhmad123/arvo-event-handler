@@ -303,6 +303,7 @@ export default class ArvoEventHandler<TContract extends ArvoContract> extends Ab
               traceparent: otelSpanHeaders.traceparent ?? undefined,
               tracestate: otelSpanHeaders.tracestate ?? undefined,
               accesscontrol: event.accesscontrol ?? undefined,
+              parentid: event.id ?? undefined,
             },
             {},
           );

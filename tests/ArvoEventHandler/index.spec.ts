@@ -488,4 +488,143 @@ describe('ArvoEventHandler', () => {
 
     expect(() => handler.execute(mockEvent)).rejects.toThrow('ViolationError<Contract>');
   });
+
+  describe('parentid support', () => {
+    it('should preserve parentid from input event to output events', async () => {
+      const eventWithParentId = createArvoEventFactory(mockContract.version('0.0.1')).accepts({
+        to: 'com.hello.world',
+        source: 'com.test.env',
+        subject: 'test-subject',
+        data: {
+          name: 'Saad Ahmad',
+          age: 26,
+        },
+      });
+
+      const handler = createArvoEventHandler({
+        contract: mockContract,
+        executionunits: 100,
+        handler: mockHandlerFunction,
+      });
+
+      const result = await handler.execute(eventWithParentId);
+      expect(result.events[0].parentid).toBe(eventWithParentId.id);
+    });
+
+    it('should handle parentid in system error events', async () => {
+      const eventWithParentId = createArvoEventFactory(mockContract.version('0.0.1')).accepts({
+        to: 'com.hello.world',
+        source: 'com.test.env',
+        subject: 'test-subject',
+        data: {
+          name: 'Saad',
+          age: 10,
+        },
+      });
+
+      const handler = createArvoEventHandler({
+        contract: mockContract,
+        executionunits: 100,
+        handler: {
+          '0.0.1': async () => {
+            throw new Error('Test error');
+          },
+        },
+      });
+
+      const result = await handler.execute(eventWithParentId);
+      expect(result.events[0].type).toBe('sys.com.hello.world.error');
+      expect(result.events[0].parentid).toBe(eventWithParentId.id);
+    });
+
+    it('should handle parentid in multiple output events', async () => {
+      const eventWithParentId = createArvoEventFactory(mockContract.version('0.0.1')).accepts({
+        to: 'com.hello.world',
+        source: 'com.test.env',
+        subject: 'test-subject',
+        data: {
+          name: 'Saad Ahmad',
+          age: 26,
+        },
+      });
+
+      const handler = createArvoEventHandler({
+        contract: mockContract,
+        executionunits: 100,
+        handler: {
+          '0.0.1': async ({ event }) => [
+            {
+              type: 'evt.hello.world.success',
+              data: {
+                result: `First output for ${event.data.name}`,
+              },
+            },
+            {
+              type: 'evt.hello.world.success',
+              data: {
+                result: `Second output for ${event.data.name}`,
+              },
+              
+            },
+          ],
+        },
+      });
+
+      const result = await handler.execute(eventWithParentId);
+      expect(result.events).toHaveLength(2);
+      expect(result.events[0].parentid).toBe(eventWithParentId.id);
+      expect(result.events[1].parentid).toBe(eventWithParentId.id);
+    });
+
+    it('should not allow handler to override parentid in output events', async () => {
+      const eventWithParentId = createArvoEventFactory(mockContract.version('0.0.1')).accepts({
+        to: 'com.hello.world',
+        source: 'com.test.env',
+        subject: 'test-subject',
+        data: {
+          name: 'Saad Ahmad',
+          age: 26,
+        },
+      });
+
+      const handler = createArvoEventHandler({
+        contract: mockContract,
+        executionunits: 100,
+        handler: {
+          '0.0.1': async ({ event }) => ({
+            type: 'evt.hello.world.success',
+            parentid: 'custom-parent-override',
+            data: {
+              result: `Custom parentid for ${event.data.name}`,
+            },
+          }),
+        },
+      });
+
+      const result = await handler.execute(eventWithParentId);
+      expect(result.events[0].parentid).toBe(eventWithParentId.id);
+    });
+
+    it('should include parentid in OpenTelemetry attributes for handler execution', async () => {
+      const eventWithParentId = createArvoEventFactory(mockContract.version('0.0.1')).accepts({
+        to: 'com.hello.world',
+        source: 'com.test.env',
+        subject: 'test-subject',
+        data: {
+          name: 'Saad Ahmad',
+          age: 26,
+        },
+      });
+
+      const handler = createArvoEventHandler({
+        contract: mockContract,
+        executionunits: 100,
+        handler: mockHandlerFunction,
+      });
+
+      const result = await handler.execute(eventWithParentId);
+      const otelAttributes = result.events[0].otelAttributes;
+      expect(otelAttributes['cloudevents.arvo.event_parentid']).toBe(eventWithParentId.id);
+    });
+  });
 });

@@ -107,6 +107,7 @@ export const eventHandlerOutputEventCreator = (
         to: coalesceOrDefault([handlerResult.to, originalEvent.redirectto], originalEvent.source),
         executionunits: coalesce(handlerResult.executionunits, handlerExectionUnits),
         accesscontrol: handlerResult.accesscontrol ?? originalEvent.accesscontrol ?? undefined,
+        parentid: originalEvent.id,
       },
       __extensions,
     );
@@ -155,6 +156,7 @@ export const handleArvoEventHandlerCommonError = (
       errorStack: error.stack ?? null,
     },
     accesscontrol: originalEvent.accesscontrol ?? undefined,
+    parentid: originalEvent.id,
   });
 
   const activeSpan = trace.getActiveSpan();

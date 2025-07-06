@@ -36,6 +36,7 @@ export const deleteOtelHeaders = (event: ArvoEvent) =>
       executionunits: event.executionunits,
       traceparent: null,
       tracestate: null,
+      parentid: event.parentid,
     },
     event.data,
     event.cloudevent.extensions,
