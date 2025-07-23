@@ -162,7 +162,7 @@ export const createSimpleEventBroker = (
       domain: string;
       event: ArvoEvent;
       broker: SimpleEventBroker;
-    }) => void;
+    }) => Promise<void>;
   },
 ) => {
   const resolvedHandlerName = 'broker.arvo.simple.handle';
@@ -193,13 +193,13 @@ export const createSimpleEventBroker = (
         });
         for (const evt of response.events) {
           if (event.domain) {
-            options?.onDomainedEvents?.({
+            await options?.onDomainedEvents?.({
               domain: event.domain,
               event: event,
               broker: broker,
             });
           } else {
-            broker.publish(evt);
+            await broker.publish(evt);
           }
         }
       },

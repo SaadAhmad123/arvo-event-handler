@@ -40,8 +40,9 @@ import type { IArvoEventHandler } from './types';
  *         data: result,
  *         // Optional: override default routing
  *         to: 'com.notification.service',
- *         // Creates 2 events one for 'analytics.realtime' domain and one for 'null' domain which
- *         // is the default domain in Arvo system
+ *         // Creates 2 events:
+ *         // - One for 'analytics.realtime' domain (specialized processing)
+ *         // - One with no domain (standard processing pipeline)
  *         domain: ['analytics.realtime', null]
  *       };
  *     },

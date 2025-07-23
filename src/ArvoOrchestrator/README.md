@@ -26,12 +26,111 @@ const orchestrator = createArvoOrchestrator({
 });
 
 // Process an event - now returns structured result
-const { events, allEventDomains, domainedEvents } = await orchestrator.execute(incomingEvent);
+const { events } = await orchestrator.execute(incomingEvent);
+```
 
-// Access different event types
-const defaultEvents = events; // Standard processing
-const externalEvents = domainedEvents.external; // External system integration
-const allEvents = domainedEvents.all; // A Set of every event regardless of domain
+## Multi-Domain Event Broadcasting
+
+The ArvoOrchestrator supports sophisticated multi-domain event distribution through array-based domain specification. This powerful feature allows events to be broadcast across multiple processing contexts simultaneously.
+
+### Understanding Domains
+
+In Arvo, domains represent different processing contexts or routing namespaces for events. They enable sophisticated event distribution patterns where a single handler response can create multiple events for different processing pipelines.
+
+### Domain Assignment Rules
+
+When returning events from a state machine, you can specify domains using the `domain` field:
+
+1. **Array Processing**: Each element in the `domain` array creates a separate ArvoEvent instance
+2. **`undefined` in Array Resolution**: `undefined` elements resolve to: `event.contract.domain ?? triggeringEvent.domain ?? handler.contract.domain ?? null`
+3. **`null` in Array Resolution**: `null` elements resolve to events which `domain: null`
+3. **Automatic Deduplication**: Duplicate domains are automatically removed to prevent redundant events
+4. **Default Behavior**: Omitting the `domain` field (or setting to `undefined`) defaults to `[null]` (single event, no domain)
+
+### Domain Broadcasting Patterns
+
+```typescript
+// In your state machine - creates 2 events: one for each domain
+xstate.emit(({ context }) => ({
+  domains: ['domain1', 'domain2'],
+  type: 'com.service.call',
+  data: { request: context.request }
+}))
+
+// Creates up to 3 events:
+// - Event with domain: 'analytics'
+// - Event with domain: event.contract.domain ?? triggeringEvent.domain ?? handler.contract.domain ?? null
+// - Event with domain: null
+xstate.emit(({ context }) => ({
+  domains: ['analytics', undefined, null],
+  type: 'com.process.update',
+  data: { status: context.status }
+}))
+
+// Single event with explicit no-domain routing
+xstate.emit(({ context }) => ({
+  domains: [null],
+  type: 'com.standard.process',
+  data: { data: context.data }
+}))
+
+// Single event with no-domain (equivalent to omitting domain field)
+xstate.emit(({ context }) => ({
+  domains: undefined, // or omit domains entirely
+  type: 'com.default.process',
+  data: { data: context.data }
+}))
+```
+
+### Error Broadcasting
+
+System errors are automatically broadcast to all relevant processing contexts:
+- Source event domain (`event.domain`)
+- Handler contract domain (`handler.contract.domain`)
+- No-domain context (`null`)
+
+Duplicates are automatically removed, so if `event.domain === handler.contract.domain`, only two error events are created instead of three.
+
+### Domain Usage Example
+
+```typescript
+const handler = setupArvoMachine({
+  contracts: {
+    self: userContract,
+    services: {
+      approvalService: approvalContract.version('1.0.0'),
+      analyticsService: analyticsContract.version('1.0.0'),
+    }
+  },
+  // ... other config
+}).createMachine({
+  // ... machine config
+  states: {
+    processing: {
+      entry: [
+        // Standard internal processing
+        xstate.emit(({ context }) => ({
+          type: 'com.approval.request',
+          data: { userId: context.userId }
+        })),
+        
+        // External system integration
+        xstate.emit(({ context }) => ({
+          domains: ['external'],
+          type: 'com.notification.send',
+          data: { message: context.notification }
+        })),
+        
+        // Multi-domain event for parallel processing
+        xstate.emit(({ context }) => ({
+          domains: ['analytics', 'audit', null],
+          type: 'com.user.action.logged',
+          data: { action: context.action }
+        }))
+      ]
+    }
+  }
+});
 ```
 
 ## Operation overview
@@ -76,25 +175,16 @@ The Arvo Orchestrator implements a sophisticated domain-based event routing syst
 
 #### Event Domains
 
-Events emitted from state machines can be categorized into processing domains using the `domains` parameter. Events without explicit domains are automatically assigned to the 'default' domain for standard internal processing. Multi-domain events participate in multiple processing flows simultaneously, enabling sophisticated orchestration patterns.
+Events emitted from state machines can be categorized into processing domains using the `domains` parameter. Events without explicit domains are automatically assigned to the 'null' domain for standard internal processing. Multi-domain events participate in multiple processing flows simultaneously, enabling sophisticated orchestration patterns.
 
 ```typescript
 // In your state machine
 emit(({ context }) => ({
-  domains: ['default', 'external'], // Event goes to both domains
+  domains: [null, 'external'], // Event goes to both domains
   type: 'approval.request',
   data: { amount: context.amount }
 }))
 ```
-
-#### Domain Processing Patterns
-
-Common domain patterns include:
-
-- **Default Domain**: Standard internal service routing and processing
-- **External Domain**: Human-in-the-loop workflows, third-party integrations, approval processes
-- **Analytics Domain**: Real-time monitoring, metrics collection, audit trails
-- **Priority Domain**: High-priority processing with specialized handling
 
 #### Orchestrator Response Structure
 

@@ -67,24 +67,6 @@ export type ArvoEventHandlerFunctionOutput<TContract extends VersionedArvoContra
      * - `['analytics', undefined, 'audit']` → Creates events for analytics, inherited context, and audit
      * - `[null]` → Creates single event with no domain routing (standard processing)
      * - `undefined` (or omitted) → Creates single event with `domain: null`
-     *
-     * @example
-     * ```typescript
-     * // Multi-domain broadcast to specific processing pipelines
-     * domain: ['analytics.realtime', 'notifications.push', 'audit.trail']
-     *
-     * // Include inherited domain behavior alongside explicit domains
-     * domain: ['analytics.realtime', undefined]
-     *
-     * // Mix explicit domains with inherited and no-domain processing
-     * domain: ['analytics.realtime', undefined, null]
-     *
-     * // Single domain processing
-     * domain: ['priority.high']
-     *
-     * // No domain processing (same as omitting the field)
-     * domain: [null]
-     * ```
      */
     domain?: (string | undefined | null)[];
   };

@@ -1,103 +1,188 @@
-import { SpanKind, SpanStatusCode, context } from '@opentelemetry/api';
+import { context, SpanKind, SpanStatusCode } from '@opentelemetry/api';
 import {
-  type ArvoContract,
-  type ArvoContractRecord,
-  ArvoErrorSchema,
-  type ArvoEvent,
   ArvoExecution,
   ArvoExecutionSpanKind,
   ArvoOpenTelemetry,
   ArvoOrchestrationSubject,
   type ArvoOrchestrationSubjectContent,
-  type ArvoOrchestratorContract,
-  type ArvoSemanticVersion,
-  EventDataschemaUtil,
-  OpenInference,
-  OpenInferenceSpanKind,
-  type OpenTelemetryHeaders,
-  type VersionedArvoContract,
-  type ViolationError,
-  createArvoEvent,
   createArvoOrchestratorEventFactory,
   currentOpenTelemetryHeaders,
   exceptionToSpan,
   logToSpan,
+  OpenInference,
+  OpenInferenceSpanKind,
+  type ViolationError,
+  type ArvoEvent,
+  type ArvoOrchestratorContract,
+  type VersionedArvoContract,
+  EventDataschemaUtil,
+  isWildCardArvoSematicVersion,
+  type OpenTelemetryHeaders,
+  type ArvoSemanticVersion,
+  type ArvoContract,
+  createArvoEvent,
+  type InferArvoEvent,
 } from 'arvo-core';
-import type { ActorLogic } from 'xstate';
 import type { z } from 'zod';
-import type ArvoMachine from '../ArvoMachine';
-import type { EnqueueArvoEventActionParam } from '../ArvoMachine/types';
-import type { IMachineExectionEngine } from '../MachineExecutionEngine/interface';
+import type { ArvoResumableHandler, ArvoResumableState } from './types';
+import { TransactionViolation, TransactionViolationCause } from '../ArvoOrchestrator/error';
 import type { IMachineMemory } from '../MachineMemory/interface';
-import type { IMachineRegistry } from '../MachineRegistry/interface';
-import { isError } from '../utils';
-import { TransactionViolation, TransactionViolationCause } from './error';
-import type { IArvoOrchestrator, MachineMemoryRecord } from './types';
-import { SyncEventResource } from '../SyncEventResource';
+import { SyncEventResource } from '../SyncEventResource/index';
 import type { AcquiredLockStatusType } from '../SyncEventResource/types';
+import type { EnqueueArvoEventActionParam } from '../ArvoMachine/types';
+import { isError } from '../utils/index';
 import AbstractArvoEventHandler from '../AbstractArvoEventHandler';
-import type { ArvoEventHandlerOpenTelemetryOptions } from '../types';
 import { ConfigViolation, ContractViolation, ExecutionViolation } from '../errors';
+import type { ArvoEventHandlerOpenTelemetryOptions } from '../types';
 
 /**
- * Orchestrates state machine execution and lifecycle management.
- * Handles machine resolution, state management, event processing and error handling.
+ * ArvoResumable - A stateful orchestration handler for managing distributed workflows
+ *
+ * ArvoResumable provides a handler-based approach to workflow orchestration that prioritizes
+ * explicit control and simplicity over declarative abstractions. It excels at straightforward
+ * request-response patterns and linear workflows while maintaining full type safety and
+ * contract validation throughout the execution lifecycle.
+ *
+ * This class addresses fundamental issues in event-driven architecture including:
+ * - Contract management with runtime validation and type safety
+ * - Graduated complexity allowing simple workflows to remain simple
+ * - Unified event handling across initialization and service responses
+ * - Explicit state management without hidden abstractions
+ *
+ * Key capabilities:
+ * - Handler-based workflow orchestration with explicit state control
+ * - Contract-driven event validation with runtime schema enforcement
+ * - Distributed resource locking for transaction safety
+ * - Comprehensive OpenTelemetry integration for observability
+ * - Automatic error handling with system error event generation
+ * - Support for orchestrator chaining and nested workflow patterns
+ * - Domain-based event routing and organization
+ *
+ * Unlike state machine approaches, ArvoResumable uses imperative handler functions
+ * that provide direct control over workflow logic. This makes debugging easier and
+ * reduces the learning curve for teams familiar with traditional programming patterns.
+ *
+ * @see {@link createArvoResumable} Factory function for creating instances
+ * @see {@link ArvoResumableHandler} Handler interface documentation
+ * @see {@link ArvoResumableState} State structure documentation
  */
-export class ArvoOrchestrator extends AbstractArvoEventHandler {
+export class ArvoResumable<
+  TMemory extends Record<string, any> = Record<string, any>,
+  TSelfContract extends ArvoOrchestratorContract = ArvoOrchestratorContract,
+  TServiceContract extends Record<string, VersionedArvoContract<any, any>> = Record<
+    string,
+    VersionedArvoContract<any, any>
+  >,
+> extends AbstractArvoEventHandler {
   readonly executionunits: number;
-  readonly registry: IMachineRegistry;
-  readonly executionEngine: IMachineExectionEngine;
-  readonly syncEventResource: SyncEventResource<MachineMemoryRecord>;
+  readonly syncEventResource: SyncEventResource<ArvoResumableState<TMemory>>;
+  readonly source: string;
+  readonly handler: ArvoResumableHandler<ArvoResumableState<TMemory>, TSelfContract, TServiceContract>;
 
-  get source() {
-    return this.registry.machines[0].source;
-  }
+  readonly contracts: {
+    self: TSelfContract;
+    services: TServiceContract;
+  };
 
   get requiresResourceLocking(): boolean {
     return this.syncEventResource.requiresResourceLocking;
   }
 
-  get memory(): IMachineMemory<MachineMemoryRecord> {
+  get memory(): IMachineMemory<ArvoResumableState<TMemory>> {
     return this.syncEventResource.memory;
   }
 
   get domain(): string | null {
-    return this.registry.machines[0].contracts.self.domain;
+    return this.contracts.self.domain;
   }
 
-  /**
-   * Creates a new orchestrator instance
-   * @param params - Configuration parameters
-   * @throws Error if machines in registry have different sources
-   */
-  constructor({ executionunits, memory, registry, executionEngine, requiresResourceLocking }: IArvoOrchestrator) {
+  constructor(param: {
+    contracts: {
+      self: TSelfContract;
+      services: TServiceContract;
+    };
+    executionunits: number;
+    memory: IMachineMemory<ArvoResumableState<TMemory>>;
+    requiresResourceLocking?: boolean;
+    handler: ArvoResumableHandler<ArvoResumableState<TMemory>, TSelfContract, TServiceContract>;
+  }) {
     super();
-    this.executionunits = executionunits;
-    const representativeMachine = registry.machines[0];
-    const lastSeenVersions: ArvoSemanticVersion[] = [];
-    for (const machine of registry.machines) {
-      if (representativeMachine.source !== machine.source) {
-        throw new Error(`All the machines in the orchestrator must have type '${representativeMachine.source}'`);
-      }
-      if (lastSeenVersions.includes(machine.version)) {
-        throw new Error(
-          `An orchestrator must have unique machine versions. Machine ID:${machine.id} has duplicate version ${machine.version}.`,
-        );
-      }
-      lastSeenVersions.push(machine.version);
+    this.executionunits = param.executionunits;
+    this.source = param.contracts.self.type;
+    this.syncEventResource = new SyncEventResource(param.memory, param.requiresResourceLocking ?? true);
+    this.contracts = param.contracts;
+    this.handler = param.handler;
+  }
+
+  protected validateInput(event: ArvoEvent): {
+    contractType: 'self' | 'service';
+  } {
+    let resolvedContract: VersionedArvoContract<any, any> | null = null;
+    let contractType: 'self' | 'service';
+
+    const parsedEventDataSchema = EventDataschemaUtil.parse(event);
+    if (!parsedEventDataSchema) {
+      throw new ExecutionViolation(
+        `Event dataschema resolution failed: Unable to parse dataschema='${event.dataschema}' for event(id='${event.id}', type='${event.type}'). This makes the event opaque and does not allow contract resolution`,
+      );
     }
-    this.registry = registry;
-    this.executionEngine = executionEngine;
-    this.syncEventResource = new SyncEventResource(memory, requiresResourceLocking);
+
+    if (event.type === this.contracts.self.type) {
+      contractType = 'self';
+      resolvedContract = this.contracts.self.version(parsedEventDataSchema.version);
+    } else {
+      contractType = 'service';
+      for (const contract of Object.values(this.contracts.services)) {
+        if (resolvedContract) break;
+        for (const emitType of [...contract.emitList, contract.systemError]) {
+          if (resolvedContract) break;
+          if (event.type === emitType.type) {
+            resolvedContract = contract;
+          }
+        }
+      }
+    }
+
+    if (!resolvedContract) {
+      throw new ConfigViolation(
+        `Contract resolution failed: No matching contract found for event (id='${event.id}', type='${event.type}')`,
+      );
+    }
+
+    logToSpan({
+      level: 'INFO',
+      message: `Dataschema resolved: ${event.dataschema} matches contract(uri='${resolvedContract.uri}', version='${resolvedContract.version}')`,
+    });
+    if (parsedEventDataSchema.uri !== resolvedContract.uri) {
+      throw new Error(
+        `Contract URI mismatch: ${contractType} Contract(uri='${resolvedContract.uri}', type='${resolvedContract.accepts.type}') does not match Event(dataschema='${event.dataschema}', type='${event.type}')`,
+      );
+    }
+    if (
+      !isWildCardArvoSematicVersion(parsedEventDataSchema.version) &&
+      parsedEventDataSchema.version !== resolvedContract.version
+    ) {
+      throw new Error(
+        `Contract version mismatch: ${contractType} Contract(version='${resolvedContract.version}', type='${resolvedContract.accepts.type}', uri=${resolvedContract.uri}) does not match Event(dataschema='${event.dataschema}', type='${event.type}')`,
+      );
+    }
+
+    const validationSchema: z.AnyZodObject =
+      contractType === 'self'
+        ? resolvedContract.accepts.schema
+        : (resolvedContract.emits[event.type] ?? resolvedContract.systemError.schema);
+
+    validationSchema.parse(event.data);
+    return { contractType };
   }
 
   /**
    * Creates emittable event from execution result
    * @param event - Source event to emit
-   * @param machine - Machine that generated event
    * @param otelHeaders - OpenTelemetry headers
    * @param orchestrationParentSubject - Parent orchestration subject
    * @param sourceEvent - Original triggering event
+   * @param selfVersionedContract - The self versioned contract
    * @param initEventId - The id of the event which initiated the orchestration in the first place
    * @param _domain - The domain of the event.
    *
@@ -106,10 +191,10 @@ export class ArvoOrchestrator extends AbstractArvoEventHandler {
    */
   protected createEmittableEvent(
     event: EnqueueArvoEventActionParam,
-    machine: ArvoMachine<any, any, any, any, any>,
     otelHeaders: OpenTelemetryHeaders,
     orchestrationParentSubject: string | null,
     sourceEvent: ArvoEvent,
+    selfVersionedContract: VersionedArvoContract<TSelfContract, ArvoSemanticVersion>,
     initEventId: string,
     _domain: string | null | undefined,
   ): ArvoEvent {
@@ -117,13 +202,11 @@ export class ArvoOrchestrator extends AbstractArvoEventHandler {
       level: 'INFO',
       message: `Creating emittable event: ${event.type}`,
     });
-
-    const selfContract: VersionedArvoContract<ArvoOrchestratorContract, ArvoSemanticVersion> = machine.contracts.self;
     const serviceContract: Record<
       string,
       VersionedArvoContract<ArvoContract, ArvoSemanticVersion>
     > = Object.fromEntries(
-      (Object.values(machine.contracts.services) as VersionedArvoContract<ArvoContract, ArvoSemanticVersion>[]).map(
+      (Object.values(this.contracts.services) as VersionedArvoContract<ArvoContract, ArvoSemanticVersion>[]).map(
         (item) => [item.accepts.type, item],
       ),
     );
@@ -132,16 +215,17 @@ export class ArvoOrchestrator extends AbstractArvoEventHandler {
     let subject: string = sourceEvent.subject;
     let parentId: string = sourceEvent.id;
     let domain = _domain === undefined ? (sourceEvent.domain ?? this.domain ?? null) : _domain;
-    if (event.type === selfContract.metadata.completeEventType) {
+    if (event.type === selfVersionedContract.metadata.completeEventType) {
       logToSpan({
         level: 'INFO',
         message: `Creating event for machine workflow completion: ${event.type}`,
       });
-      contract = selfContract;
-      schema = selfContract.emits[selfContract.metadata.completeEventType];
+      contract = selfVersionedContract;
+      schema = selfVersionedContract.emits[selfVersionedContract.metadata.completeEventType];
       subject = orchestrationParentSubject ?? sourceEvent.subject;
       parentId = initEventId;
-      domain = _domain === undefined ? (selfContract.domain ?? sourceEvent.domain ?? this.domain ?? null) : _domain;
+      domain =
+        _domain === undefined ? (selfVersionedContract.domain ?? sourceEvent.domain ?? this.domain ?? null) : _domain;
     } else if (serviceContract[event.type]) {
       logToSpan({
         level: 'INFO',
@@ -225,7 +309,7 @@ export class ArvoOrchestrator extends AbstractArvoEventHandler {
         data: finalData,
         to: event.to ?? event.type,
         accesscontrol: event.accesscontrol ?? sourceEvent.accesscontrol ?? undefined,
-        // The orchestrator does not respect redirectto from the source event
+        // The orchestrator/ resumable does not respect redirectto from the source event
         redirectto: event.redirectto ?? this.source,
         executionunits: event.executionunits ?? this.executionunits,
         traceparent: otelHeaders.traceparent ?? undefined,
@@ -245,33 +329,59 @@ export class ArvoOrchestrator extends AbstractArvoEventHandler {
   }
 
   /**
-   * Core orchestration method that executes state machines in response to events.
-   * Manages the complete event lifecycle:
-   * 1. Acquires lock and state
-   * 2. Validates events and contracts
-   * 3. Executes state machine
-   * 4. Persists new state
-   * 5. Generates response events with domain-based segregation
+   * Executes the orchestration workflow for an incoming event
    *
-   * @param event - Event triggering the execution
-   * @param opentelemetry - OpenTelemetry configuration
+   * This is the main orchestration entry point that coordinates the complete event
+   * processing lifecycle. It implements the core workflow execution pattern including
+   * validation, locking, state management, handler invocation, event creation, and
+   * persistence with comprehensive error handling and observability.
+   *
+   * The execution process follows these phases:
+   * 1. **Validation & Setup** - Subject parsing, handler resolution, contract validation
+   * 2. **Resource Management** - Distributed lock acquisition and state loading
+   * 3. **Handler Execution** - Context preparation and user handler invocation
+   * 4. **Event Processing** - Result transformation and emittable event creation
+   * 5. **State Persistence** - Atomic state updates and event tracking
+   * 6. **Cleanup & Return** - Resource release and structured result return
+   *
+   * @param event - The triggering event to process
+   * @param opentelemetry - OpenTelemetry configuration for trace inheritance
+   *
    * @returns Object containing domained events
    *
-   * @throws {TransactionViolation} Lock/state operations failed
-   * @throws {ExecutionViolation} Invalid event structure/flow
-   * @throws {ContractViolation} Schema/contract mismatch
-   * @throws {ConfigViolation} Missing/invalid machine version
+   * @throws {TransactionViolation} When distributed lock acquisition fails
+   * @throws {ConfigViolation} When handler resolution or contract validation fails
+   * @throws {ContractViolation} When event schema validation fails
+   * @throws {ExecutionViolation} When workflow execution encounters critical errors
+   *
+   * @remarks
+   * **Execution Safety:**
+   * The method implements comprehensive error recovery with proper resource cleanup
+   * in all execution paths. ViolationErrors are rethrown for system handling while
+   * workflow errors become system error events for graceful degradation.
+   *
+   * **State Management:**
+   * Workflow state is managed atomically with optimistic concurrency control.
+   * Status transitions from 'active' to 'done' occur only when completion events
+   * are generated, ensuring proper workflow lifecycle management.
+   *
+   * **Observability:**
+   * Complete execution is traced using OpenTelemetry with detailed span attributes
+   * for debugging and monitoring. Event metadata includes processing context and
+   * routing information for operational visibility.
+   *
+   * **Terminal State Handling:**
+   * Workflows in 'done' status ignore additional events to prevent state corruption
+   * while preserving audit trails for completed workflow executions.
    */
   async execute(
     event: ArvoEvent,
-    opentelemetry: ArvoEventHandlerOpenTelemetryOptions = {
-      inheritFrom: 'EVENT',
-    },
+    opentelemetry: ArvoEventHandlerOpenTelemetryOptions,
   ): Promise<{
     events: ArvoEvent[];
   }> {
-    return await ArvoOpenTelemetry.getInstance().startActiveSpan({
-      name: `Orchestrator<${this.registry.machines[0].contracts.self.uri}>@<${event.type}>`,
+    return ArvoOpenTelemetry.getInstance().startActiveSpan({
+      name: `ArvoResumable<${this.contracts.self.uri}>@<${event.type}>`,
       spanOptions: {
         kind: SpanKind.PRODUCER,
         attributes: {
@@ -299,24 +409,25 @@ export class ArvoOrchestrator extends AbstractArvoEventHandler {
       fn: async (span) => {
         logToSpan({
           level: 'INFO',
-          message: `Orchestrator starting execution for ${event.type} on subject ${event.subject}`,
+          message: `Resumable function starting execution for ${event.type} on subject ${event.subject}`,
         });
         const otelHeaders = currentOpenTelemetryHeaders();
         let orchestrationParentSubject: string | null = null;
-        let initEventId: string | null = null;
         let acquiredLock: AcquiredLockStatusType | null = null;
+        let initEventId: string | null = null;
         try {
           ///////////////////////////////////////////////////////////////
-          // Subject resolution, machine resolution and input validation
-          ///////////////////////////////////////////////////////////////
-          this.syncEventResource.validateEventSubject(event, span);
+          // Subject resolution, handler resolution and input validation
+          ///////////////
+          // ////////////////////////////////////////////////
+          this.syncEventResource.validateEventSubject(event);
           const parsedEventSubject = ArvoOrchestrationSubject.parse(event.subject);
           span.setAttributes({
             'arvo.parsed.subject.orchestrator.name': parsedEventSubject.orchestrator.name,
             'arvo.parsed.subject.orchestrator.version': parsedEventSubject.orchestrator.version,
           });
 
-          // The wrong source is not a big violation. May be some routing went wrong. So just ignore
+          // The wrong source is not a big violation. May be some routing went wrong. So just ignore the event
           if (parsedEventSubject.orchestrator.name !== this.source) {
             logToSpan({
               level: 'WARNING',
@@ -329,6 +440,10 @@ export class ArvoOrchestrator extends AbstractArvoEventHandler {
             });
             return {
               events: [],
+              allEventDomains: [],
+              domainedEvents: {
+                all: [],
+              },
             };
           }
 
@@ -337,54 +452,25 @@ export class ArvoOrchestrator extends AbstractArvoEventHandler {
             message: `Resolving machine for event ${event.type}`,
           });
 
-          const machine = this.registry.resolve(event, {
-            inheritFrom: 'CONTEXT',
-          });
-
-          // Unable to find a machine is a big configuration bug and violation
-          if (!machine) {
-            const { name, version } = parsedEventSubject.orchestrator;
+          // Handler not found means that the handler is not defined which is not allowed and a critical bug
+          if (!this.handler[parsedEventSubject.orchestrator.version]) {
             throw new ConfigViolation(
-              `Machine resolution failed: No machine found matching orchestrator name='${name}' and version='${version}'.`,
+              `Handler resolution failed: No handler found matching orchestrator name='${parsedEventSubject.orchestrator.name}' and version='${parsedEventSubject.orchestrator.version}'.`,
             );
           }
 
           logToSpan({
             level: 'INFO',
-            message: `Input validation started for event ${event.type} on machine ${machine.source}`,
+            message: `Input validation started for event ${event.type}`,
           });
 
-          // Validate the event againt the events that can be
-          // recieved by the machine. The orchestrator must only
-          // allow event which the machine is expecting as input
-          // to be futher processed.
-          // The machine however should be able to emit any events
-          const inputValidation = machine.validateInput(event);
-
-          if (inputValidation.type === 'CONTRACT_UNRESOLVED') {
-            // This is a configuration error because the contract was never
-            // configured in the machine. That is why it was unresolved. It
-            // signifies a problem in configration not the data or event flow
-            throw new ConfigViolation(
-              'Contract validation failed - Event does not match any registered contract schemas in the machine',
-            );
-          }
-
-          if (inputValidation.type === 'INVALID_DATA' || inputValidation.type === 'INVALID') {
-            // This is a contract error becuase there is a configuration but
-            // the event data received was invalid due to conflicting data
-            // or event dataschema did not match the contract data schema. This
-            // signifies an issue with event flow because unexpected events
-            // are being received
-            throw new ContractViolation(
-              `Input validation failed - Event data does not meet contract requirements: ${inputValidation.error.message}`,
-            );
-          }
+          const { contractType } = this.validateInput(event);
 
           ///////////////////////////////////////////////////////////////
-          // State locking, acquiry machine exection
+          // State locking, acquiry and handler exection
           ///////////////////////////////////////////////////////////////
-          acquiredLock = await this.syncEventResource.acquireLock(event, span);
+          acquiredLock = await this.syncEventResource.acquireLock(event);
+
           if (acquiredLock === 'NOT_ACQUIRED') {
             throw new TransactionViolation({
               cause: TransactionViolationCause.LOCK_UNACQUIRED,
@@ -401,9 +487,20 @@ export class ArvoOrchestrator extends AbstractArvoEventHandler {
           }
 
           // Acquiring state
-          const state = await this.syncEventResource.acquireState(event, span);
+          const state = await this.syncEventResource.acquireState(event);
           orchestrationParentSubject = state?.parentSubject ?? null;
           initEventId = state?.initEventId ?? event.id;
+
+          if (state?.status === 'done') {
+            logToSpan({
+              level: 'INFO',
+              message: `The resumable has already reached the terminal state. Ignoring event(id=${event.id})`,
+            });
+
+            return {
+              events: [],
+            };
+          }
 
           if (!state) {
             logToSpan({
@@ -435,37 +532,39 @@ export class ArvoOrchestrator extends AbstractArvoEventHandler {
             orchestrationParentSubject = event?.data?.parentSubject$$ ?? null;
           }
 
-          // Execute the raw machine and collect the result
-          // The result basically contain RAW events from the
-          // machine which will then transformed to be real ArvoEvents
-          const executionResult = this.executionEngine.execute(
-            {
-              state: state?.state ?? null,
-              event,
-              machine,
-            },
-            { inheritFrom: 'CONTEXT' },
-          );
-
-          span.setAttribute('arvo.orchestration.status', executionResult.state.status);
-
-          const rawMachineEmittedEvents = executionResult.events;
-
-          // In case execution of the machine has finished
-          // and the final output has been created, then in
-          // that case, make the raw event as the final output
-          // is not even raw enough to be called an event yet
-          if (executionResult.finalOutput) {
-            rawMachineEmittedEvents.push({
-              type: (machine.contracts.self as VersionedArvoContract<ArvoOrchestratorContract, ArvoSemanticVersion>)
-                .metadata.completeEventType,
-              data: executionResult.finalOutput,
-              to: parsedEventSubject.meta?.redirectto ?? parsedEventSubject.execution.initiator,
-              domain: orchestrationParentSubject
-                ? [ArvoOrchestrationSubject.parse(orchestrationParentSubject).execution.domain]
-                : [undefined],
-            });
+          // This is not persisted until handling. The reason is that if the event
+          // is causing a fault then what is the point of persisting it
+          if (
+            event.parentid &&
+            state?.events?.expected?.[event.parentid] &&
+            Array.isArray(state?.events?.expected?.[event.parentid])
+          ) {
+            state.events.expected[event.parentid].push(event.toJSON());
           }
+
+          const eventTypeToExpectedEvent: Record<string, InferArvoEvent<ArvoEvent>[]> = {};
+          for (const [_, eventList] of Object.entries(state?.events?.expected ?? {})) {
+            for (const _evt of eventList) {
+              if (!eventTypeToExpectedEvent[_evt.type]) {
+                eventTypeToExpectedEvent[_evt.type] = [];
+              }
+              eventTypeToExpectedEvent[_evt.type].push(_evt);
+            }
+          }
+
+          const handler = this.handler[parsedEventSubject.orchestrator.version];
+          const executionResult = await handler({
+            span: span,
+            context: state?.state$$ ?? null,
+            metadata: state ?? null,
+            collectedEvents: eventTypeToExpectedEvent,
+            input: contractType === 'self' ? (event.toJSON() as any) : null,
+            service: contractType === 'service' ? event.toJSON() : null,
+            contracts: {
+              self: this.contracts.self.version(parsedEventSubject.orchestrator.version),
+              services: this.contracts.services,
+            },
+          });
 
           ///////////////////////////////////////////////////////////////
           // Event segregation, creation, state persitance and return result
@@ -475,15 +574,29 @@ export class ArvoOrchestrator extends AbstractArvoEventHandler {
           // validations and subject creations etc.
           const emittables: ArvoEvent[] = [];
 
-          for (const item of rawMachineEmittedEvents) {
+          for (const item of [
+            ...(executionResult?.output
+              ? [
+                  {
+                    data: executionResult.output,
+                    type: this.contracts.self.metadata.completeEventType,
+                    to: parsedEventSubject.meta?.redirectto ?? parsedEventSubject.execution.initiator,
+                    domain: orchestrationParentSubject
+                      ? [ArvoOrchestrationSubject.parse(orchestrationParentSubject).execution.domain]
+                      : [undefined],
+                  },
+                ]
+              : []),
+            ...(executionResult?.services ? executionResult.services : []),
+          ]) {
             const domains = item.domain ?? [null];
             for (const _dom of Array.from(new Set(domains))) {
               const evt = this.createEmittableEvent(
                 item,
-                machine,
                 otelHeaders,
                 orchestrationParentSubject,
                 event,
+                this.contracts.self.version(parsedEventSubject.orchestrator.version),
                 initEventId,
                 _dom,
               );
@@ -496,24 +609,29 @@ export class ArvoOrchestrator extends AbstractArvoEventHandler {
 
           logToSpan({
             level: 'INFO',
-            message: `Machine execution completed - Status: ${executionResult.state.status}, Generated events: ${executionResult.events.length}`,
+            message: `Resumable execution completed. Generated events: ${emittables.length}`,
           });
+
+          // If the handler emits new events, then forget about
+          // the old events and recreate expected event map.
+          const eventTrackingState: ArvoResumableState<any>['events'] = {
+            consumed: event.toJSON(),
+            expected: emittables.length
+              ? Object.fromEntries(emittables.map((item) => [item.id, []]))
+              : (state?.events.expected ?? null),
+            produced: emittables.map((item) => item.toJSON()),
+          };
 
           // Write to the memory
           await this.syncEventResource.persistState(
             event,
             {
+              status: executionResult?.output ? 'done' : 'active',
               initEventId,
-              subject: event.subject,
               parentSubject: orchestrationParentSubject,
-              status: executionResult.state.status,
-              value: (executionResult.state as any).value ?? null,
-              state: executionResult.state,
-              events: {
-                consumed: event.toJSON(),
-                produced: emittables.map((item) => item.toJSON()),
-              },
-              machineDefinition: JSON.stringify((machine.logic as ActorLogic<any, any, any, any, any>).config),
+              subject: event.subject,
+              events: eventTrackingState,
+              state$$: executionResult?.context ?? state?.state$$ ?? null,
             },
             state,
             span,
@@ -526,12 +644,12 @@ export class ArvoOrchestrator extends AbstractArvoEventHandler {
 
           logToSpan({
             level: 'INFO',
-            message: `Orchestration successfully executed and emitted ${emittables.length} events`,
+            message: `Resumable successfully executed and emitted ${emittables.length} events`,
           });
 
           return { events: emittables };
         } catch (error: unknown) {
-          // If this is not an error this is not exected and must be addressed
+          // If this is not an error this is not expected and must be addressed
           // This is a fundmental unexpected scenario and must be handled as such
           // What this show is the there is a non-error object being throw in the
           // implementation or execution of the machine which is a major NodeJS
@@ -553,14 +671,14 @@ export class ArvoOrchestrator extends AbstractArvoEventHandler {
           if ((e as ViolationError).name.includes('ViolationError')) {
             logToSpan({
               level: 'CRITICAL',
-              message: `Orchestrator violation error: ${e.message}`,
+              message: `Resumable violation error: ${e.message}`,
             });
             throw e;
           }
 
           logToSpan({
             level: 'ERROR',
-            message: `Orchestrator execution failed: ${e.message}`,
+            message: `Resumable execution failed: ${e.message}`,
           });
 
           // In case of none transaction errors like errors from
@@ -581,7 +699,7 @@ export class ArvoOrchestrator extends AbstractArvoEventHandler {
           const result: ArvoEvent[] = [];
           for (const _dom of Array.from(new Set([event.domain, this.domain, null]))) {
             result.push(
-              createArvoOrchestratorEventFactory(this.registry.machines[0].contracts.self).systemError({
+              createArvoOrchestratorEventFactory(this.contracts.self.version('any')).systemError({
                 source: this.source,
                 // If the initiator of the workflow exist then match the
                 // subject so that it can incorporate it in its state. If
@@ -619,13 +737,7 @@ export class ArvoOrchestrator extends AbstractArvoEventHandler {
     });
   }
 
-  /**
-   * Gets the error schema for this orchestrator
-   */
-  get systemErrorSchema(): ArvoContractRecord {
-    return {
-      type: this.registry.machines[0].contracts.self.systemError.type,
-      schema: ArvoErrorSchema,
-    };
+  get systemErrorSchema() {
+    return this.contracts.self.systemError;
   }
 }
