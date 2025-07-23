@@ -1,5 +1,12 @@
 import type { Span, SpanOptions } from '@opentelemetry/api';
-import type { ArvoContract, ArvoEvent, ArvoSemanticVersion, CreateArvoEvent, VersionedArvoContract } from 'arvo-core';
+import type {
+  ArvoContract,
+  ArvoEvent,
+  ArvoSemanticVersion,
+  CreateArvoEvent,
+  InferArvoEvent,
+  VersionedArvoContract,
+} from 'arvo-core';
 import type { z } from 'zod';
 
 /**
@@ -7,10 +14,21 @@ import type { z } from 'zod';
  */
 export type ArvoEventHandlerFunctionInput<TContract extends VersionedArvoContract<any, any>> = {
   /** The ArvoEvent object. */
-  event: ArvoEvent<z.infer<TContract['accepts']['schema']>, Record<string, any>, TContract['accepts']['type']>;
+  event: InferArvoEvent<
+    ArvoEvent<z.infer<TContract['accepts']['schema']>, Record<string, any>, TContract['accepts']['type']>
+  >;
 
   /** The source field data of the handler */
   source: string;
+
+  /** The domain information for handling the event */
+  domain: {
+    self: string | null;
+    event: string | null;
+  };
+
+  /** The contract used in the processing */
+  contract: TContract;
 
   /** The OpenTelemetry span */
   span: Span;
@@ -34,6 +52,9 @@ export type ArvoEventHandlerFunctionOutput<TContract extends VersionedArvoContra
     executionunits?: number;
     /** Optional extensions for the event. */
     __extensions?: Record<string, string | number | boolean>;
+
+    /** The event domain */
+    domain?: string[] | null;
   };
 }[keyof TContract['emits']];
 

@@ -80,6 +80,146 @@ describe('ArvoEventHandler', () => {
     expect(result.events).toBeDefined();
   });
 
+  it('should execute handler successfully with event domain preservation', async () => {
+    const handler = createArvoEventHandler({
+      contract: mockContract,
+      executionunits: 100,
+      handler: mockHandlerFunction,
+    });
+
+    const mockEvent = createArvoEventFactory(mockContract.version('0.0.1')).accepts({
+      to: 'com.hello.world',
+      source: 'com.test.env',
+      subject: 'test-subject',
+      domain: 'test.test',
+      data: {
+        name: 'Saad Ahmad',
+        age: 26,
+      },
+    });
+
+    const result = await handler.execute(mockEvent);
+    expect(result.events).toBeDefined();
+    expect(result.events[0].domain).toBe('test.test');
+  });
+
+  it('should execute handler successfully with event domain handler override', async () => {
+    const handler = createArvoEventHandler({
+      contract: mockContract,
+      executionunits: 100,
+      handler: {
+        '0.0.1': async ({ event }) => {
+          return {
+            domain: ['test', 'notification'],
+            type: 'evt.hello.world.success',
+            data: {
+              result: `My name is ${event.data.name}. I am ${event.data.age} years old`,
+            },
+          };
+        },
+      },
+    });
+
+    const mockEvent = createArvoEventFactory(mockContract.version('0.0.1')).accepts({
+      to: 'com.hello.world',
+      source: 'com.test.env',
+      subject: 'test-subject',
+      domain: 'test.test',
+      data: {
+        name: 'Saad Ahmad',
+        age: 26,
+      },
+    });
+
+    const result = await handler.execute(mockEvent);
+    expect(result.events.length).toBe(2);
+    expect(result.events[0].domain).toBe('test');
+    expect(result.events[1].domain).toBe('notification');
+  });
+
+  it('should execute handler successfully with event domain explicit null', async () => {
+    const handler = createArvoEventHandler({
+      contract: mockContract,
+      executionunits: 100,
+      handler: {
+        '0.0.1': async ({ event }) => {
+          return {
+            domain: null,
+            type: 'evt.hello.world.success',
+            data: {
+              result: `My name is ${event.data.name}. I am ${event.data.age} years old`,
+            },
+          };
+        },
+      },
+    });
+
+    const mockEvent = createArvoEventFactory(mockContract.version('0.0.1')).accepts({
+      to: 'com.hello.world',
+      source: 'com.test.env',
+      subject: 'test-subject',
+      domain: null,
+      data: {
+        name: 'Saad Ahmad',
+        age: 26,
+      },
+    });
+
+    const result = await handler.execute(mockEvent);
+    expect(result.events).toBeDefined();
+    expect(result.events[0].domain).toBe(null);
+  });
+
+  it('should execute handler successfully with event domain inheritied from contract', async () => {
+    const handler = createArvoEventHandler({
+      contract: createArvoContract({
+        uri: '#/test/ArvoEventHandler',
+        type: 'com.hello.world',
+        domain: 'test.3333',
+        versions: {
+          '0.0.1': {
+            accepts: z.object({
+              name: z.string(),
+              age: z.number(),
+            }),
+            emits: {
+              'evt.hello.world.success': z.object({
+                result: z.string(),
+              }),
+              'evt.hello.world.error': ArvoErrorSchema,
+            },
+          },
+        },
+      }),
+      executionunits: 100,
+      handler: {
+        '0.0.1': async ({ event }) => {
+          return {
+            type: 'evt.hello.world.success',
+            data: {
+              result: `My name is ${event.data.name}. I am ${event.data.age} years old`,
+            },
+          };
+        },
+      },
+    });
+
+    const mockEvent = createArvoEventFactory(mockContract.version('0.0.1')).accepts({
+      to: 'com.hello.world',
+      source: 'com.test.env',
+      subject: 'test-subject',
+      domain: null,
+      data: {
+        name: 'Saad Ahmad',
+        age: 26,
+      },
+    });
+
+    const result = await handler.execute(mockEvent);
+    expect(result.events.length).toBe(1);
+    expect(result.events[0].domain).toBe('test.3333');
+  });
+
   it('should handle validation error', async () => {
     const handler = createArvoEventHandler({
       contract: mockContract,
@@ -564,7 +704,6 @@ describe('ArvoEventHandler', () => {
               data: {
                 result: `Second output for ${event.data.name}`,
               },
-              
             },
           ],
         },
