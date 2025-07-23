@@ -185,7 +185,7 @@ export default class ArvoEventHandler<TContract extends ArvoContract> extends Ab
     events: ArvoEvent[];
   }> {
     const otelConfig = createEventHandlerTelemetryConfig(
-      `ArvoEventHandler<${this.contract.uri}>`,
+      `Handler<${this.contract.uri}>`,
       this.spanOptions,
       opentelemetry,
       event,

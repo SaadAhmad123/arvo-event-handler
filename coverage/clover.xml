@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<coverage generated="1753280253526" clover="3.2.0">
-  <project timestamp="1753280253526" name="All files">
-    <metrics statements="906" coveredstatements="853" conditionals="1003" coveredconditionals="749" methods="155" coveredmethods="136" elements="2064" coveredelements="1738" complexity="0" loc="906" ncloc="906" packages="13" files="24" classes="24"/>
+<coverage generated="1753282754021" clover="3.2.0">
+  <project timestamp="1753282754022" name="All files">
+    <metrics statements="903" coveredstatements="850" conditionals="1009" coveredconditionals="755" methods="154" coveredmethods="135" elements="2066" coveredelements="1740" complexity="0" loc="903" ncloc="903" packages="13" files="24" classes="24"/>
     <package name="src">
       <metrics statements="55" coveredstatements="55" conditionals="6" coveredconditionals="3" methods="27" coveredmethods="16"/>
       <file name="errors.ts" path="/Users/saadahmad/Projects/Arvo/event-handler/src/errors.ts">
@@ -283,7 +283,7 @@
       </file>
     </package>
     <package name="src.ArvoOrchestrator">
-      <metrics statements="180" coveredstatements="174" conditionals="235" coveredconditionals="169" methods="19" coveredmethods="17"/>
+      <metrics statements="180" coveredstatements="174" conditionals="237" coveredconditionals="171" methods="19" coveredmethods="17"/>
       <file name="error.ts" path="/Users/saadahmad/Projects/Arvo/event-handler/src/ArvoOrchestrator/error.ts">
         <metrics statements="11" coveredstatements="11" conditionals="4" coveredconditionals="3" methods="3" coveredmethods="3"/>
         <line num="1" count="8" type="stmt"/>
@@ -314,7 +314,7 @@
         <line num="43" count="10" type="stmt"/>
       </file>
       <file name="index.ts" path="/Users/saadahmad/Projects/Arvo/event-handler/src/ArvoOrchestrator/index.ts">
-        <metrics statements="157" coveredstatements="152" conditionals="226" coveredconditionals="163" methods="14" coveredmethods="12"/>
+        <metrics statements="157" coveredstatements="152" conditionals="228" coveredconditionals="165" methods="14" coveredmethods="12"/>
         <line num="1" count="8" type="stmt"/>
         <line num="2" count="8" type="stmt"/>
         <line num="33" count="8" type="stmt"/>
@@ -475,7 +475,7 @@
       </file>
     </package>
     <package name="src.ArvoResumable">
-      <metrics statements="186" coveredstatements="161" conditionals="341" coveredconditionals="230" methods="16" coveredmethods="14"/>
+      <metrics statements="186" coveredstatements="161" conditionals="345" coveredconditionals="234" methods="16" coveredmethods="14"/>
       <file name="factory.ts" path="/Users/saadahmad/Projects/Arvo/event-handler/src/ArvoResumable/factory.ts">
         <metrics statements="11" coveredstatements="9" conditionals="10" coveredconditionals="6" methods="1" coveredmethods="1"/>
         <line num="4" count="8" type="stmt"/>
@@ -491,7 +491,7 @@
         <line num="78" count="2" type="stmt"/>
       </file>
       <file name="index.ts" path="/Users/saadahmad/Projects/Arvo/event-handler/src/ArvoResumable/index.ts">
-        <metrics statements="175" coveredstatements="152" conditionals="331" coveredconditionals="224" methods="15" coveredmethods="13"/>
+        <metrics statements="175" coveredstatements="152" conditionals="335" coveredconditionals="228" methods="15" coveredmethods="13"/>
         <line num="1" count="8" type="stmt"/>
         <line num="2" count="8" type="stmt"/>
         <line num="28" count="8" type="stmt"/>
@@ -899,35 +899,32 @@
       </file>
     </package>
     <package name="src.utils.SimpleEventBroker">
-      <metrics statements="83" coveredstatements="72" conditionals="63" coveredconditionals="39" methods="22" coveredmethods="19"/>
+      <metrics statements="80" coveredstatements="69" conditionals="63" coveredconditionals="39" methods="21" coveredmethods="18"/>
       <file name="helper.ts" path="/Users/saadahmad/Projects/Arvo/event-handler/src/utils/SimpleEventBroker/helper.ts">
-        <metrics statements="26" coveredstatements="24" conditionals="22" coveredconditionals="18" methods="9" coveredmethods="9"/>
+        <metrics statements="23" coveredstatements="21" conditionals="22" coveredconditionals="18" methods="8" coveredmethods="8"/>
         <line num="2" count="8" type="stmt"/>
         <line num="157" count="8" type="stmt"/>
         <line num="168" count="6" type="stmt"/>
-        <line num="169" count="6" type="stmt"/>
-        <line num="171" count="6" type="stmt"/>
-        <line num="176" count="2" type="stmt"/>
-        <line num="186" count="6" type="stmt"/>
-        <line num="187" count="40" type="stmt"/>
-        <line num="188" count="40" type="stmt"/>
-        <line num="190" count="58" type="stmt"/>
-        <line num="191" count="58" type="cond" truecount="2" falsecount="0"/>
-        <line num="194" count="187" type="cond" truecount="1" falsecount="0"/>
-        <line num="195" count="124" type="cond" truecount="1" falsecount="0"/>
-        <line num="196" count="12" type="cond" truecount="6" falsecount="2"/>
-        <line num="202" count="118" type="stmt"/>
-        <line num="210" count="6" type="stmt"/>
-        <line num="212" count="2" type="stmt"/>
-        <line num="213" count="2" type="cond" truecount="0" falsecount="1"/>
-        <line num="214" count="0" type="stmt"/>
-        <line num="218" count="2" type="stmt"/>
-        <line num="219" count="2" type="stmt"/>
-        <line num="220" count="2" type="stmt"/>
-        <line num="222" count="4" type="stmt"/>
-        <line num="223" count="2" type="cond" truecount="0" falsecount="1"/>
-        <line num="224" count="0" type="stmt"/>
-        <line num="226" count="2" type="stmt"/>
+        <line num="173" count="2" type="stmt"/>
+        <line num="182" count="40" type="stmt"/>
+        <line num="183" count="40" type="stmt"/>
+        <line num="185" count="58" type="stmt"/>
+        <line num="186" count="58" type="cond" truecount="2" falsecount="0"/>
+        <line num="189" count="187" type="cond" truecount="1" falsecount="0"/>
+        <line num="190" count="124" type="cond" truecount="1" falsecount="0"/>
+        <line num="191" count="12" type="cond" truecount="6" falsecount="2"/>
+        <line num="197" count="118" type="stmt"/>
+        <line num="205" count="6" type="stmt"/>
+        <line num="207" count="2" type="stmt"/>
+        <line num="208" count="2" type="cond" truecount="0" falsecount="1"/>
+        <line num="209" count="0" type="stmt"/>
+        <line num="213" count="2" type="stmt"/>
+        <line num="214" count="2" type="stmt"/>
+        <line num="215" count="2" type="stmt"/>
+        <line num="217" count="4" type="stmt"/>
+        <line num="218" count="2" type="cond" truecount="0" falsecount="1"/>
+        <line num="219" count="0" type="stmt"/>
+        <line num="221" count="2" type="stmt"/>
       </file>
       <file name="index.ts" path="/Users/saadahmad/Projects/Arvo/event-handler/src/utils/SimpleEventBroker/index.ts">
         <metrics statements="54" coveredstatements="45" conditionals="40" coveredconditionals="21" methods="11" coveredmethods="8"/>
@@ -941,7 +938,7 @@
         <line num="62" count="6" type="stmt"/>
         <line num="63" count="6" type="stmt"/>
         <line num="69" count="8" type="stmt"/>
-        <line num="70" count="42" type="stmt"/>
+        <line num="70" count="2" type="stmt"/>
         <line num="82" count="54" type="cond" truecount="1" falsecount="0"/>
         <line num="83" count="47" type="cond" truecount="1" falsecount="0"/>
         <line num="84" count="47" type="stmt"/>

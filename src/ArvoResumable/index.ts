@@ -381,7 +381,7 @@ export class ArvoResumable<
     events: ArvoEvent[];
   }> {
     return ArvoOpenTelemetry.getInstance().startActiveSpan({
-      name: `ArvoResumable<${this.contracts.self.uri}>@<${event.type}>`,
+      name: `Resumable<${this.contracts.self.uri}>@<${event.type}>`,
       spanOptions: {
         kind: SpanKind.PRODUCER,
         attributes: {
