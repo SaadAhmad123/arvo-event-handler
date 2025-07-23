@@ -229,7 +229,7 @@ export default class ArvoEventHandler<TContract extends ArvoContract> extends Ab
           let handlerContract: VersionedArvoContract<any, any>;
           try {
             handlerContract = this.contract.version(parsedDataSchema?.version ?? 'latest');
-          } catch (error) {
+          } catch {
             throw new ConfigViolation(
               `Invalid contract version: ${parsedDataSchema?.version}. Available versions: ${Object.keys(this.contract.versions).join(', ')}`,
             );

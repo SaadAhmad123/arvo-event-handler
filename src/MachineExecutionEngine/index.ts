@@ -102,7 +102,7 @@ export class MachineExecutionEngine implements IMachineExectionEngine {
         });
         const extractedSnapshot = actor.getPersistedSnapshot() as Snapshot<any>;
         if ((extractedSnapshot as any)?.context?.arvo$$?.volatile$$) {
-          // biome-ignore lint/complexity/noForEach: TODO - fix it later
+          // biome-ignore lint/complexity/noForEach: This is fine
           (
             (extractedSnapshot as any)?.context?.arvo$$?.volatile$$?.eventQueue$$ as EnqueueArvoEventActionParam[]
           ).forEach((item) => eventQueue.push(item));

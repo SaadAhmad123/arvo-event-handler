@@ -165,9 +165,6 @@ export const createSimpleEventBroker = (
     }) => Promise<void>;
   },
 ) => {
-  const resolvedHandlerName = 'broker.arvo.simple.handle';
-  let resolvedHandlerNameDuplicated = false;
-
   const broker = new SimpleEventBroker({
     maxQueueSize: 1000,
     errorHandler:
@@ -182,9 +179,7 @@ export const createSimpleEventBroker = (
   });
 
   // Wire up each handler to its source topic
-  // biome-ignore lint/complexity/noForEach: TODO - fix later
-  eventHandlers.forEach((handler) => {
-    resolvedHandlerNameDuplicated = broker.topics.includes(resolvedHandlerName);
+  for (const handler of eventHandlers) {
     broker.subscribe(
       handler.source,
       async (event) => {
@@ -205,7 +200,7 @@ export const createSimpleEventBroker = (
       },
       true,
     );
-  });
+  }
 
   return {
     broker,

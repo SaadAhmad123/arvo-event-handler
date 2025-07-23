@@ -122,7 +122,7 @@ export default class ArvoMachine<
         Object.fromEntries(
           Object.values(this.contracts.services).reduce(
             (acc, cur) => [
-              // biome-ignore lint/performance/noAccumulatingSpread: TODO - fix this issue later
+              // biome-ignore lint/performance/noAccumulatingSpread: This is fine
               ...acc,
               ...[...cur.emitList, cur.systemError].map(
                 (item) => [item.type, cur] as [string, VersionedArvoContract<any, any>],

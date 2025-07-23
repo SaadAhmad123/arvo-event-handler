@@ -242,7 +242,7 @@ export class ArvoResumable<
         if (event.data.parentSubject$$) {
           try {
             ArvoOrchestrationSubject.parse(event.data.parentSubject$$);
-          } catch (e) {
+          } catch {
             throw new ExecutionViolation(
               `Invalid parentSubject$$ for the event(type='${event.type}', uri='${event.dataschema ?? EventDataschemaUtil.create(contract)}').It must be follow the ArvoOrchestrationSubject schema. The easiest way is to use the current orchestration subject by storing the subject via the context block in the machine definition.`,
             );
@@ -587,7 +587,7 @@ export class ArvoResumable<
                   },
                 ]
               : []),
-            ...(executionResult?.services ? executionResult.services : []),
+            ...(executionResult?.services ?? []),
           ]) {
             const domains = item.domain ?? [null];
             for (const _dom of Array.from(new Set(domains))) {
@@ -718,7 +718,7 @@ export class ArvoResumable<
                 // Otherwise, use event id. If the error is in init event
                 // then it will be the same as initEventId. Otherwise,
                 // we still would know what cause this error
-                parentid: initEventId ? initEventId : event.id,
+                parentid: initEventId ?? event.id,
                 domain: _dom,
               }),
             );
