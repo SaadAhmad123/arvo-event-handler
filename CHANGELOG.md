@@ -59,3 +59,9 @@ All event handlers now return an object instead of an array:
 
 **Before**: const events = await handler.execute(event)
 **After**: const { events } = await handler.execute(event)
+
+## [3.0.0] - 2025-07-24
+
+- Migrated all `arvo-xstate` features
+- Added `ArvoResumable` handler
+- Added advanced domained handling
