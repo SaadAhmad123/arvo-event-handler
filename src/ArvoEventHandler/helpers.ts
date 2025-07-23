@@ -3,24 +3,14 @@ import ArvoEventHandler from '.';
 import type { IArvoEventHandler } from './types';
 
 /**
- * Creates an instance of `ArvoEventHandler`
+ * Create the instance of `ArvoEventHandler`
+ *
+ * > **Caution:** Don't use domained contracts unless it is fully intentional. Using domained
+ * contracts causes implicit domain assignment which can be hard to track and confusing. For 99%
+ * of the cases you dont need domained contracts
  *
  * ArvoEventHandler is the core component for processing events in the Arvo system. It enforces
  * contracts between services by ensuring that all events follow their specified formats and rules.
- *
- * The handler is built on two fundamental patterns: Meyer's Design by Contract and Fowler's
- * Tolerant Reader. It binds to an ArvoContract that defines what events it can receive and send
- * across all versions. This versioning is strict - the handler must implement every version defined
- * in its contract, or it will fail both at compile time and runtime.
- *
- * Following the Tolerant Reader pattern, the handler accepts any incoming event but only processes
- * those that exactly match one of its contract versions. When an event matches, it's handled by
- * the specific implementation for that version. This approach maintains compatibility while
- * ensuring precise contract adherence.
- *
- * The handler uses Zod for validation, automatically checking both incoming and outgoing events.
- * This means it not only verifies data formats but also applies default values where needed and
- * ensures all conditions are met before and after processing.
  *
  * ## Event Processing Lifecycle
  *
@@ -29,8 +19,9 @@ import type { IArvoEventHandler } from './types';
  * 3. **Schema Validation**: Validates event data against the contract's accepts schema
  * 4. **Handler Execution**: Invokes the version-specific handler implementation
  * 5. **Response Processing**: Validates and structures handler output into events
- * 6. **Routing Configuration**: Applies routing logic based on handler output and event context
- * 7. **Telemetry Integration**: Records processing metrics and tracing information
+ * 6. **Domain Broadcasting**: Creates multiple events for multi-domain distribution if specified
+ * 7. **Routing Configuration**: Applies routing logic based on handler output and event context
+ * 8. **Telemetry Integration**: Records processing metrics and tracing information
  *
  * ## Error Handling Strategy
  *
@@ -44,19 +35,21 @@ import type { IArvoEventHandler } from './types';
  * - **System Error Events** cover normal runtime errors that occur during event processing. These are
  *   typically workflow-related issues that need to be reported back to the event's source but don't
  *   indicate a broken contract. System errors are converted to structured error events and returned
- *   in the response.
+ *   in the response. **Multi-domain error broadcasting** ensures error events reach all relevant
+ *   processing contexts (source event domain, handler contract domain, and null domain).
  *
- * ## Domain-Aware Processing
+ * ## Multi-Domain Event Broadcasting
  *
- * The handler supports sophisticated domain-based routing with a flexible inheritance pattern:
- * - Provides both source and target domain context to handler implementations
- * - Supports explicit domain override for cross-domain workflows
- * - **Multi-domain broadcasting**: Handlers can emit events to multiple domains simultaneously
- * - Enables specialized processing pipelines (human.review, priority.high, etc.)
- * - **Domain Priority**: Handler result > Source event domain > Handler contract domain > null
- * - Setting domain to null explicitly disables domain-based routing for specific events
+ * The handler supports sophisticated multi-domain event distribution patterns:
+ * - **Single domain**: `domain: ['analytics.realtime']` creates one event
+ * - **Multi-domain broadcast**: `domain: ['analytics', 'notifications', 'audit']` creates separate events for each domain
+ * - **Mixed broadcasting**: `domain: ['analytics', undefined, null]` creates events for analytics, contract domain (if exists), and no domain
+ * - **Domain inheritance**: `domain: undefined` (or omitted) uses event domain → contract domain → null priority
+ * - **Domain disabling**: `domain: [null]` creates single event with no domain routing
+ * - **Automatic deduplication**: Duplicate domains in arrays are automatically removed
  *
- * @template TContract The ArvoContract type that defines the event schemas and validation rules
+ * This enables powerful patterns like simultaneous real-time processing, audit trails, and notification delivery
+ * from a single handler execution.
  *
  * @example
  * ```typescript
@@ -65,33 +58,37 @@ import type { IArvoEventHandler } from './types';
  *   executionunits: 1,
  *   handler: {
  *     '1.0.0': async ({ event, domain, span }) => {
- *       // Single domain assignment
- *       return {
- *         type: 'evt.user.created',
- *         data: result,
- *         domain: ['analytics.realtime']
- *       };
+ *       const userData = await processUser(event.data);
  *
- *       // Multi-domain broadcasting
+ *       // Multi-domain broadcasting - creates 3 separate events
  *       return {
  *         type: 'evt.user.created',
- *         data: result,
+ *         data: userData,
  *         domain: ['analytics.realtime', 'notifications.email', 'compliance.audit']
- *         // Creates 3 separate events, one for each domain
  *       };
  *
- *       // Context preservation (no domain specified)
+ *       // Mixed domain patterns
  *       return {
  *         type: 'evt.user.created',
- *         data: result
- *         // Inherits domain from source event or contract
+ *         data: userData,
+ *         // De-duplication is handled by the handler internally
+ *         domain: ['analytics', undefined, null, domain.event] // analytics + contract domain + no-domain + event's own domain
+ *         // alternatively, this make the whole thing more intentional
+ *         domain: ['analytics', domain.self, null, domain.event] // analytics + contract domain + no-domain + event's own domain
  *       };
  *
- *       // Disable domain routing
+ *       // Single domain (traditional)
  *       return {
  *         type: 'evt.user.created',
- *         data: result,
- *         domain: null
+ *         data: userData,
+ *         domain: ['priority.high'] // Single event to high-priority domain
+ *       };
+ *
+ *       // Disable all domain routing
+ *       return {
+ *         type: 'evt.user.created',
+ *         data: userData,
+ *         domain: null // Single event, no domain processing
  *       };
  *     }
  *   }

@@ -47,8 +47,9 @@ import type { ArvoEventHandlerFunction, ArvoEventHandlerFunctionOutput, IArvoEve
  * 3. **Schema Validation**: Validates event data against the contract's accepts schema
  * 4. **Handler Execution**: Invokes the version-specific handler implementation
  * 5. **Response Processing**: Validates and structures handler output into events
- * 6. **Routing Configuration**: Applies routing logic based on handler output and event context
- * 7. **Telemetry Integration**: Records processing metrics and tracing information
+ * 6. **Domain Broadcasting**: Creates multiple events for multi-domain distribution if specified
+ * 7. **Routing Configuration**: Applies routing logic based on handler output and event context
+ * 8. **Telemetry Integration**: Records processing metrics and tracing information
  *
  * ## Error Handling Strategy
  *
@@ -62,59 +63,18 @@ import type { ArvoEventHandlerFunction, ArvoEventHandlerFunctionOutput, IArvoEve
  * - **System Error Events** cover normal runtime errors that occur during event processing. These are
  *   typically workflow-related issues that need to be reported back to the event's source but don't
  *   indicate a broken contract. System errors are converted to structured error events and returned
- *   in the response.
+ *   in the response. **Multi-domain error broadcasting** ensures error events reach all relevant
+ *   processing contexts (source event domain, handler contract domain, and null domain).
  *
- * ## Domain-Aware Processing
+ * ## Multi-Domain Event Broadcasting
  *
- * The handler supports sophisticated domain-based routing with a flexible inheritance pattern:
- * - Provides both source and target domain context to handler implementations
- * - Supports explicit domain override for cross-domain workflows
- * - **Multi-domain broadcasting**: Handlers can emit events to multiple domains simultaneously
- * - Enables specialized processing pipelines (human.review, priority.high, etc.)
- * - **Domain Priority**: Handler result > Source event domain > Handler contract domain > null
- * - Setting domain to null explicitly disables domain-based routing for specific events
- *
- * @template TContract The ArvoContract type that defines the event schemas and validation rules
- *
- * @example
- * ```typescript
- * const handler = createArvoEventHandler({
- *   contract: userContract,
- *   executionunits: 1,
- *   handler: {
- *     '1.0.0': async ({ event, domain, span }) => {
- *       // Single domain assignment
- *       return {
- *         type: 'evt.user.created',
- *         data: result,
- *         domain: ['analytics.realtime']
- *       };
- *
- *       // Multi-domain broadcasting
- *       return {
- *         type: 'evt.user.created',
- *         data: result,
- *         domain: ['analytics.realtime', 'notifications.email', 'compliance.audit']
- *         // Creates 3 separate events, one for each domain
- *       };
- *
- *       // Context preservation (no domain specified)
- *       return {
- *         type: 'evt.user.created',
- *         data: result
- *         // Inherits domain from source event or contract
- *       };
- *
- *       // Disable domain routing
- *       return {
- *         type: 'evt.user.created',
- *         data: result,
- *         domain: null
- *       };
- *     }
- *   }
- * });
- * ```
+ * The handler supports sophisticated multi-domain event distribution patterns:
+ * - **Single domain**: `domain: ['analytics.realtime']` creates one event
+ * - **Multi-domain broadcast**: `domain: ['analytics', 'notifications', 'audit']` creates separate events for each domain
+ * - **Mixed broadcasting**: `domain: ['analytics', undefined, null]` creates events for analytics, contract domain (if exist), and no domain
+ * - **Domain inheritance**: `domain: undefined` (or omitted) uses event domain → contract domain → null priority
+ * - **Domain disabling**: `domain: [null]` creates single event with no domain routing
+ * - **Automatic deduplication**: Duplicate domains in arrays are automatically removed
  */
 export default class ArvoEventHandler<TContract extends ArvoContract> extends AbstractArvoEventHandler {
   /** Contract instance that defines the event schema and validation rules */
@@ -182,47 +142,53 @@ export default class ArvoEventHandler<TContract extends ArvoContract> extends Ab
 
   /**
    * Processes an incoming event according to the handler's contract specifications. This method
-   * handles the complete lifecycle of event processing including validation, execution, and error
-   * handling, while maintaining detailed telemetry through OpenTelemetry.
+   * handles the complete lifecycle of event processing including validation, execution, error
+   * handling, and multi-domain event broadcasting, while maintaining detailed telemetry through OpenTelemetry.
    *
    * The execution follows a careful sequence to ensure reliability:
    * First, it validates that the event matches the handler's contract type. Then it extracts
    * and validates the event's schema version, defaulting to the latest version if none is specified.
    * After validation passes, it executes the version-specific handler function and processes its
-   * output into new events.
+   * output into new events, with support for multi-domain broadcasting.
+   *
+   * ## Event Routing and Broadcasting
    *
    * The method handles routing through three distinct paths:
-   * - For successful execution, events are routed based on handler output or configuration:
-   *    - The 'to' field in the handler's result (if specified)
-   *    - The 'redirectto' field from the source event (if present)
-   *    - Falls back to the source event's 'source' field
-   * - For violations (mismatched types, invalid data), errors bubble up to the caller
-   * - For runtime errors, system error events are created and sent back to the source
+   * - **Successful execution**: Events are routed based on handler output and domain configuration
+   * - **Violations**: Contract/configuration errors bubble up to the caller
+   * - **Runtime errors**: System error events are created and broadcast to multiple domains
    *
-   * Event routing prioritizes explicit handler configuration over event-based routing:
+   * **Service routing priority**:
    * 1. Handler-specified 'to' field takes highest priority
    * 2. Source event's 'redirectto' field is used if handler doesn't specify routing
    * 3. Falls back to source event's 'source' field for response routing
    *
-   * The handler supports sophisticated domain-based routing with a flexible inheritance pattern:
-   * - Provides both source and target domain context to handler implementations
-   * - Supports explicit domain override for cross-domain workflows
-   * - Enables specialized processing pipelines (human.review, priority.high, etc.)
-   * - **Domain Priority**: Handler result > Source event domain > Handler contract domain > null
-   * - Setting domain to null explicitly disables domain-based routing for specific events
+   * **Multi-domain broadcasting logic**:
+   * - `domain: ['domain1', 'domain2']` → Creates separate events for each domain
+   * - `domain: ['analytics', undefined, null]` → Creates events for analytics, contract domain, and no-domain
+   * - `domain: [null]` → Single event with no domain routing
+   * - `domain: undefined` (default) → Uses event domain → contract domain → null inheritance
+   * - Automatic deduplication removes duplicate domains from arrays
+   * - Each domain creates a completely separate ArvoEvent instance
    *
-   * > **Caution:** The domained contracts add implicit routing complixity. Use them with full intentionality.
-   * In 99% of the cases you don't want them
+   * **Error event broadcasting**:
+   * System errors are automatically broadcast to multiple domains to ensure visibility:
+   * - Source event's domain (preserves original processing context)
+   * - Handler's contract domain (ensures handler's error handling domain receives it)
+   * - No domain (ensures standard error processing receives it)
+   *
+   * > **Caution:** Domained contracts add implicit routing complexity. Use them with full intentionality.
+   * > In 99% of the cases you don't want them.
    *
    * Throughout execution, comprehensive telemetry is maintained through OpenTelemetry spans,
-   * tracking the complete event journey including validation steps, processing time, and any
-   * errors that occur. This enables detailed monitoring and debugging of the event flow.
+   * tracking the complete event journey including validation steps, processing time, domain
+   * broadcasting operations, and any errors that occur.
    *
    * @param event - The incoming event to process
    * @param opentelemetry - Configuration for OpenTelemetry context inheritance, defaults to inheriting from the event
    * @returns Promise resolving to a structured result containing an array of output events
    * @returns Structured response containing:
-   *   - `events`: Array of events to be emitted as a result of processing
+   *   - `events`: Array of events to be emitted (may contain multiple events per handler output due to domain broadcasting)
    *
    * @throws {ContractViolation} when input or output event data violates the contract schema,
    *                             or when event emission fails due to invalid data
@@ -233,12 +199,25 @@ export default class ArvoEventHandler<TContract extends ArvoContract> extends Ab
    *
    * @example
    * ```typescript
+   * // Handler returns single output with multi-domain broadcasting
    * const result = await handler.execute(incomingEvent);
-   * console.log(`Generated ${result.events.length} events`);
+   * console.log(`Generated ${result.events.length} events from domain broadcasting`);
    *
-   * // Process each resulting event
+   * // Example: Handler output with domain: ['analytics', 'notifications']
+   * // would result in result.events.length === 2
+   *
+   * // Process each resulting event (may be going to different domains)
    * for (const event of result.events) {
+   *   console.log(`Event ${event.id} going to domain: ${event.domain}`);
    *   await eventBroker.emit(event);
+   * }
+   *
+   * // Error scenarios also create multiple events
+   * try {
+   *   await handler.execute(invalidEvent);
+   * } catch (error) {
+   *   // Won't reach here for runtime errors - they become system error events
+   *   // Error events are broadcast to [event.domain, handler.domain, null]
    * }
    * ```
    */
@@ -347,15 +326,13 @@ export default class ArvoEventHandler<TContract extends ArvoContract> extends Ab
           }
 
           const result: ArvoEvent[] = [];
-          let eventCount = 0;
           for (const item of outputs) {
             try {
               const { __extensions, ...handlerResult } = item;
-              const domains: (string | null)[] =
-                handlerResult.domain === null
-                  ? [null]
-                  : (handlerResult.domain ?? (event.domain ? [event.domain] : this.domain ? [this.domain] : [null]));
-              for (const _dom of domains) {
+              const domains: (string | undefined | null)[] = handlerResult.domain?.map((item) =>
+                item === undefined ? this.domain : item,
+              ) ?? [event.domain ?? this.domain ?? null];
+              for (const _dom of Array.from(new Set(domains))) {
                 result.push(
                   createArvoEventFactory(handlerContract).emits(
                     {
@@ -375,10 +352,9 @@ export default class ArvoEventHandler<TContract extends ArvoContract> extends Ab
                     __extensions,
                   ),
                 );
-                for (const [key, value] of Object.entries(result[eventCount].otelAttributes)) {
-                  span.setAttribute(`to_emit.${eventCount}.${key}`, value);
+                for (const [key, value] of Object.entries(result[result.length - 1].otelAttributes)) {
+                  span.setAttribute(`to_emit.${result.length - 1}.${key}`, value);
                 }
-                eventCount += 1;
               }
             } catch (e) {
               throw new ContractViolation((e as Error)?.message ?? 'Invalid data');
@@ -410,27 +386,32 @@ export default class ArvoEventHandler<TContract extends ArvoContract> extends Ab
           }
 
           const eventFactory = createArvoEventFactory(this.contract.version('latest'));
-          const result = eventFactory.systemError(
-            {
-              source: this.source,
-              subject: event.subject,
-              // The system error must always got back to
-              // the source
-              to: event.source,
-              error: error as Error,
-              executionunits: this.executionunits,
-              traceparent: otelSpanHeaders.traceparent ?? undefined,
-              tracestate: otelSpanHeaders.tracestate ?? undefined,
-              accesscontrol: event.accesscontrol ?? undefined,
-              parentid: event.id ?? undefined,
-            },
-            {},
-          );
-          for (const [key, value] of Object.entries(result.otelAttributes)) {
-            span.setAttribute(`to_emit.0.${key}`, value);
+
+          const result: ArvoEvent[] = [];
+
+          for (const _dom of Array.from(new Set([event.domain, this.domain, null]))) {
+            result.push(
+              createArvoEventFactory(this.contract.version('latest')).systemError({
+                source: this.source,
+                subject: event.subject,
+                // The system error must always got back to
+                // the source
+                to: event.source,
+                error: error as Error,
+                executionunits: this.executionunits,
+                traceparent: otelSpanHeaders.traceparent ?? undefined,
+                tracestate: otelSpanHeaders.tracestate ?? undefined,
+                accesscontrol: event.accesscontrol ?? undefined,
+                parentid: event.id ?? undefined,
+                domain: _dom,
+              }),
+            );
+            for (const [key, value] of Object.entries(result[result.length - 1].otelAttributes)) {
+              span.setAttribute(`to_emit.${result.length - 1}.${key}`, value);
+            }
           }
           return {
-            events: [result],
+            events: result,
           };
         } finally {
           span.end();

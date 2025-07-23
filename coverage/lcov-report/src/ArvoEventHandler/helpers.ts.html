@@ -166,7 +166,16 @@
 <a name='L101'></a><a href='#L101'>101</a>
 <a name='L102'></a><a href='#L102'>102</a>
 <a name='L103'></a><a href='#L103'>103</a>
-<a name='L104'></a><a href='#L104'>104</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L104'></a><a href='#L104'>104</a>
+<a name='L105'></a><a href='#L105'>105</a>
+<a name='L106'></a><a href='#L106'>106</a>
+<a name='L107'></a><a href='#L107'>107</a>
+<a name='L108'></a><a href='#L108'>108</a>
+<a name='L109'></a><a href='#L109'>109</a>
+<a name='L110'></a><a href='#L110'>110</a>
+<a name='L111'></a><a href='#L111'>111</a>
+<a name='L112'></a><a href='#L112'>112</a>
+<a name='L113'></a><a href='#L113'>113</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -266,15 +275,28 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">27x</span>
+<span class="cline-any cline-yes">31x</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import type { ArvoContract } from 'arvo-core';
 import ArvoEventHandler from '.';
 import type { IArvoEventHandler } from './types';
 &nbsp;
 /**
- * Creates an instance of `ArvoEventHandler`
+ * Create the instance of `ArvoEventHandler`
+ *
+ * &gt; **Caution:** Don't use domained contracts unless it is fully intentional. Using domained
+ * contracts causes implicit domain assignment which can be hard to track and confusing. For 99%
+ * of the cases you dont need domained contracts
  *
  * ArvoEventHandler is the core component for processing events in the Arvo system. It enforces
  * contracts between services by ensuring that all events follow their specified formats and rules.
@@ -300,8 +322,9 @@ import type { IArvoEventHandler } from './types';
  * 3. **Schema Validation**: Validates event data against the contract's accepts schema
  * 4. **Handler Execution**: Invokes the version-specific handler implementation
  * 5. **Response Processing**: Validates and structures handler output into events
- * 6. **Routing Configuration**: Applies routing logic based on handler output and event context
- * 7. **Telemetry Integration**: Records processing metrics and tracing information
+ * 6. **Domain Broadcasting**: Creates multiple events for multi-domain distribution if specified
+ * 7. **Routing Configuration**: Applies routing logic based on handler output and event context
+ * 8. **Telemetry Integration**: Records processing metrics and tracing information
  *
  * ## Error Handling Strategy
  *
@@ -315,19 +338,21 @@ import type { IArvoEventHandler } from './types';
  * - **System Error Events** cover normal runtime errors that occur during event processing. These are
  *   typically workflow-related issues that need to be reported back to the event's source but don't
  *   indicate a broken contract. System errors are converted to structured error events and returned
- *   in the response.
+ *   in the response. **Multi-domain error broadcasting** ensures error events reach all relevant
+ *   processing contexts (source event domain, handler contract domain, and null domain).
  *
- * ## Domain-Aware Processing
+ * ## Multi-Domain Event Broadcasting
  *
- * The handler supports sophisticated domain-based routing with a flexible inheritance pattern:
- * - Provides both source and target domain context to handler implementations
- * - Supports explicit domain override for cross-domain workflows
- * - **Multi-domain broadcasting**: Handlers can emit events to multiple domains simultaneously
- * - Enables specialized processing pipelines (human.review, priority.high, etc.)
- * - **Domain Priority**: Handler result &gt; Source event domain &gt; Handler contract domain &gt; null
- * - Setting domain to null explicitly disables domain-based routing for specific events
+ * The handler supports sophisticated multi-domain event distribution patterns:
+ * - **Single domain**: `domain: ['analytics.realtime']` creates one event
+ * - **Multi-domain broadcast**: `domain: ['analytics', 'notifications', 'audit']` creates separate events for each domain
+ * - **Mixed broadcasting**: `domain: ['analytics', undefined, null]` creates events for analytics, contract domain (if exists), and no domain
+ * - **Domain inheritance**: `domain: undefined` (or omitted) uses event domain → contract domain → null priority
+ * - **Domain disabling**: `domain: [null]` creates single event with no domain routing
+ * - **Automatic deduplication**: Duplicate domains in arrays are automatically removed
  *
- * @template TContract The ArvoContract type that defines the event schemas and validation rules
+ * This enables powerful patterns like simultaneous real-time processing, audit trails, and notification delivery
+ * from a single handler execution.
  *
  * @example
  * ```typescript
@@ -336,39 +361,41 @@ import type { IArvoEventHandler } from './types';
  *   executionunits: 1,
  *   handler: {
  *     '1.0.0': async ({ event, domain, span }) =&gt; {
- *       // Single domain assignment
- *       return {
- *         type: 'evt.user.created',
- *         data: result,
- *         domain: ['analytics.realtime']
- *       };
+ *       const userData = await processUser(event.data);
  *
- *       // Multi-domain broadcasting
+ *       // Multi-domain broadcasting - creates 3 separate events
  *       return {
  *         type: 'evt.user.created',
- *         data: result,
+ *         data: userData,
  *         domain: ['analytics.realtime', 'notifications.email', 'compliance.audit']
- *         // Creates 3 separate events, one for each domain
  *       };
  *
- *       // Context preservation (no domain specified)
+ *       // Mixed domain patterns
  *       return {
  *         type: 'evt.user.created',
- *         data: result
- *         // Inherits domain from source event or contract
+ *         data: userData,
+ *         domain: ['analytics', undefined, null] // analytics + default + no-domain
  *       };
  *
- *       // Disable domain routing
+ *       // Single domain (traditional)
  *       return {
  *         type: 'evt.user.created',
- *         data: result,
- *         domain: null
+ *         data: userData,
+ *         domain: ['priority.high'] // Single event to high-priority domain
+ *       };
+ *
+ *       // Disable all domain routing
+ *       return {
+ *         type: 'evt.user.created',
+ *         data: userData,
+ *         domain: null // Single event, no domain processing
  *       };
  *     }
  *   }
  * });
  * ```
  */
+&nbsp;
 export const createArvoEventHandler = &lt;TContract extends ArvoContract&gt;(
   param: IArvoEventHandler&lt;TContract&gt;,
 ): ArvoEventHandler&lt;TContract&gt; =&gt; new ArvoEventHandler&lt;TContract&gt;(param);
@@ -379,7 +406,7 @@ export const createArvoEventHandler = &lt;TContract extends ArvoContract&gt;(
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-07-23T06:21:50.142Z
+                at 2025-07-23T07:52:32.744Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

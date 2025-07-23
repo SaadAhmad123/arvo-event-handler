@@ -53,8 +53,32 @@ export type ArvoEventHandlerFunctionOutput<TContract extends VersionedArvoContra
     /** Optional extensions for the event. */
     __extensions?: Record<string, string | number | boolean>;
 
-    /** The event domain */
-    domain?: string[] | null;
+    /**
+     * The event domain configuration for multi-domain broadcasting.
+     *
+     * **Domain Broadcasting Options:**
+     * - `['domain1', 'domain2']` - Creates separate events for each specified domain
+     * - `['analytics', undefined, 'audit']` - Creates events for analytics, default domain, and audit
+     * - `['analytics', undefined, null, 'audit']` - Creates events for analytics, default domain driven by the contract domain (if exists), null, and audit
+     * - `[null]` - Creates single event with no domain routing (disables domain processing)
+     * - `undefined` (or omitted) - Uses default domain inheritance: event domain → contract domain → null
+     *
+     * @example
+     * ```typescript
+     * // Multi-domain broadcast
+     * domain: ['analytics.realtime', 'notifications.push', 'audit.trail']
+     *
+     * // Include contract domain behavior
+     * domain: ['analytics.realtime', undefined]
+     *
+     * // Include no domain behavior as well
+     * domain: ['analytics.realtime', undefined, null]
+     *
+     * // Disable domain routing entirely
+     * domain: [null]
+     * ```
+     */
+    domain?: (string | undefined | null)[];
   };
 }[keyof TContract['emits']];
 
