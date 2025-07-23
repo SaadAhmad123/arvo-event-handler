@@ -80,7 +80,7 @@ describe('ArvoEventHandler', () => {
     expect(result.events).toBeDefined();
   });
 
-  it('should execute handler successfully with event domain preservation', async () => {
+  it('should execute handler successfully with event domain to null by default', async () => {
     const handler = createArvoEventHandler({
       contract: mockContract,
       executionunits: 100,
@@ -100,7 +100,7 @@ describe('ArvoEventHandler', () => {
 
     const result = await handler.execute(mockEvent);
     expect(result.events).toBeDefined();
-    expect(result.events[0].domain).toBe('test.test');
+    expect(result.events[0].domain).toBe(null);
   });
 
   it('should execute handler successfully with event domain handler override', async () => {
@@ -197,6 +197,7 @@ describe('ArvoEventHandler', () => {
         '0.0.1': async ({ event }) => {
           return {
             type: 'evt.hello.world.success',
+            domain: [undefined],
             data: {
               result: `My name is ${event.data.name}. I am ${event.data.age} years old`,
             },
@@ -247,7 +248,7 @@ describe('ArvoEventHandler', () => {
         '0.0.1': async ({ event }) => {
           return {
             type: 'evt.hello.world.success',
-            domain: [null, undefined, event.domain, 'test.3'],
+            domain: [null, undefined, 'test.3'],
             data: {
               result: `My name is ${event.data.name}. I am ${event.data.age} years old`,
             },
@@ -268,11 +269,10 @@ describe('ArvoEventHandler', () => {
     });
 
     const result = await handler.execute(mockEvent);
-    expect(result.events.length).toBe(4);
+    expect(result.events.length).toBe(3);
     expect(result.events[0].domain).toBe(null);
-    expect(result.events[1].domain).toBe('test.3333');
-    expect(result.events[2].domain).toBe('test.1');
-    expect(result.events[3].domain).toBe('test.3');
+    expect(result.events[1].domain).toBe('test.1');
+    expect(result.events[2].domain).toBe('test.3');
   });
 
   it('should handler error domains for contract, event and null', async () => {

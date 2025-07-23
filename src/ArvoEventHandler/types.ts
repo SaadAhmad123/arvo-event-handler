@@ -56,25 +56,33 @@ export type ArvoEventHandlerFunctionOutput<TContract extends VersionedArvoContra
     /**
      * The event domain configuration for multi-domain broadcasting.
      *
-     * **Domain Broadcasting Options:**
-     * - `['domain1', 'domain2']` - Creates separate events for each specified domain
-     * - `['analytics', undefined, 'audit']` - Creates events for analytics, default domain, and audit
-     * - `['analytics', undefined, null, 'audit']` - Creates events for analytics, default domain driven by the contract domain (if exists), null, and audit
-     * - `[null]` - Creates single event with no domain routing (disables domain processing)
-     * - `undefined` (or omitted) - Uses default domain inheritance: event domain → contract domain → null
+     * **Domain Broadcasting Rules:**
+     * - Each element in the array creates a separate ArvoEvent instance
+     * - `undefined` elements resolve using inheritance: `event.domain ?? contract.domain ?? null`
+     * - Duplicate domains are automatically removed to prevent redundant events
+     * - Omitting this field (or setting to `undefined`) defaults to `[null]`
+     *
+     * **Domain Broadcasting Patterns:**
+     * - `['domain1', 'domain2']` → Creates 2 events for different processing contexts
+     * - `['analytics', undefined, 'audit']` → Creates events for analytics, inherited context, and audit
+     * - `[null]` → Creates single event with no domain routing (standard processing)
+     * - `undefined` (or omitted) → Creates single event with `domain: null`
      *
      * @example
      * ```typescript
-     * // Multi-domain broadcast
+     * // Multi-domain broadcast to specific processing pipelines
      * domain: ['analytics.realtime', 'notifications.push', 'audit.trail']
      *
-     * // Include contract domain behavior
+     * // Include inherited domain behavior alongside explicit domains
      * domain: ['analytics.realtime', undefined]
      *
-     * // Include no domain behavior as well
+     * // Mix explicit domains with inherited and no-domain processing
      * domain: ['analytics.realtime', undefined, null]
      *
-     * // Disable domain routing entirely
+     * // Single domain processing
+     * domain: ['priority.high']
+     *
+     * // No domain processing (same as omitting the field)
      * domain: [null]
      * ```
      */

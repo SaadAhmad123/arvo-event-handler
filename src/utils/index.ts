@@ -1,6 +1,10 @@
 import { type SpanOptions, context } from '@opentelemetry/api';
 import type { ArvoEvent } from 'arvo-core';
-import type { ArvoEventHandlerOpenTelemetryOptions } from './types';
+import type { ArvoEventHandlerOpenTelemetryOptions } from '../types';
+
+export function isError(e: unknown): e is Error {
+  return e instanceof Error || (typeof e === 'object' && e !== null && 'message' in e);
+}
 
 /**
  * Checks if the item is null or undefined.

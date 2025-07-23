@@ -68,13 +68,31 @@ import type { ArvoEventHandlerFunction, ArvoEventHandlerFunctionOutput, IArvoEve
  *
  * ## Multi-Domain Event Broadcasting
  *
- * The handler supports sophisticated multi-domain event distribution patterns:
- * - **Single domain**: `domain: ['analytics.realtime']` creates one event
- * - **Multi-domain broadcast**: `domain: ['analytics', 'notifications', 'audit']` creates separate events for each domain
- * - **Mixed broadcasting**: `domain: ['analytics', undefined, null]` creates events for analytics, contract domain (if exist), and no domain
- * - **Domain inheritance**: `domain: undefined` (or omitted) uses event domain → contract domain → null priority
- * - **Domain disabling**: `domain: [null]` creates single event with no domain routing
- * - **Automatic deduplication**: Duplicate domains in arrays are automatically removed
+ * The handler supports sophisticated multi-domain event distribution through array-based domain specification:
+ *
+ * ### Domain Assignment Rules:
+ * 1. **Array Processing**: Each element in the `domain` array creates a separate ArvoEvent
+ * 2. **Undefined Resolution**: `undefined` elements resolve to: `event.domain ?? handler.contract.domain ?? null`
+ * 3. **Automatic Deduplication**: Duplicate domains are removed to prevent redundant events
+ * 4. **Default Behavior**: Omitted/undefined `domain` field defaults to `[null]` (single event, no domain)
+ *
+ * ### Domain Patterns:
+ * - `domain: ['domain1', 'domain2']` → Creates 2 events: one for each domain
+ * - `domain: ['analytics', undefined, null]` → Creates up to 3 events:
+ *   - Event with `domain: 'analytics'`
+ *   - Event with `domain: event.domain ?? handler.contract.domain ?? null`
+ *   - Event with `domain: null`
+ * - `domain: [null]` → Single event with explicit no-domain routing
+ * - `domain: undefined` (or omitted) → Single event with `domain: null`
+ *
+ * ### Error Broadcasting:
+ * System errors are automatically broadcast to all relevant processing contexts:
+ * - Source event domain (`event.domain`)
+ * - Handler contract domain (`handler.contract.domain`)
+ * - No-domain context (`null`)
+ *
+ * Duplicates are automatically removed, so if `event.domain === handler.contract.domain`,
+ * only two error events are created instead of three.
  */
 export default class ArvoEventHandler<TContract extends ArvoContract> extends AbstractArvoEventHandler {
   /** Contract instance that defines the event schema and validation rules */
@@ -145,45 +163,6 @@ export default class ArvoEventHandler<TContract extends ArvoContract> extends Ab
    * handles the complete lifecycle of event processing including validation, execution, error
    * handling, and multi-domain event broadcasting, while maintaining detailed telemetry through OpenTelemetry.
    *
-   * The execution follows a careful sequence to ensure reliability:
-   * First, it validates that the event matches the handler's contract type. Then it extracts
-   * and validates the event's schema version, defaulting to the latest version if none is specified.
-   * After validation passes, it executes the version-specific handler function and processes its
-   * output into new events, with support for multi-domain broadcasting.
-   *
-   * ## Event Routing and Broadcasting
-   *
-   * The method handles routing through three distinct paths:
-   * - **Successful execution**: Events are routed based on handler output and domain configuration
-   * - **Violations**: Contract/configuration errors bubble up to the caller
-   * - **Runtime errors**: System error events are created and broadcast to multiple domains
-   *
-   * **Service routing priority**:
-   * 1. Handler-specified 'to' field takes highest priority
-   * 2. Source event's 'redirectto' field is used if handler doesn't specify routing
-   * 3. Falls back to source event's 'source' field for response routing
-   *
-   * **Multi-domain broadcasting logic**:
-   * - `domain: ['domain1', 'domain2']` → Creates separate events for each domain
-   * - `domain: ['analytics', undefined, null]` → Creates events for analytics, contract domain, and no-domain
-   * - `domain: [null]` → Single event with no domain routing
-   * - `domain: undefined` (default) → Uses event domain → contract domain → null inheritance
-   * - Automatic deduplication removes duplicate domains from arrays
-   * - Each domain creates a completely separate ArvoEvent instance
-   *
-   * **Error event broadcasting**:
-   * System errors are automatically broadcast to multiple domains to ensure visibility:
-   * - Source event's domain (preserves original processing context)
-   * - Handler's contract domain (ensures handler's error handling domain receives it)
-   * - No domain (ensures standard error processing receives it)
-   *
-   * > **Caution:** Domained contracts add implicit routing complexity. Use them with full intentionality.
-   * > In 99% of the cases you don't want them.
-   *
-   * Throughout execution, comprehensive telemetry is maintained through OpenTelemetry spans,
-   * tracking the complete event journey including validation steps, processing time, domain
-   * broadcasting operations, and any errors that occur.
-   *
    * @param event - The incoming event to process
    * @param opentelemetry - Configuration for OpenTelemetry context inheritance, defaults to inheriting from the event
    * @returns Promise resolving to a structured result containing an array of output events
@@ -196,30 +175,6 @@ export default class ArvoEventHandler<TContract extends ArvoContract> extends Ab
    *                           contract version expected by the event does not exist
    *                           in handler configuration, or when contract URI mismatch occurs
    * @throws {ExecutionViolation} for explicitly handled runtime errors that should bubble up
-   *
-   * @example
-   * ```typescript
-   * // Handler returns single output with multi-domain broadcasting
-   * const result = await handler.execute(incomingEvent);
-   * console.log(`Generated ${result.events.length} events from domain broadcasting`);
-   *
-   * // Example: Handler output with domain: ['analytics', 'notifications']
-   * // would result in result.events.length === 2
-   *
-   * // Process each resulting event (may be going to different domains)
-   * for (const event of result.events) {
-   *   console.log(`Event ${event.id} going to domain: ${event.domain}`);
-   *   await eventBroker.emit(event);
-   * }
-   *
-   * // Error scenarios also create multiple events
-   * try {
-   *   await handler.execute(invalidEvent);
-   * } catch (error) {
-   *   // Won't reach here for runtime errors - they become system error events
-   *   // Error events are broadcast to [event.domain, handler.domain, null]
-   * }
-   * ```
    */
   public async execute(
     event: ArvoEvent,
@@ -329,9 +284,9 @@ export default class ArvoEventHandler<TContract extends ArvoContract> extends Ab
           for (const item of outputs) {
             try {
               const { __extensions, ...handlerResult } = item;
-              const domains: (string | undefined | null)[] = handlerResult.domain?.map((item) =>
-                item === undefined ? this.domain : item,
-              ) ?? [event.domain ?? this.domain ?? null];
+              const domains = handlerResult.domain?.map((item) =>
+                item === undefined ? (event.domain ?? this.domain ?? null) : item,
+              ) ?? [null];
               for (const _dom of Array.from(new Set(domains))) {
                 result.push(
                   createArvoEventFactory(handlerContract).emits(
@@ -385,10 +340,7 @@ export default class ArvoEventHandler<TContract extends ArvoContract> extends Ab
             throw error;
           }
 
-          const eventFactory = createArvoEventFactory(this.contract.version('latest'));
-
           const result: ArvoEvent[] = [];
-
           for (const _dom of Array.from(new Set([event.domain, this.domain, null]))) {
             result.push(
               createArvoEventFactory(this.contract.version('latest')).systemError({
@@ -410,6 +362,7 @@ export default class ArvoEventHandler<TContract extends ArvoContract> extends Ab
               span.setAttribute(`to_emit.${result.length - 1}.${key}`, value);
             }
           }
+
           return {
             events: result,
           };
