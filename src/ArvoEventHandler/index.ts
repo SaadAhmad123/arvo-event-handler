@@ -19,7 +19,7 @@ import {
 import AbstractArvoEventHandler from '../AbstractArvoEventHandler';
 import { ConfigViolation, ContractViolation } from '../errors';
 import type { ArvoEventHandlerOpenTelemetryOptions } from '../types';
-import { createEventHandlerTelemetryConfig, eventHandlerOutputEventCreator } from '../utils';
+import { coalesce, coalesceOrDefault, createEventHandlerTelemetryConfig } from '../utils';
 import type { ArvoEventHandlerFunction, ArvoEventHandlerFunctionOutput, IArvoEventHandler } from './types';
 
 /**
@@ -40,29 +40,59 @@ import type { ArvoEventHandlerFunction, ArvoEventHandlerFunctionOutput, IArvoEve
  * This means it not only verifies data formats but also applies default values where needed and
  * ensures all conditions are met before and after processing.
  *
- * Error handling in the handler divides issues into two categories:
+ * ## Event Processing Lifecycle
  *
- * - `Violations` are serious contract breaches that indicate fundamental problems with how services
- * are communicating. These errors bubble up to the calling code, allowing developers to handle
- * these critical issues explicitly.
+ * 1. **Type Validation**: Ensures the incoming event type matches the handler's contract
+ * 2. **Contract Resolution**: Extracts version from dataschema and resolves appropriate contract version
+ * 3. **Schema Validation**: Validates event data against the contract's accepts schema
+ * 4. **Handler Execution**: Invokes the version-specific handler implementation
+ * 5. **Response Processing**: Validates and structures handler output into events
+ * 6. **Domain Broadcasting**: Creates multiple events for multi-domain distribution if specified
+ * 7. **Routing Configuration**: Applies routing logic based on handler output and event context
+ * 8. **Telemetry Integration**: Records processing metrics and tracing information
  *
- * - `System Error Events` cover normal runtime errors that occur during event processing. These are
- * typically workflow-related issues that need to be reported back to the event's source but don't
- * indicate a broken contract.
+ * ## Error Handling Strategy
  *
- * * @example
- * const handler = createArvoEventHandler({
- *   contract: userContract,
- *   executionunits: 1,
- *   handler: {
- *     '1.0.0': async ({ event }) => {
- *       // Process event according to contract v1.0.0
- *     },
- *     '2.0.0': async ({ event }) => {
- *       // Process event according to contract v2.0.0
- *     }
- *   }
- * });
+ * The handler divides issues into two distinct categories:
+ *
+ * - **Violations** are serious contract breaches that indicate fundamental problems with how services
+ *   are communicating. These errors bubble up to the calling code, allowing developers to handle
+ *   these critical issues explicitly. Violations include contract mismatches, schema validation
+ *   failures, and configuration errors.
+ *
+ * - **System Error Events** cover normal runtime errors that occur during event processing. These are
+ *   typically workflow-related issues that need to be reported back to the event's source but don't
+ *   indicate a broken contract. System errors are converted to structured error events and returned
+ *   in the response. **Multi-domain error broadcasting** ensures error events reach all relevant
+ *   processing contexts (source event domain, handler contract domain, and null domain).
+ *
+ * ## Multi-Domain Event Broadcasting
+ *
+ * The handler supports sophisticated multi-domain event distribution through array-based domain specification:
+ *
+ * ### Domain Assignment Rules:
+ * 1. **Array Processing**: Each element in the `domain` array creates a separate ArvoEvent
+ * 2. **Undefined Resolution**: `undefined` elements resolve to: `event.domain ?? handler.contract.domain ?? null`
+ * 3. **Automatic Deduplication**: Duplicate domains are removed to prevent redundant events
+ * 4. **Default Behavior**: Omitted/undefined `domain` field defaults to `[null]` (single event, no domain)
+ *
+ * ### Domain Patterns:
+ * - `domain: ['domain1', 'domain2']` → Creates 2 events: one for each domain
+ * - `domain: ['analytics', undefined, null]` → Creates up to 3 events:
+ *   - Event with `domain: 'analytics'`
+ *   - Event with `domain: event.domain ?? handler.contract.domain ?? null`
+ *   - Event with `domain: null`
+ * - `domain: [null]` → Single event with explicit no-domain routing
+ * - `domain: undefined` (or omitted) → Single event with `domain: null`
+ *
+ * ### Error Broadcasting:
+ * System errors are automatically broadcast to all relevant processing contexts:
+ * - Source event domain (`event.domain`)
+ * - Handler contract domain (`handler.contract.domain`)
+ * - No-domain context (`null`)
+ *
+ * Duplicates are automatically removed, so if `event.domain === handler.contract.domain`,
+ * only two error events are created instead of three.
  */
 export default class ArvoEventHandler<TContract extends ArvoContract> extends AbstractArvoEventHandler {
   /** Contract instance that defines the event schema and validation rules */
@@ -80,6 +110,15 @@ export default class ArvoEventHandler<TContract extends ArvoContract> extends Ab
   /** The source identifier for events produced by this handler */
   public get source(): TContract['type'] {
     return this.contract.type;
+  }
+
+  /**
+   * The contract-defined domain for this handler, used as the default domain for emitted events.
+   * Can be overridden by individual handler implementations for cross-domain workflows.
+   * Returns null if no domain is specified, indicating standard processing context.
+   */
+  public get domain(): string | null {
+    return this.contract.domain;
   }
 
   /**
@@ -121,35 +160,21 @@ export default class ArvoEventHandler<TContract extends ArvoContract> extends Ab
 
   /**
    * Processes an incoming event according to the handler's contract specifications. This method
-   * handles the complete lifecycle of event processing including validation, execution, and error
-   * handling, while maintaining detailed telemetry through OpenTelemetry.
-   *
-   * The execution follows a careful sequence to ensure reliability:
-   * First, it validates that the event matches the handler's contract type. Then it extracts
-   * and validates the event's schema version, defaulting to the latest version if none is specified.
-   * After validation passes, it executes the version-specific handler function and processes its
-   * output into new events.
-   *
-   * The method handles routing through three distinct paths:
-   * - For successful execution, events are routed based on handler output or configuration.
-   *    - The 'to' field in the handler's result (if specified)
-   *    - The 'redirectto' field from the source event (if present)
-   *    - Falls back to the source event's 'source' field
-   * - For violations (mismatched types, invalid data), errors bubble up to the caller
-   * - For runtime errors, system error events are created and sent back to the source
-   *
-   * Throughout execution, comprehensive telemetry is maintained through OpenTelemetry spans,
-   * tracking the complete event journey including validation steps, processing time, and any
-   * errors that occur. This enables detailed monitoring and debugging of the event flow.
+   * handles the complete lifecycle of event processing including validation, execution, error
+   * handling, and multi-domain event broadcasting, while maintaining detailed telemetry through OpenTelemetry.
    *
    * @param event - The incoming event to process
-   * @param opentelemetry - Configuration for OpenTelemetry context inheritance
-   * @returns Promise resolving to an array of output events or error events
-   * @throws `ContractViolation` when input or output event data violates the contract
-   * @throws `ConfigViolation` when event type doesn't match contract type or the
+   * @param opentelemetry - Configuration for OpenTelemetry context inheritance, defaults to inheriting from the event
+   * @returns Promise resolving to a structured result containing an array of output events
+   * @returns Structured response containing:
+   *   - `events`: Array of events to be emitted (may contain multiple events per handler output due to domain broadcasting)
+   *
+   * @throws {ContractViolation} when input or output event data violates the contract schema,
+   *                             or when event emission fails due to invalid data
+   * @throws {ConfigViolation} when event type doesn't match contract type, when the
    *                           contract version expected by the event does not exist
-   *                           in handler configuration
-   * @throws `ExecutionViolation` for explicitly handled runtime errors
+   *                           in handler configuration, or when contract URI mismatch occurs
+   * @throws {ExecutionViolation} for explicitly handled runtime errors that should bubble up
    */
   public async execute(
     event: ArvoEvent,
@@ -231,8 +256,13 @@ export default class ArvoEventHandler<TContract extends ArvoContract> extends Ab
           });
 
           const _handleOutput = await this.handler[handlerContract.version]({
-            event,
+            event: event.toJSON(),
             source: this.source,
+            contract: handlerContract,
+            domain: {
+              self: this.domain,
+              event: event.domain,
+            },
             span: span,
           });
 
@@ -250,21 +280,41 @@ export default class ArvoEventHandler<TContract extends ArvoContract> extends Ab
             outputs = [_handleOutput];
           }
 
-          const eventFactory = createArvoEventFactory(handlerContract);
-          const result = eventHandlerOutputEventCreator(
-            outputs,
-            otelSpanHeaders,
-            this.source,
-            event,
-            this.executionunits,
-            (param, extensions) => {
-              try {
-                return eventFactory.emits(param, extensions);
-              } catch (e) {
-                throw new ContractViolation((e as Error).message);
+          const result: ArvoEvent[] = [];
+          for (const item of outputs) {
+            try {
+              const { __extensions, ...handlerResult } = item;
+              const domains = handlerResult.domain?.map((item) =>
+                item === undefined ? (event.domain ?? this.domain ?? null) : item,
+              ) ?? [null];
+              for (const _dom of Array.from(new Set(domains))) {
+                result.push(
+                  createArvoEventFactory(handlerContract).emits(
+                    {
+                      ...handlerResult,
+                      traceparent: otelSpanHeaders.traceparent || undefined,
+                      tracestate: otelSpanHeaders.tracestate || undefined,
+                      source: this.source,
+                      subject: event.subject,
+                      // 'source'
+                      // prioritise returned 'to', 'redirectto' and then
+                      to: coalesceOrDefault([handlerResult.to, event.redirectto], event.source),
+                      executionunits: coalesce(handlerResult.executionunits, this.executionunits),
+                      accesscontrol: handlerResult.accesscontrol ?? event.accesscontrol ?? undefined,
+                      parentid: event.id,
+                      domain: _dom,
+                    },
+                    __extensions,
+                  ),
+                );
+                for (const [key, value] of Object.entries(result[result.length - 1].otelAttributes)) {
+                  span.setAttribute(`to_emit.${result.length - 1}.${key}`, value);
+                }
               }
-            },
-          );
+            } catch (e) {
+              throw new ContractViolation((e as Error)?.message ?? 'Invalid data');
+            }
+          }
 
           logToSpan({
             level: 'INFO',
@@ -290,28 +340,31 @@ export default class ArvoEventHandler<TContract extends ArvoContract> extends Ab
             throw error;
           }
 
-          const eventFactory = createArvoEventFactory(this.contract.version('latest'));
-          const result = eventFactory.systemError(
-            {
-              source: this.source,
-              subject: event.subject,
-              // The system error must always got back to
-              // the source
-              to: event.source,
-              error: error as Error,
-              executionunits: this.executionunits,
-              traceparent: otelSpanHeaders.traceparent ?? undefined,
-              tracestate: otelSpanHeaders.tracestate ?? undefined,
-              accesscontrol: event.accesscontrol ?? undefined,
-              parentid: event.id ?? undefined,
-            },
-            {},
-          );
-          for (const [key, value] of Object.entries(result.otelAttributes)) {
-            span.setAttribute(`to_emit.0.${key}`, value);
+          const result: ArvoEvent[] = [];
+          for (const _dom of Array.from(new Set([event.domain, this.domain, null]))) {
+            result.push(
+              createArvoEventFactory(this.contract.version('latest')).systemError({
+                source: this.source,
+                subject: event.subject,
+                // The system error must always got back to
+                // the source
+                to: event.source,
+                error: error as Error,
+                executionunits: this.executionunits,
+                traceparent: otelSpanHeaders.traceparent ?? undefined,
+                tracestate: otelSpanHeaders.tracestate ?? undefined,
+                accesscontrol: event.accesscontrol ?? undefined,
+                parentid: event.id ?? undefined,
+                domain: _dom,
+              }),
+            );
+            for (const [key, value] of Object.entries(result[result.length - 1].otelAttributes)) {
+              span.setAttribute(`to_emit.${result.length - 1}.${key}`, value);
+            }
           }
+
           return {
-            events: [result],
+            events: result,
           };
         } finally {
           span.end();
@@ -322,11 +375,18 @@ export default class ArvoEventHandler<TContract extends ArvoContract> extends Ab
 
   /**
    * Provides access to the system error event schema configuration.
-   * The schema defines the structure of error events emitted during execution failures.
    *
-   * Error events follow the naming convention: sys.<contract-type>.error
-   * For example, a contract handling 'user.created' events will emit error events
-   * with the type 'sys.user.created.error'.
+   * The schema defines the structure of error events emitted during execution failures.
+   * These events are automatically generated when runtime errors occur and follow a
+   * standardized format for consistent error handling across the system.
+   *
+   * Error events follow the naming convention: `sys.<contract-type>.error`
+   *
+   * @example
+   * For a contract handling 'com.user.create' events, system error events
+   * will have the type 'sys.com.user.create.error'
+   *
+   * @returns The error event schema containing type and validation rules
    */
   public get systemErrorSchema() {
     return this.contract.systemError;

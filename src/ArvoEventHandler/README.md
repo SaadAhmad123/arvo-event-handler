@@ -7,6 +7,379 @@ group: Guides
 
 Event-driven architectures present distinct challenges in reliability and maintainability. Services must communicate dependably, manage errors effectively, and evolve without disrupting existing clients. The `ArvoEventHandler` addresses these challenges by transforming `ArvoContract` contracts into actively enforced rules for service communication. While `ArvoContract` defines a service's behaviour from the broader system's perspective, `ArvoEventHandler` binds with a contract to bring the service's functionality to life.
 
+# Getting Started with `ArvoEventHandler`
+
+This section provides a hands-on introduction to building your first event handler with ArvoEventHandler. You'll learn how to transform an ArvoContract into a working service that processes events reliably.
+
+## Your First Event Handler
+
+Let's build on the user registration contract from the ArvoContract guide and create a working event handler.
+
+### Step 1: Set Up Your Contract and Dependencies
+
+First, let's establish our contract and create some mock dependencies to simulate real-world services:
+
+```typescript
+// contracts/user-registration.ts
+import { createArvoContract } from 'arvo-core';
+import { z } from 'zod';
+
+export const userRegistrationContract = createArvoContract({
+    uri: '#/services/user/registration',
+    type: 'com.user.register',
+    versions: {
+        '1.0.0': {
+            accepts: z.object({
+                email: z.string().email('Must be a valid email'),
+                username: z.string().min(3, 'Username must be at least 3 characters'),
+                password: z.string().min(8, 'Password must be at least 8 characters'),
+            }),
+            emits: {
+                'evt.user.registered': z.object({
+                    user_id: z.string(),
+                    email: z.string(),
+                    username: z.string(),
+                    created_at: z.string().datetime(),
+                }),
+                'evt.user.registration.failed': z.object({
+                    reason: z.string(),
+                    error_code: z.enum(['EMAIL_EXISTS', 'USERNAME_TAKEN', 'INVALID_INPUT']),
+                })
+            }
+        }
+    }
+});
+```
+
+Let's create a mock data for demostation purposes in `services/database.ts`
+
+```typescript
+export class UserDatabase {
+    private emails = new Set<string>();
+    private usernames = new Set<string>();
+
+    async emailExists(email: string): Promise<boolean> {
+        return this.emails.has(email);
+    }
+
+    async usernameExists(username: string): Promise<boolean> {
+        return this.usernames.has(username);
+    }
+
+    async createUser(email: string, username: string, password: string): Promise<string> {
+        // Simulate async database operation
+        await new Promise(resolve => setTimeout(resolve, 10));
+        
+        this.emails.add(email);
+        this.usernames.add(username);
+        
+        return `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    }
+}
+```
+
+### Step 2: Create Your Event Handler
+
+Now let's create the actual event handler using the factory pattern in `handlers/user-registration-handler.ts`:
+
+```typescript
+import { createArvoEventHandler, type EventHandlerFactory } from 'arvo-event-handler';
+import { logToSpan } from 'arvo-core';
+import { userRegistrationContract } from '../contracts/user-registration';
+import type { UserDatabase } from '../services/database';
+
+type HandlerDependencies = {
+    database: UserDatabase;
+}
+
+// Create the handler factory - this is the recommended pattern
+export const userRegistrationHandlerFactory: EventHandlerFactory<HandlerDependencies> = ({
+    database
+}) => createArvoEventHandler({
+  contract: userRegistrationContract,
+  executionunits: 0.001, // Cost per execution (business-defined)
+  handler: {
+    '1.0.0': async ({ event, source, span }) => {
+      logToSpan({
+        level: 'INFO',
+        message: `Processing user registration for ${event.data.email}`
+      }, span);
+
+      // Check if email already exists
+      if (await database.emailExists(event.data.email)) {
+        logToSpan({
+          level: 'WARN',
+          message: `Registration failed: Email ${event.data.email} already exists`
+        }, span);
+
+        return {
+          type: 'evt.user.registration.failed',
+          data: {
+            reason: 'Email address already exists in the system',
+            error_code: 'EMAIL_EXISTS'
+          }
+        };
+      }
+
+      // Check if username already exists
+      if (await database.usernameExists(event.data.username)) {
+        logToSpan({
+          level: 'WARN',
+          message: `Registration failed: Username ${event.data.username} already taken`
+        }, span);
+
+        return {
+          type: 'evt.user.registration.failed',
+          data: {
+            reason: 'Username already taken',
+            error_code: 'USERNAME_TAKEN'
+          }
+        };
+      }
+
+      // Create the user
+      const userId = await database.createUser(
+        event.data.email,
+        event.data.username,
+        event.data.password
+      );
+
+      logToSpan({
+        level: 'INFO',
+        message: `User ${userId} created successfully`
+      }, span);
+
+      // Return success event
+      return {
+        type: 'evt.user.registered',
+        data: {
+          user_id: userId,
+          email: event.data.email,
+          username: event.data.username,
+          created_at: new Date().toISOString()
+        }
+      };
+    }
+  }
+});
+```
+
+### Step 3: Put It All Together
+
+Let's create a complete example that shows how to use your event handler in `examples/complete-user-service.ts`:
+
+```typescript
+import { createArvoEventFactory } from 'arvo-core';
+import { userRegistrationContract } from '../contracts/user-registration';
+import { userRegistrationHandlerFactory } from '../handlers/user-registration-handler';
+import { UserDatabase } from '../services/database';
+
+async function runUserRegistrationDemo() {
+    // Set up dependencies
+    const database = new UserDatabase();
+    
+    // Create the handler instance with dependencies
+    const handler = userRegistrationHandlerFactory({ database });
+    
+    // Create an event factory for testing
+    const eventFactory = createArvoEventFactory(userRegistrationContract.version('1.0.0'));
+
+    console.log('=== User Registration Service Demo ===\n');
+
+    // Test 1: Successful registration
+    console.log('📝 Test 1: Successful user registration');
+    const successEvent = eventFactory.accepts({
+        source: 'com.web.frontend',
+        data: {
+            email: 'john.doe@example.com',
+            username: 'johndoe',
+            password: 'securepassword123'
+        }
+    });
+
+    const successResult = await handler.execute(successEvent);
+    console.log(`✅ Result: ${successResult.events[0].type}`);
+    console.log(`📋 Data:`, successResult.events[0].data);
+    console.log('');
+
+    // Test 2: Duplicate email
+    console.log('📝 Test 2: Duplicate email registration');
+    const duplicateEmailEvent = eventFactory.accepts({
+        source: 'com.web.frontend',
+        data: {
+            email: 'john.doe@example.com', // Same email as above
+            username: 'anotherjohn',
+            password: 'anotherpassword123'
+        }
+    });
+
+    const duplicateResult = await handler.execute(duplicateEmailEvent);
+    console.log(`❌ Result: ${duplicateResult.events[0].type}`);
+    console.log(`📋 Data:`, duplicateResult.events[0].data);
+    console.log('');
+
+    // Test 3: Duplicate username
+    console.log('📝 Test 3: Duplicate username registration');
+    const duplicateUsernameEvent = eventFactory.accepts({
+        source: 'com.web.frontend',
+        data: {
+            email: 'jane.doe@example.com',
+            username: 'johndoe', // Same username as first test
+            password: 'janepassword123'
+        }
+    });
+
+    const duplicateUsernameResult = await handler.execute(duplicateUsernameEvent);
+    console.log(`❌ Result: ${duplicateUsernameResult.events[0].type}`);
+    console.log(`📋 Data:`, duplicateUsernameResult.events[0].data);
+    console.log('');
+
+    // Test 4: Runtime error handling
+    console.log('📝 Test 4: Runtime error handling');
+    try {
+        // Create an event with invalid data to trigger validation
+        const invalidEvent = eventFactory.accepts({
+            source: 'com.web.frontend',
+            data: {
+                email: 'not-an-email', // Invalid email
+                username: 'ab', // Too short
+                password: '123' // Too short
+            }
+        });
+        
+        await handler.execute(invalidEvent);
+    } catch (error) {
+        console.log(`💥 Caught validation error: ${error.message}`);
+    }
+}
+
+// Run the demo
+runUserRegistrationDemo().catch(console.error);
+```
+
+### Step 4: Run Your Service
+
+```bash
+npx tsx examples/complete-user-service.ts
+```
+
+You should see output showing successful registrations, business logic errors (like duplicate emails), and validation errors being handled appropriately.
+
+## Advanced Patterns
+
+### Handling Multiple Versions
+
+As your service evolves, you'll need to support multiple contract versions:
+
+```typescript
+const handlerFactory: EventHandlerFactory<HandlerDependencies> = ({ database }) => 
+    createArvoEventHandler({
+        contract: userRegistrationContract,
+        executionunits: 0.001,
+        handler: {
+            '1.0.0': async ({ event, span }) => {
+                // Original implementation
+                logToSpan({ level: 'INFO', message: 'Processing v1.0.0 registration' }, span);
+                // ... implementation
+            },
+            '2.0.0': async ({ event, span }) => {
+                // Enhanced implementation with new features
+                logToSpan({ level: 'INFO', message: 'Processing v2.0.0 registration with enhanced validation' }, span);
+                // ... enhanced implementation
+            }
+        }
+    });
+```
+
+### Error Handling Strategy
+
+ArvoEventHandler distinguishes between different types of issues:
+
+```typescript
+// Business logic errors - return as events
+return {
+    type: 'evt.user.registration.failed',
+    data: { reason: 'Email exists', error_code: 'EMAIL_EXISTS' }
+};
+
+// Runtime errors - throw and let the handler convert to system errors
+throw new Error('Database connection failed');
+
+// Contract violations - these bubble up as ConfigViolation or ContractViolation
+// These indicate serious system issues that need immediate attention
+```
+
+### Testing Your Handler
+
+Testing handlers is straightforward thanks to the factory pattern:
+
+```typescript
+// test/user-registration-handler.test.ts
+import { createArvoEventFactory } from 'arvo-core';
+import { userRegistrationHandlerFactory } from '../handlers/user-registration-handler';
+import { UserDatabase } from '../services/database';
+
+describe('User Registration Handler', () => {
+    let database: UserDatabase;
+    let handler: ReturnType<typeof userRegistrationHandlerFactory>;
+    let eventFactory: ReturnType<typeof createArvoEventFactory>;
+
+    beforeEach(() => {
+        database = new UserDatabase();
+        handler = userRegistrationHandlerFactory({ database });
+        eventFactory = createArvoEventFactory(userRegistrationContract.version('1.0.0'));
+    });
+
+    it('should successfully register a new user', async () => {
+        const event = eventFactory.accepts({
+            source: 'test',
+            data: {
+                email: 'test@example.com',
+                username: 'testuser',
+                password: 'password123'
+            }
+        });
+
+        const result = await handler.execute(event);
+
+        expect(result.events).toHaveLength(1);
+        expect(result.events[0].type).toBe('evt.user.registered');
+        expect(result.events[0].data.user_id).toBeDefined();
+    });
+
+    it('should reject duplicate emails', async () => {
+        // Create first user
+        await database.createUser('test@example.com', 'user1', 'pass');
+
+        const event = eventFactory.accepts({
+            source: 'test',
+            data: {
+                email: 'test@example.com',
+                username: 'user2',
+                password: 'password123'
+            }
+        });
+
+        const result = await handler.execute(event);
+
+        expect(result.events[0].type).toBe('evt.user.registration.failed');
+        expect(result.events[0].data.error_code).toBe('EMAIL_EXISTS');
+    });
+});
+```
+
+## What's Next?
+
+Now that you understand the basics of ArvoEventHandler, you can explore:
+
+1. **[Contract Evolution](#managing-service-evolution-through-contracts)** - Learn how to evolve your handlers while maintaining backward compatibility
+2. **[Multi-Domain Broadcasting](#multi-domain-event-broadcasting)** - Route events to different processing contexts
+3. **[Error Handling Strategies](#error-handling)** - Master the different types of errors and how to handle them
+4. **[Testing Patterns](#testing-event-handlers-in-arvo)** - Build comprehensive test suites for your handlers
+5. **[Orchestration](./ArvoOrchestrator.md)** - Coordinate complex workflows across multiple services
+
+The patterns you've learned here form the foundation for building reliable, evolvable event-driven systems with Arvo.
+
 ## Principles of Reliable Event-Driven Systems
 
 Arvo is engineered as an evolutionary event-driven architecture that strives to create systems that are reliable, adaptable, and transparent. In event-driven systems, the majority of complexity stems from inter-service communication. Arvo manages these complexities by enforcing several fundamental principles:
@@ -332,7 +705,7 @@ At the end of this flow, we receive our array of response events stored in `res
 
 ### Understanding the Handler Interface
 
-All event handlers in Arvo follow a consistent signature: `ArvoEvent => Promise<ArvoEvent[]>`. This unified interface offers several key advantages:
+All event handlers in Arvo follow a consistent signature: `ArvoEvent => Promise<{ events:ArvoEvent[] }>`. This unified interface offers several key advantages:
 
 This simple yet powerful pattern means every handler takes an ArvoEvent as input and returns a Promise that resolves to an array of ArvoEvents. The promise wrapper enables asynchronous processing, while returning an array of events allows handlers to trigger multiple consequent actions when needed. This uniformity creates a predictable flow of events through the system, making it easier to reason about service behavior and compose complex workflows.
 
@@ -437,9 +810,278 @@ It's worth noting that in typical event-driven architectures, these performance 
 
 > In Arvo's event-driven architecture, events typically serve as commands and responses between services. Since these events represent service interactions rather than data storage or transfer mechanisms, large event payloads may indicate a violation of single responsibility principles - where an event is trying to do too much or carry too much information. This could make the system harder to maintain and evolve over time. For scenarios involving large datasets, consider whether the data transfer could be better handled through other mechanisms while keeping the event focused on the service interaction itself.
 
+## Multi-Domain Event Broadcasting
+
+> **Caution:** Don't use domained contracts unless it is fully intentional. Using domained contracts causes implicit domain assignment which can be hard to track and confusing. For 99% of the cases you dont need domained contracts.
+
+The ArvoEventHandler supports sophisticated multi-domain event distribution through array-based domain specification. This powerful feature allows events to be broadcast across multiple processing contexts simultaneously.
+
+### Understanding Domains
+
+In Arvo, domains represent different processing contexts or routing namespaces for events. They enable sophisticated event distribution patterns where a single handler response can create multiple events for different processing pipelines.
+
+### Domain Assignment Rules
+
+When returning events from a handler, you can specify domains using the `domain` field:
+
+1. **Array Processing**: Each element in the `domain` array creates a separate ArvoEvent instance
+2. **`undefined` in Array Resolution**: `undefined` elements resolve to: `triggeringEvent.domain ?? handler.contract.domain ?? null`
+3. **`null` in Array Resolution**: `null` elements resolve to events which `domain: null`
+3. **Automatic Deduplication**: Duplicate domains are automatically removed to prevent redundant events
+4. **Default Behavior**: Omitting the `domain` field (or setting to `undefined`) defaults to `[null]` (single event, no domain)
+
+### Domain broadcasting pattern
+
+Let's look at extending the getting start example to use the domain broadcasting
+
+#### Step 1: Update Your Event Handler
+
+We'll extend the handler to demonstrate domain broadcasting capabilities in `handlers/user-registration-handler.ts`:
+
+```typescript
+import { createArvoEventHandler, type EventHandlerFactory } from 'arvo-event-handler';
+import { logToSpan } from 'arvo-core';
+import { userRegistrationContract } from '../contracts/user-registration';
+import type { UserDatabase } from '../services/database';
+
+type HandlerDependencies = {
+    database: UserDatabase;
+}
+
+// Create the handler factory - this is the recommended pattern
+export const userRegistrationHandlerFactory: EventHandlerFactory<HandlerDependencies> = ({
+    database
+}) => createArvoEventHandler({
+  contract: userRegistrationContract,
+  executionunits: 0.001, // Cost per execution (business-defined)
+  handler: {
+    '1.0.0': async ({ event, source, span, domain }) => {
+      logToSpan({
+        level: 'INFO',
+        message: `Processing user registration for ${event.data.email}`
+      }, span);
+
+      // Log domain information for observability
+      if (domain.event) {
+        logToSpan({
+          level: 'INFO',
+          message: `Event received from domain: ${domain.event}`
+        }, span);
+      }
+
+      // Check if email already exists
+      if (await database.emailExists(event.data.email)) {
+        logToSpan({
+          level: 'WARN',
+          message: `Registration failed: Email ${event.data.email} already exists`
+        }, span);
+
+        return {
+          type: 'evt.user.registration.failed',
+          data: {
+            reason: 'Email address already exists in the system',
+            error_code: 'EMAIL_EXISTS'
+          },
+          // Broadcast error to multiple domains for different processing contexts
+          // along with the default 'null' no-domain event.
+          domain: ['audit.failures', 'analytics.errors', null]
+        };
+      }
+
+      // Check if username already exists
+      if (await database.usernameExists(event.data.username)) {
+        logToSpan({
+          level: 'WARN',
+          message: `Registration failed: Username ${event.data.username} already taken`
+        }, span);
+
+        return {
+          type: 'evt.user.registration.failed',
+          data: {
+            reason: 'Username already taken',
+            error_code: 'USERNAME_TAKEN'
+          },
+          // Send failure to audit
+          domain: ['audit.failures']
+        };
+      }
+
+      // Create the user
+      const userId = await database.createUser(
+        event.data.email,
+        event.data.username,
+        event.data.password
+      );
+
+      logToSpan({
+        level: 'INFO',
+        message: `User ${userId} created successfully`
+      }, span);
+
+      // Determine if this is a premium user based on email domain
+      const isPremiumUser = event.data.email.endsWith('@premium.com');
+
+      // Return success event with sophisticated domain broadcasting
+      return {
+        type: 'evt.user.registered',
+        data: {
+          user_id: userId,
+          email: event.data.email,
+          username: event.data.username,
+          created_at: new Date().toISOString()
+        },
+        // Multi-domain broadcasting based on business logic
+        domain: isPremiumUser ? 
+          [
+            'analytics.users',      // All user analytics
+            'crm.premium',         // Premium user CRM
+            'marketing.vip',       // VIP marketing campaigns
+            null                   // Standard processing pipeline
+          ] : 
+          [
+            'analytics.users',     // All user analytics
+            undefined,             // Inherit from event or handler domain
+            null                   // Standard processing pipeline
+          ]
+      };
+    }
+  }
+});
+```
+
+#### Step 2: Domain Broadcasting Examples
+
+Let's also create a dedicated example that shows different domain broadcasting patterns in `examples/domain-broadcasting-demo.ts`:
+
+```typescript
+
+import { createArvoEventFactory } from 'arvo-core';
+import { userRegistrationContract } from '../contracts/user-registration';
+import { userRegistrationHandlerFactory } from '../handlers/user-registration-handler';
+import { UserDatabase } from '../services/database';
+
+async function runDomainBroadcastingDemo() {
+    const database = new UserDatabase();
+    const handler = userRegistrationHandlerFactory({ database });
+    const eventFactory = createArvoEventFactory(userRegistrationContract.version('1.0.0'));
+
+    console.log('=== Domain Broadcasting Demo ===\n');
+
+    // Test 1: Premium user registration (multiple domains)
+    console.log('📝 Test 1: Premium user registration');
+    const premiumEvent = eventFactory.accepts({
+        source: 'com.web.frontend',
+        data: {
+            email: 'john.doe@premium.com',
+            username: 'johndoe',
+            password: 'securepassword123'
+        }
+    });
+
+    const premiumResult = await handler.execute(premiumEvent);
+    console.log(`✅ Generated ${premiumResult.events.length} events for premium user:`);
+    premiumResult.events.forEach((event, index) => {
+        console.log(`   Event ${index + 1}: type=${event.type}, domain=${event.domain || 'null'}`);
+    });
+    console.log('');
+
+    // Test 2: Regular user registration (different domain pattern)
+    console.log('📝 Test 2: Regular user registration');
+    const regularEvent = eventFactory.accepts({
+        source: 'com.web.frontend',
+        data: {
+            email: 'jane.smith@gmail.com',
+            username: 'janesmith',
+            password: 'anotherpassword123'
+        }
+    });
+
+    const regularResult = await handler.execute(regularEvent);
+    console.log(`✅ Generated ${regularResult.events.length} events for regular user:`);
+    regularResult.events.forEach((event, index) => {
+        console.log(`   Event ${index + 1}: type=${event.type}, domain=${event.domain || 'null'}`);
+    });
+    console.log('');
+
+    // Test 3: Email conflict (error broadcasting)
+    console.log('📝 Test 3: Email conflict with domain broadcasting');
+    const conflictEvent = eventFactory.accepts({
+        source: 'com.web.frontend',
+        data: {
+            email: 'john.doe@premium.com', // Same as first test
+            username: 'anotherjohn',
+            password: 'conflictpassword123'
+        }
+    });
+
+    const conflictResult = await handler.execute(conflictEvent);
+    console.log(`❌ Generated ${conflictResult.events.length} error events:`);
+    conflictResult.events.forEach((event, index) => {
+        console.log(`   Event ${index + 1}: type=${event.type}, domain=${event.domain || 'null'}`);
+        console.log(`   Error: ${event.data.error_code} - ${event.data.reason}`);
+    });
+    console.log('');
+
+    // Test 4: Username conflict (single domain error)
+    console.log('📝 Test 4: Username conflict with single domain');
+    const usernameConflictEvent = eventFactory.accepts({
+        source: 'com.web.frontend',
+        data: {
+            email: 'unique.email@example.com',
+            username: 'johndoe', // Same as first test
+            password: 'uniquepassword123'
+        }
+    });
+
+    const usernameConflictResult = await handler.execute(usernameConflictEvent);
+    console.log(`❌ Generated ${usernameConflictResult.events.length} error event:`);
+    usernameConflictResult.events.forEach((event, index) => {
+        console.log(`   Event ${index + 1}: type=${event.type}, domain=${event.domain || 'null'}`);
+        console.log(`   Error: ${event.data.error_code} - ${event.data.reason}`);
+    });
+}
+
+// Run the demo
+runDomainBroadcastingDemo().catch(console.error);
+```
+
+#### Understanding Domain Broadcasting Patterns
+
+When you run this example (`npx tsx examples/domain-broadcasting-demo.ts`), you'll see different domain broadcasting patterns in action:
+
+**Premium User Success Event** creates 4 events:
+- `domain: 'analytics.users'` - For user analytics processing
+- `domain: 'crm.premium'` - For premium customer relationship management
+- `domain: 'marketing.vip'` - For VIP marketing campaigns
+- `domain: null` - For standard processing pipeline
+
+**Regular User Success Event** creates 3 events:
+- `domain: 'analytics.users'` - For user analytics processing
+- `domain: null` - From `undefined` resolution (since no event or handler domain)
+- `domain: null` - Explicit null domain (deduplication removes duplicate)
+
+**Email Conflict Error** creates 3 events:
+- `domain: 'audit.failures'` - For failure auditing
+- `domain: 'analytics.errors'` - For error analytics
+- `domain: null` - For standard error processing
+
+**Username Conflict Error** creates 1 event:
+- `domain: 'audit.failures'` - Single targeted domain for audit
+
+This demonstrates how domain broadcasting enables sophisticated event routing based on business logic, user types, and error conditions while maintaining clean separation of processing contexts.
+
+### Error Broadcasting
+
+System errors are automatically broadcast to all relevant processing contexts:
+- Source event domain (`event.domain`)
+- Handler contract domain (`handler.contract.domain`)
+- No-domain context (`null`)
+
+Duplicates are automatically removed, so if `event.domain === handler.contract.domain`, only two error events are created instead of three.
+
 ## Event Handler Scaling
 
-The `ArvoEventHandler` execution model implements a functional architecture that inherently supports scalability in distributed systems. At its core, each handler is a pure function with the signature `ArvoEvent => Promise<ArvoEvent[]>`, encapsulating all processing logic within a self-contained unit. This fundamental design choice enables handlers to operate independently, receiving all required context through event parameters and maintaining consistent behavior across different deployment environments.
+The `ArvoEventHandler` execution model implements a functional architecture that inherently supports scalability in distributed systems. At its core, each handler is a pure function with the signature `ArvoEvent => Promise<{ events:ArvoEvent[] }>`, encapsulating all processing logic within a self-contained unit. This fundamental design choice enables handlers to operate independently, receiving all required context through event parameters and maintaining consistent behavior across different deployment environments.
 
 The contract-based validation system ensures behavioral consistency regardless of where handlers execute, while the absence of shared state eliminates traditional scaling bottlenecks. This architectural approach provides natural support for both horizontal scaling through distribution across multiple compute nodes, and vertical scaling through resource allocation. The handlers maintain their operational integrity whether deployed in traditional cluster environments, container orchestration platforms, or serverless infrastructures.
 
@@ -486,7 +1128,7 @@ This allows you to test the handler in isolation, controlling its dependencies a
 All Arvo event handlers have the same basic signature:
 
 ```
-ArvoEvent => Promise<ArvoEvent[]>
+ArvoEvent => Promise<{ events:ArvoEvent[] }>
 ```
 
 They take an `ArvoEvent` as input and return a `Promise` that resolves to an array of `ArvoEvent`s. This consistency makes it easy to write tests for any handler.

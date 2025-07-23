@@ -62,7 +62,7 @@ export default abstract class AbstractArvoEventHandler {
     opentelemetry: ArvoEventHandlerOpenTelemetryOptions,
   ): Promise<{
     events: ArvoEvent[];
-    [key: string]: unknown;
+    metadata?: Record<string, any>;
   }>;
 
   /**
