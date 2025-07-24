@@ -98,6 +98,11 @@ export interface IArvoOrchestrator {
 
   /* A flag notifying the orchestrator if the resource locking is needed or not */
   requiresResourceLocking: boolean;
+
+  /**
+   * Optional configuration to customize where system error events are emitted.
+   */
+  systemErrorDomain?: (string | null)[];
 }
 
 /**
@@ -115,4 +120,19 @@ export interface ICreateArvoOrchestrator {
    * All machines must have the same source identifier.
    */
   machines: ArvoMachine<any, any, any, any, any>[];
+
+  /**
+   * Optional configuration to customize where system error events are emitted.
+   *
+   * This overrides the default system error domain fallback of:
+   * `[event.domain, self.contract.domain, null]`
+   *
+   * Use this to precisely control the set of domains that should receive structured
+   * `sys.*.error` events when uncaught exceptions occur in the handler.
+   *
+   * Symbolic constants from {@link ArvoDomain} are supported.
+   *
+   * @default undefined — uses standard fallback broadcast domains
+   */
+  systemErrorDomain?: (string | null)[];
 }

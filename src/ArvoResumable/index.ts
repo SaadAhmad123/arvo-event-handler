@@ -34,6 +34,7 @@ import { isError } from '../utils/index';
 import AbstractArvoEventHandler from '../AbstractArvoEventHandler';
 import { ConfigViolation, ContractViolation, ExecutionViolation } from '../errors';
 import type { ArvoEventHandlerOpenTelemetryOptions } from '../types';
+import { resolveEventDomain } from '../ArvoDomain';
 
 /**
  * ArvoResumable - A stateful orchestration handler for managing distributed workflows
@@ -78,6 +79,7 @@ export class ArvoResumable<
   readonly syncEventResource: SyncEventResource<ArvoResumableState<TMemory>>;
   readonly source: string;
   readonly handler: ArvoResumableHandler<ArvoResumableState<TMemory>, TSelfContract, TServiceContract>;
+  readonly systemErrorDomain?: (string | null)[] = [];
 
   readonly contracts: {
     self: TSelfContract;
@@ -105,6 +107,7 @@ export class ArvoResumable<
     memory: IMachineMemory<ArvoResumableState<TMemory>>;
     requiresResourceLocking?: boolean;
     handler: ArvoResumableHandler<ArvoResumableState<TMemory>, TSelfContract, TServiceContract>;
+    systemErrorDomain?: (string | null)[];
   }) {
     super();
     this.executionunits = param.executionunits;
@@ -112,6 +115,7 @@ export class ArvoResumable<
     this.syncEventResource = new SyncEventResource(param.memory, param.requiresResourceLocking ?? true);
     this.contracts = param.contracts;
     this.handler = param.handler;
+    this.systemErrorDomain = param.systemErrorDomain;
   }
 
   protected validateInput(event: ArvoEvent): {
@@ -196,7 +200,7 @@ export class ArvoResumable<
     sourceEvent: ArvoEvent,
     selfVersionedContract: VersionedArvoContract<TSelfContract, ArvoSemanticVersion>,
     initEventId: string,
-    _domain: string | null | undefined,
+    _domain: string | null,
   ): ArvoEvent {
     logToSpan({
       level: 'INFO',
@@ -214,7 +218,12 @@ export class ArvoResumable<
     let contract: VersionedArvoContract<any, any> | null = null;
     let subject: string = sourceEvent.subject;
     let parentId: string = sourceEvent.id;
-    let domain = _domain === undefined ? (sourceEvent.domain ?? this.domain ?? null) : _domain;
+    let domain = resolveEventDomain({
+      domainToResolve: _domain,
+      handlerSelfContract: selfVersionedContract,
+      eventContract: null,
+      triggeringEvent: sourceEvent,
+    });
     if (event.type === selfVersionedContract.metadata.completeEventType) {
       logToSpan({
         level: 'INFO',
@@ -224,8 +233,12 @@ export class ArvoResumable<
       schema = selfVersionedContract.emits[selfVersionedContract.metadata.completeEventType];
       subject = orchestrationParentSubject ?? sourceEvent.subject;
       parentId = initEventId;
-      domain =
-        _domain === undefined ? (selfVersionedContract.domain ?? sourceEvent.domain ?? this.domain ?? null) : _domain;
+      domain = resolveEventDomain({
+        domainToResolve: _domain,
+        handlerSelfContract: selfVersionedContract,
+        eventContract: selfVersionedContract,
+        triggeringEvent: sourceEvent,
+      });
     } else if (serviceContract[event.type]) {
       logToSpan({
         level: 'INFO',
@@ -233,7 +246,12 @@ export class ArvoResumable<
       });
       contract = serviceContract[event.type];
       schema = serviceContract[event.type].accepts.schema;
-      domain = _domain === undefined ? (contract?.domain ?? sourceEvent.domain ?? this.domain ?? null) : _domain;
+      domain = resolveEventDomain({
+        domainToResolve: _domain,
+        handlerSelfContract: selfVersionedContract,
+        eventContract: contract,
+        triggeringEvent: sourceEvent,
+      });
 
       // If the event is to call another orchestrator then, extract the parent subject
       // passed to it and then form an new subject. This allows for event chaining
@@ -331,19 +349,6 @@ export class ArvoResumable<
   /**
    * Executes the orchestration workflow for an incoming event
    *
-   * This is the main orchestration entry point that coordinates the complete event
-   * processing lifecycle. It implements the core workflow execution pattern including
-   * validation, locking, state management, handler invocation, event creation, and
-   * persistence with comprehensive error handling and observability.
-   *
-   * The execution process follows these phases:
-   * 1. **Validation & Setup** - Subject parsing, handler resolution, contract validation
-   * 2. **Resource Management** - Distributed lock acquisition and state loading
-   * 3. **Handler Execution** - Context preparation and user handler invocation
-   * 4. **Event Processing** - Result transformation and emittable event creation
-   * 5. **State Persistence** - Atomic state updates and event tracking
-   * 6. **Cleanup & Return** - Resource release and structured result return
-   *
    * @param event - The triggering event to process
    * @param opentelemetry - OpenTelemetry configuration for trace inheritance
    *
@@ -353,26 +358,6 @@ export class ArvoResumable<
    * @throws {ConfigViolation} When handler resolution or contract validation fails
    * @throws {ContractViolation} When event schema validation fails
    * @throws {ExecutionViolation} When workflow execution encounters critical errors
-   *
-   * @remarks
-   * **Execution Safety:**
-   * The method implements comprehensive error recovery with proper resource cleanup
-   * in all execution paths. ViolationErrors are rethrown for system handling while
-   * workflow errors become system error events for graceful degradation.
-   *
-   * **State Management:**
-   * Workflow state is managed atomically with optimistic concurrency control.
-   * Status transitions from 'active' to 'done' occur only when completion events
-   * are generated, ensuring proper workflow lifecycle management.
-   *
-   * **Observability:**
-   * Complete execution is traced using OpenTelemetry with detailed span attributes
-   * for debugging and monitoring. Event metadata includes processing context and
-   * routing information for operational visibility.
-   *
-   * **Terminal State Handling:**
-   * Workflows in 'done' status ignore additional events to prevent state corruption
-   * while preserving audit trails for completed workflow executions.
    */
   async execute(
     event: ArvoEvent,
@@ -558,6 +543,10 @@ export class ArvoResumable<
             context: state?.state$$ ?? null,
             metadata: state ?? null,
             collectedEvents: eventTypeToExpectedEvent,
+            domain: {
+              event: event.domain,
+              self: this.contracts.self.domain,
+            },
             input: contractType === 'self' ? (event.toJSON() as any) : null,
             service: contractType === 'service' ? event.toJSON() : null,
             contracts: {
@@ -583,14 +572,14 @@ export class ArvoResumable<
                     to: parsedEventSubject.meta?.redirectto ?? parsedEventSubject.execution.initiator,
                     domain: orchestrationParentSubject
                       ? [ArvoOrchestrationSubject.parse(orchestrationParentSubject).execution.domain]
-                      : [undefined],
+                      : [null],
                   },
                 ]
               : []),
             ...(executionResult?.services ?? []),
           ]) {
-            const domains = item.domain ?? [null];
-            for (const _dom of Array.from(new Set(domains))) {
+            const createdDomain = new Set<string | null>(null);
+            for (const _dom of Array.from(new Set(item.domain ?? [null]))) {
               const evt = this.createEmittableEvent(
                 item,
                 otelHeaders,
@@ -600,6 +589,11 @@ export class ArvoResumable<
                 initEventId,
                 _dom,
               );
+              // Making sure the raw event broadcast is actually unique as the
+              // domain resolution (especially for symbolic) can only happen
+              // in the createEmittableEvent
+              if (createdDomain.has(evt.domain)) continue;
+              createdDomain.add(evt.domain);
               emittables.push(evt);
               for (const [key, value] of Object.entries(emittables[emittables.length - 1].otelAttributes)) {
                 span.setAttribute(`to_emit.${emittables.length - 1}.${key}`, value);
@@ -697,9 +691,22 @@ export class ArvoResumable<
           }
 
           const result: ArvoEvent[] = [];
-          for (const _dom of Array.from(new Set([event.domain, this.domain, null]))) {
+          for (const _dom of Array.from(
+            new Set(
+              this.systemErrorDomain
+                ? this.systemErrorDomain.map((item) =>
+                    resolveEventDomain({
+                      domainToResolve: item,
+                      handlerSelfContract: this.contracts.self.version('latest'),
+                      eventContract: this.contracts.self.version('latest'),
+                      triggeringEvent: event,
+                    }),
+                  )
+                : [event.domain, this.domain, null],
+            ),
+          )) {
             result.push(
-              createArvoOrchestratorEventFactory(this.contracts.self.version('any')).systemError({
+              createArvoOrchestratorEventFactory(this.contracts.self.version('latest')).systemError({
                 source: this.source,
                 // If the initiator of the workflow exist then match the
                 // subject so that it can incorporate it in its state. If

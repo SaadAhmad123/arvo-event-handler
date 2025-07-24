@@ -22,21 +22,12 @@ import { v4 as uuid4 } from 'uuid';
  * @param param.handler - Versioned orchestration logic handlers mapped by semantic version
  * @param param.executionunits - Resource allocation cost for this orchestrator's execution (default: 0)
  * @param param.requiresResourceLocking - Enable distributed locking for concurrent safety (default: auto-determined by service count)
+ * @param param.systemErrorDomain - The domain override of the system error events. (default [event.domain, self.contract.domain, null])
  *
  * @returns A new ArvoResumable orchestrator instance configured with the provided parameters
  *
  * @throws {Error} Service contracts have duplicate URIs - Multiple versions of the same contract are not allowed
  * @throws {Error} Circular dependency detected - Self contract is registered as a service, creating execution loops
- *
- * @remarks
- * **Resource Locking:**
- * When `requiresResourceLocking` is not specified, it defaults to `true` when multiple
- * services are configured (indicating potential concurrent operations) and `false` for
- * single-service orchestrations.
- *
- * **Contract Validation:**
- * The factory validates that all service contracts have unique URIs and prevents
- * circular dependencies where the orchestrator's own contract is registered as a service.
  */
 export const createArvoResumable = <
   TMemory extends Record<string, any>,
@@ -57,6 +48,7 @@ export const createArvoResumable = <
   handler: ArvoResumableHandler<ArvoResumableState<TMemory>, TSelfContract, TServiceContract>;
   executionunits?: number;
   requiresResourceLocking?: boolean;
+  systemErrorDomain?: (string | null)[];
 }) => {
   const __areServiceContractsUnique = areServiceContractsUnique(param.contracts.services);
   if (!__areServiceContractsUnique.result) {
@@ -81,5 +73,6 @@ export const createArvoResumable = <
     handler: param.handler,
     executionunits: param.executionunits ?? 0,
     requiresResourceLocking: param.requiresResourceLocking ?? Object.keys(param.contracts.services).length > 1,
+    systemErrorDomain: param.systemErrorDomain,
   });
 };

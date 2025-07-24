@@ -3,56 +3,45 @@ import ArvoEventHandler from '.';
 import type { IArvoEventHandler } from './types';
 
 /**
- * Create the instance of `ArvoEventHandler`
+ * Creates an instance of `ArvoEventHandler` for the specified versioned contract and handlers.
  *
- * > **Caution:** Don't use domained contracts unless it is fully intentional. Using domained
- * contracts causes implicit domain assignment which can be hard to track and confusing. For 99%
- * of the cases you dont need domained contracts
+ * This function is the recommended entry point for defining stateless, contract-driven services in Arvo.
+ * It binds a contract to its versioned handler implementations, enforces type-safe validation using Zod,
+ * and supports multi-domain event broadcasting and OpenTelemetry observability out of the box.
  *
- * See {@link ArvoEventHandler}
+ * See {@link ArvoEventHandler} for implementation details.
  *
  * @example
- * ```typescript
+ * ```ts
  * const handler = createArvoEventHandler({
  *   contract: userContract,
  *   executionunits: 1,
  *   handler: {
  *     '1.0.0': async ({ event, domain, span }) => {
- *       // Access domain context
- *       if (event.domain === 'priority.high') {
- *         // Handle high-priority processing
- *       }
- *
  *       if (domain.event !== domain.self) {
- *          logToSpan({
- *            level: 'WARN',
- *            message: 'Domain mismatch detected'
- *          }, span)
+ *         logToSpan({
+ *           level: 'WARN',
+ *           message: 'Domain mismatch detected'
+ *         }, span);
  *       }
  *
- *
- *       // Process event according to contract v1.0.0
  *       const result = await processUser(event.data);
  *
- *       // Return structured response
  *       return {
  *         type: 'evt.user.created',
  *         data: result,
- *         // Optional: override default routing
  *         to: 'com.notification.service',
- *         // Creates 2 events:
- *         // - One for 'analytics.realtime' domain (specialized processing)
- *         // - One with no domain (standard processing pipeline)
- *         domain: ['analytics.realtime', null]
  *       };
  *     },
- *     '2.0.0': async ({ event, contract, span }) => {
- *       // Process event according to contract v2.0.0
- *       // Handler must be implemented for all contract versions
+ *     '2.0.0': async ({ event, contract }) => {
+ *       // Handler logic for v2.0.0
  *     }
  *   }
  * });
  * ```
+ *
+ * @param param - Configuration object containing contract, versioned handlers, execution units, and span settings
+ * @returns A fully configured `ArvoEventHandler` instance for the given contract
  */
 export const createArvoEventHandler = <TContract extends ArvoContract>(
   param: IArvoEventHandler<TContract>,

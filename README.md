@@ -1,53 +1,13 @@
+# Arvo Event Handler
+
+The `arvo-event-handler` package serves as the comprehensive orchestration and event processing foundation for building sophisticated, reliable event-driven systems within the Arvo architecture. This package provides a complete toolkit of components that work seamlessly together to handle everything from simple event processing to complex distributed workflow orchestration, all while maintaining strict type safety, comprehensive observability, and robust error handling.
+
 [![SonarCloud](https://sonarcloud.io/images/project_badges/sonarcloud-white.svg)](https://sonarcloud.io/summary/new_code?id=SaadAhmad123_arvo-event-handler)
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=SaadAhmad123_arvo-event-handler&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=SaadAhmad123_arvo-event-handler)
 
-# Arvo
-
-## What is Arvo
-
-Arvo is an opinionated approach to building event-driven systems. It's designed as a pattern and methodology rather than a rigid framework.
-
-## Principal
-
-The core principle of Arvo is to provide a solid foundation with enough flexibility for customization, allowing you to impose your own technical posture, including security measures, event brokerage, and telemetry. While Arvo offers a structured approach, it encourages developers to implement their own solutions if they believe they can improve upon or diverge from Arvo's principles.
-
-If you're looking to focus on results without getting bogged down in the nitty-gritty of event creation, handling, system state management, and telemetry, while also avoiding vendor lock-in, Arvo provides an excellent starting point. I believe, it strikes a balance between opinionated design and customization, making it an ideal choice for developers who want a head start in building event-driven systems without sacrificing flexibility.
-
-Key features of Arvo include:
-
-- Lightweight and unopinionated core
-- Extensible architecture
-- Cloud-agnostic design
-- Built-in primitives for event-driven patterns
-- Easy integration with existing systems and tools
-
-Whether you're building a small microservice or a large-scale distributed system, my hope with Arvo is to offers you some of the tools and patterns to help you succeed in the world of event-driven architecture.
-
-## Arvo suite
-
-Arvo is a collection of libraries which allows you to build the event driven system in the Arvo pattern. However, if you feel you don't have to use them or you can use them as you see fit.
-
-| Scope          | NPM                                                               | Github                                             | Documentation                                                |
-| -------------- | ----------------------------------------------------------------- | -------------------------------------------------- | ------------------------------------------------------------ |
-| Orchestration  | https://www.npmjs.com/package/arvo-xstate?activeTab=readme        | https://github.com/SaadAhmad123/arvo-xstate        | https://saadahmad123.github.io/arvo-xstate/index.html        |
-| Core           | https://www.npmjs.com/package/arvo-core?activeTab=readme          | https://github.com/SaadAhmad123/arvo-core          | https://saadahmad123.github.io/arvo-core/index.html          |
-| Event Handling | https://www.npmjs.com/package/arvo-event-handler?activeTab=readme | https://github.com/SaadAhmad123/arvo-event-handler | https://saadahmad123.github.io/arvo-event-handler/index.html |
-
-# Arvo - Event Handler
-
-This package contains the event handler primitive required to enable an Arvo Event Driven System. These are light weight classes and types which take care of event listening, contract bound type inference, distributed open telemetry and much more.
-
-## Documentation & Resources
-
-| Source       | Link                                                              |
-| ------------ | ----------------------------------------------------------------- |
-| Package      | https://www.npmjs.com/package/arvo-event-handler?activeTab=readme |
-| Github       | https://github.com/SaadAhmad123/arvo-event-handler                |
-| Documenation | https://saadahmad123.github.io/arvo-event-handler/index.html      |
-
 ## Installation
 
-You can install the core package via `npm` or `yarn`
+Install the package along with its core dependency:
 
 ```bash
 npm install arvo-event-handler arvo-core
@@ -57,45 +17,86 @@ npm install arvo-event-handler arvo-core
 yarn add arvo-event-handler arvo-core
 ```
 
-## Components
+## The Event Handlers
 
-There 2 main types of event handlers in Arvo event driven system
+The Arvo event handling architecture is based on three handler patterns.
 
-- [ArvoEventHandler](src/ArvoEventHandler/README.md) is designed to facilitate the handling of events as per an `ArvoContract` (see [arvo-core](https://saadahmad123.github.io/arvo-core/documents/ArvoContract.html)). It provides a robust and flexible way to create, manage, and execute event handlers for Arvo-based event driven systems.
-- [ArvoEventRouter](src/ArvoEventRouter/README.md) is designed to route ArvoEvents to appropriate ArvoEventHandlers. It provides a centralized mechanism for managing and executing multiple event handlers based on event types.
-- [MultiArvoEventHandler](src/MultiArvoEventHandler/README.md) is a flexible and powerful event handling class designed to process multiple event types across different ArvoContracts. This handler offers greater versatility compared to the more specialized `ArvoEventHandler`, as it's not bound to a specific contract or event type.
+### 1. Simple Event Handler
 
-## Getting Started
+This kind of event handling is provided by [`ArvoEventHandler`](src/ArvoEventHandler/README.md). This approach transforms ArvoContract definitions into stateless, pure function handlers that process individual events in isolation. Each handler binds to a specific contract, validates incoming events against schema definitions, executes business logic, and returns response events. It supports multiple contract versions for backward compatibility and enables multi-domain event broadcasting for parallel processing pipelines. This pattern is ideal for microservices, API endpoints, and any scenario where you need reliable, contract-enforced event processing without complex state management or workflow coordination.
 
-To start using Arvo Event Handlers in your project:
+### 2. State-machine based workflow orchestration
 
-- Install the package as shown in the Installation section.
-- Import the necessary components:
+This kind of event handling is provided by [`ArvoMachine`](src/ArvoMachine/README.md) which defines the state machine and [`ArvoOrchestrator`](src/ArvoOrchestrator/README.md) which executes it. This approach uses declarative state machine definitions to model complex business processes with multiple states, transitions, and conditional logic. ArvoMachine creates XState-compatible machines with Arvo-specific constraints and contract bindings, while ArvoOrchestrator provides the runtime environment for executing these machines with distributed state persistence, resource locking, and comprehensive lifecycle management. This pattern excels at complex workflows with parallel states, timing requirements, conditional branching, and scenarios where visual workflow modeling and deterministic state transitions are crucial for business process management.
 
-```javascript
-import {
-  createArvoEvent,
-  createArvoContract,
-  createArvoContractLibrary,
-  createArvoEventFactory,
-} from 'arvo-core';
+### 3. Dynamic stateful event handling and orchestration
 
-import {
-  createArvoEventHandler,
-  createMultiArvoEventHandler,
-  createArvoEventRouter,
-} from 'arvo-event-handler';
-```
+This kind of event handling is provided by [`ArvoResumable`](src/ArvoResumable/README.md). The event handling is a different approach to workflow processing and complements the state machine pattern by offering an imperative programming model where developers write handler functions that explicitly manage workflow state through context objects. Instead of defining states and transitions declaratively, you write code that examines incoming events, updates workflow context, and decides what actions to take next. This approach provides direct control over workflow logic, making it easier to debug and understand for teams familiar with traditional programming patterns, while still offering the same reliability, observability, and distributed coordination features as state machine orchestration.
 
-- Begin defining your events, contracts, and handlers using the provided classes.
+## Core Infrastructure Components
+
+Beyond the three main handler patterns, the package includes essential infrastructure components that enable robust distributed system operation.
+
+### Memory - State Persistance
+
+The [`IMachineMemory`](src/MachineMemory/README.md) interface defines how workflow state gets persisted and coordinated across distributed instances. It implements an optimistic locking strategy with "fail fast on acquire, be tolerant on release" semantics, ensuring data consistency while enabling system recovery from transient failures. 
+
+This package includes `SimpleMachineMemory` for development/ prototyping scenarios and provides example for implementing cloud-based production-ready distributed storage solutions.
+
+### Error Handling 
+
+The Arvo event handling system uses a layered error handling approach that provides clear boundaries between different types of failures, enabling appropriate responses at each level.
+
+**Business Logic Failures** are expected outcomes in your business processes and should be modeled as explicit events in your `ArvoContract` definitions. For example, when a user already exists during registration or a payment is declined, these represent normal business scenarios rather than system errors. By defining these as emittable events, downstream consumers can distinguish between business logic outcomes and actual system problems, enabling appropriate handling logic for each scenario.
+
+**Transient System Errors** occur when underlying infrastructure or external services fail temporarily. Database connection timeouts, API unavailability, or network issues fall into this category. The system automatically converts uncaught exceptions into standardized system error events with the type pattern `sys.{contract.type}.error`. These events carry error details and can trigger retry mechanisms, circuit breakers, or alternative processing paths while maintaining the event-driven flow of your system.
+
+**Violations** represent critical failures that require immediate attention and cannot be handled through normal event processing patterns. The system defines four distinct violation types to help you identify and respond to different categories of critical issues:
+
+- `ContractViolation` occurs when event data fails contract validation, indicating schema mismatches between services. This typically signals version incompatibilities or data corruption that requires developer intervention to resolve.
+
+- `ConfigViolation` happens when events are routed to handlers that cannot process them, revealing system topology or configuration problems that need infrastructure-level fixes.
+
+- `ExecutionViolation` provides a mechanism for custom error handling when your business logic encounters scenarios that cannot be resolved through normal event patterns and require special intervention.
+
+- `TransactionViolation` is raised specifically by `ArvoOrchestrator` and `ArvoResumable` when state persistence operations fail. The accompanying `TransactionViolationCause` provides detailed information about what went wrong, allowing you to implement appropriate recovery strategies for distributed transaction failures.
+
+
+### Local Developement & Testing
+
+The package provides `createSimpleEventBroker` utility which creates local event buses perfect for testing, development, and single-function workflow coordination. It enables comprehensive integration testing without external message brokers while supporting the same event patterns used in production distributed systems.
+
+
+## Architecture Principles
+
+The entire system follows consistent architectural principles that promote reliability and maintainability. All handlers implement the signature `ArvoEvent => Promise<{ events: ArvoEvent[] }>`, creating predictable event flow patterns throughout the system. Contract-first development ensures all service interactions are explicitly defined and validated, eliminating common integration issues while providing compile-time type safety.
+
+Multi-domain event broadcasting allows single handlers to create events for different processing contexts simultaneously, supporting patterns like audit trails, analytics processing, and external system integration. The comprehensive observability integration provides operational visibility through OpenTelemetry spans, structured logging, and performance metrics collection.
+
+The functional architecture enables natural horizontal scaling since handlers operate as pure functions with consistent behavior regardless of deployment location. State management through pluggable persistence interfaces supports various scaling strategies from single-instance deployments to sophisticated distributed configurations.
+
+## Documentation and Resources
+
+| Component | Documentation | When to Use |
+|-----------|---------------|-------------|
+| **ArvoEventHandler** | [Simple Event Processing](src/ArvoEventHandler/README.md) | Stateless services, API endpoints, microservices, simple request-response processing |
+| **ArvoMachine** | [State Machine Workflows](src/ArvoMachine/README.md) | Complex business processes with multiple states, conditional branching, parallel execution, visual workflow modeling |
+| **ArvoOrchestrator** | [Workflow Orchestration](src/ArvoOrchestrator/README.md) | Running state machines in production, distributed workflow coordination, comprehensive lifecycle management |
+| **ArvoResumable** | [Handler-Based Workflows](src/ArvoResumable/README.md) | Dynamic workflows, imperative programming preference, rapid prototyping, teams familiar with traditional programming patterns |
+| **MachineMemory** | [State Persistence Interface](src/MachineMemory/README.md) | Custom state storage requirements, distributed locking strategies, production persistence implementations |
+
+## Package Information
+
+| Resource | Link |
+|----------|------|
+| Package | [npm package](https://www.npmjs.com/package/arvo-event-handler) |
+| Repository | [GitHub repository](https://github.com/SaadAhmad123/arvo-event-handler) |
+| Documentation | [Complete documentation](https://saadahmad123.github.io/arvo-event-handler/index.html) |
+| Core Package | [arvo-core documentation](https://saadahmad123.github.io/arvo-core/index.html) |
 
 ## License
 
 This package is available under the MIT License. For more details, refer to the [LICENSE.md](LICENSE.md) file in the project repository.
-
-## Change Logs
-
-For a detailed list of changes and updates, please refer to the [document](CHANGELOG.md) file.
 
 ### SonarCloud Metrics
 
@@ -105,7 +106,6 @@ For a detailed list of changes and updates, please refer to the [document](CHANG
 [![Coverage](https://sonarcloud.io/api/project_badges/measure?project=SaadAhmad123_arvo-event-handler&metric=coverage)](https://sonarcloud.io/summary/new_code?id=SaadAhmad123_arvo-event-handler)
 [![Duplicated Lines (%)](https://sonarcloud.io/api/project_badges/measure?project=SaadAhmad123_arvo-event-handler&metric=duplicated_lines_density)](https://sonarcloud.io/summary/new_code?id=SaadAhmad123_arvo-event-handler)
 [![Lines of Code](https://sonarcloud.io/api/project_badges/measure?project=SaadAhmad123_arvo-event-handler&metric=ncloc)](https://sonarcloud.io/summary/new_code?id=SaadAhmad123_arvo-event-handler)
-[![Reliability Rating](https://sonarcloud.io/api/project_badges/measure?project=SaadAhmad123_arvo-event-handler&metric=reliability_rating)](https://sonarcloud.io/summary/new_code?id=SaadAhmad123_arvo-event-handler)
 [![Reliability Rating](https://sonarcloud.io/api/project_badges/measure?project=SaadAhmad123_arvo-event-handler&metric=reliability_rating)](https://sonarcloud.io/summary/new_code?id=SaadAhmad123_arvo-event-handler)
 [![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=SaadAhmad123_arvo-event-handler&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=SaadAhmad123_arvo-event-handler)
 [![Technical Debt](https://sonarcloud.io/api/project_badges/measure?project=SaadAhmad123_arvo-event-handler&metric=sqale_index)](https://sonarcloud.io/summary/new_code?id=SaadAhmad123_arvo-event-handler)

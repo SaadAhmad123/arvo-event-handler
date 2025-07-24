@@ -810,25 +810,53 @@ It's worth noting that in typical event-driven architectures, these performance 
 
 > In Arvo's event-driven architecture, events typically serve as commands and responses between services. Since these events represent service interactions rather than data storage or transfer mechanisms, large event payloads may indicate a violation of single responsibility principles - where an event is trying to do too much or carry too much information. This could make the system harder to maintain and evolve over time. For scenarios involving large datasets, consider whether the data transfer could be better handled through other mechanisms while keeping the event focused on the service interaction itself.
 
+Here is the updated domain section of the README, rewritten to reflect the new domain semantics in ArvoEventHandler. It avoids dot points where not needed, emphasizes clarity, and aligns precisely with your finalized code and TSDoc structure.
+
+
+
 ## Multi-Domain Event Broadcasting
 
-> **Caution:** Don't use domained contracts unless it is fully intentional. Using domained contracts causes implicit domain assignment which can be hard to track and confusing. For 99% of the cases you dont need domained contracts.
+Arvo supports the controlled distribution of a single event across multiple processing contexts by using a domain broadcasting model. This model is implemented at the handler level, allowing any response event to be routed to one or more domain targets.
 
-The ArvoEventHandler supports sophisticated multi-domain event distribution through array-based domain specification. This powerful feature allows events to be broadcast across multiple processing contexts simultaneously.
+Domains in Arvo serve as routing contexts. They determine where and how an event is delivered once emitted. This value is becomes a part of the emitted `ArvoEvent` in `domain` field (which can either be a `string` or `null`). An event returned by a handler may specify an array of domain values. Each value in that array triggers the creation of a separate `ArvoEvent` with its domain field set accordingly. This approach makes it possible to target observability pipelines, compliance processors, partner integrations, human review queues, or any parallel system channel — all from a single source event.
 
-### Understanding Domains
+The domain array must be explicitly specified by the handler. If it is omitted entirely, Arvo will default to a single `domain: null`, which represents the default or “no-domain” routing. This default is intentional and encouraged for standard flows that do not require specialized processing behavior.
 
-In Arvo, domains represent different processing contexts or routing namespaces for events. They enable sophisticated event distribution patterns where a single handler response can create multiple events for different processing pipelines.
+Each domain value can either be a concrete string, such as `'audit.workflow'` or `'human.review'` (**this is massively encouraged**), or it can be a symbolic constant provided by `ArvoDomain`. These symbolic constants are interpreted at runtime and resolve to real domain strings based on the surrounding context.
 
-### Domain Assignment Rules
+The `ArvoDomain` object offers three such constants:
+• `FROM_SELF_CONTRACT`: This resolves to the domain declared on the emitting handler’s contract. It’s useful when the service has a defined domain identity and wants events it emits to align with that.
+• `FROM_EVENT_CONTRACT`: This resolves to the domain on the contract of the event being emitted. It ensures that responses inherit the routing context of the logical definition of the event.
+• `FROM_TRIGGERING_EVENT`: This resolves to the domain of the incoming event that triggered the handler. It allows handlers to propagate domain context from upstream services.
 
-When returning events from a handler, you can specify domains using the `domain` field:
+All domain values — both symbolic and literal — are resolved through a resolution function (`resolveArvoDomain`). After this resolution step, **duplicate values are automatically deduplicated**. This means if the resolved domain array includes multiple references that end up evaluating to the same domain string, only one event will be emitted for that domain.
 
-1. **Array Processing**: Each element in the `domain` array creates a separate ArvoEvent instance
-2. **`undefined` in Array Resolution**: `undefined` elements resolve to: `triggeringEvent.domain ?? handler.contract.domain ?? null`
-3. **`null` in Array Resolution**: `null` elements resolve to events which `domain: null`
-3. **Automatic Deduplication**: Duplicate domains are automatically removed to prevent redundant events
-4. **Default Behavior**: Omitting the `domain` field (or setting to `undefined`) defaults to `[null]` (single event, no domain)
+If domain is explicitly set to [null], a single event will be emitted with `domain: null`. This is considered the standard behavior and should be the default for most use cases.
+
+A symbolic value like `FROM_TRIGGERING_EVENT` will only resolve to a domain if the triggering event itself had a domain. If not, it will fall back to null, ensuring that domain-less events are still emitted rather than dropped or misrouted.
+
+Here is the updated version of the #### System Error Event Broadcasting section, with a revised paragraph to reflect the new systemErrorDomain semantics:
+
+#### System Error Event Broadcasting
+
+When an error occurs during event processing, Arvo emits a special **system error event** using the `sys.<contract.type>.error` naming convention. By default, these system error events are broadcast across **three domains** to ensure robust error visibility: 
+
+- the domain of the incoming event,
+- the domain defined on the handler’s contract (if present), and 
+-  a fallback null domain that represents the standard no-routing pipeline. 
+
+This fallback triad ensures that downstream consumers monitoring any of those domains can observe the failure. 
+
+However, this default behavior can be **overridden explicitly** via the optional `systemErrorDomain` field on the handler definition. If this field is provided, it replaces the default error routing logic and allows developers to specify precise domain targets for system errors — using literal strings, symbolic values from `ArvoDomain`, or null. This is particularly useful in workflows where error visibility must be tightly scoped or routed to specific operational teams. Regardless of how the domains are defined, Arvo applies the same resolution and deduplication rules to system errors as it does for normal event broadcasting, ensuring that each domain receives exactly one copy of the system error event.
+
+### Guiding principal for `domain`
+
+As a guiding principle, domain usage should be deliberate and transparent. Setting `contract.domain` in the `ArvoContract` is strongly discouraged unless you know exactly how you intend the handler to operate in all cases. Implicit domain inheritance at the contract level can obscure event flow and introduce tightly coupled behavior that is difficult to reason about later.
+
+Instead, each returned event should be responsible for defining its own domain behavior through the domain field. This leads to better modularity, more understandable flows, and easier debugging.
+
+In short, use domains when your response event is meant for a specific kind of processing. If you want to signal that an event must be approved by a human, routed to a compliance archive, or streamed to an external analytics system — assign it an appropriate domain. Otherwise, leave it as `null` and let it flow through the standard path.
+
 
 ### Domain broadcasting pattern
 
@@ -839,7 +867,7 @@ Let's look at extending the getting start example to use the domain broadcasting
 We'll extend the handler to demonstrate domain broadcasting capabilities in `handlers/user-registration-handler.ts`:
 
 ```typescript
-import { createArvoEventHandler, type EventHandlerFactory } from 'arvo-event-handler';
+import { createArvoEventHandler, type EventHandlerFactory, ArvoDomain } from 'arvo-event-handler';
 import { logToSpan } from 'arvo-core';
 import { userRegistrationContract } from '../contracts/user-registration';
 import type { UserDatabase } from '../services/database';
@@ -939,9 +967,9 @@ export const userRegistrationHandlerFactory: EventHandlerFactory<HandlerDependen
             null                   // Standard processing pipeline
           ] : 
           [
-            'analytics.users',     // All user analytics
-            undefined,             // Inherit from event or handler domain
-            null                   // Standard processing pipeline
+            'analytics.users',                                                  // All user analytics
+            ArvoDomain.FROM_TRIGGERING_EVENT, ArvoDomain.FROM_SELF_CONTRACT,    // Inherit from event or handler domain
+            null                                                                // Standard processing pipeline
           ]
       };
     }
@@ -1057,7 +1085,7 @@ When you run this example (`npx tsx examples/domain-broadcasting-demo.ts`), you'
 
 **Regular User Success Event** creates 3 events:
 - `domain: 'analytics.users'` - For user analytics processing
-- `domain: null` - From `undefined` resolution (since no event or handler domain)
+- `domain: null` - From `ArvoDomain.FROM_TRIGGERING_EVENT, ArvoDomain.FROM_SELF_CONTRACT,` resolution (since no event or handler domain)
 - `domain: null` - Explicit null domain (deduplication removes duplicate)
 
 **Email Conflict Error** creates 3 events:
@@ -1069,15 +1097,6 @@ When you run this example (`npx tsx examples/domain-broadcasting-demo.ts`), you'
 - `domain: 'audit.failures'` - Single targeted domain for audit
 
 This demonstrates how domain broadcasting enables sophisticated event routing based on business logic, user types, and error conditions while maintaining clean separation of processing contexts.
-
-### Error Broadcasting
-
-System errors are automatically broadcast to all relevant processing contexts:
-- Source event domain (`event.domain`)
-- Handler contract domain (`handler.contract.domain`)
-- No-domain context (`null`)
-
-Duplicates are automatically removed, so if `event.domain === handler.contract.domain`, only two error events are created instead of three.
 
 ## Event Handler Scaling
 

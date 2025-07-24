@@ -169,34 +169,51 @@ Events can influence their routing through several mechanisms:
 
 This comprehensive routing system ensures events are processed by the correct workflow instances while maintaining proper execution boundaries and workflow relationships.
 
-### Domain-Based Event Processing
 
-The Arvo Orchestrator implements a sophisticated domain-based event routing system that enables advanced workflow patterns including human-in-the-loop operations, external system integrations, and custom processing pipelines.
+## Multi-Domain Event Broadcasting
 
-#### Event Domains
+The `ArvoOrchestrator` supports sophisticated multi-domain event distribution through symbolic domain specification. This powerful feature allows events to be broadcast across multiple processing contexts simultaneously, enabling advanced workflow patterns including human-in-the-loop operations, external system integrations, and custom processing pipelines.
 
-Events emitted from state machines can be categorized into processing domains using the `domains` parameter. Events without explicit domains are automatically assigned to the 'null' domain for standard internal processing. Multi-domain events participate in multiple processing flows simultaneously, enabling sophisticated orchestration patterns.
+### Understanding Domains with Symbolic Resolution
+
+In Arvo, domains represent different processing contexts or routing namespaces for events. The orchestrator uses symbolic constants from `ArvoDomain` to enable dynamic domain resolution based on execution context, making domain assignment both flexible and predictable.
+
+When emitting events from state machines, you can specify domains using symbolic references that resolve at runtime:
 
 ```typescript
+import { ArvoDomain } from 'arvo-xstate';
+
 // In your state machine
-emit(({ context }) => ({
-  domains: [null, 'external'], // Event goes to both domains
-  type: 'approval.request',
-  data: { amount: context.amount }
+xstate.emit(({ context }) => ({
+  // Standard internal processing (no domain)
+  type: 'com.approval.request',
+  data: { userId: context.userId }
+}))
+
+// Multi-domain event with symbolic resolution
+xstate.emit(({ context }) => ({
+  domains: [
+    ArvoDomain.FROM_TRIGGERING_EVENT,  // Inherit source event's domain
+    'analytics',                       // Explicit analytics domain
+    null                               // Standard processing pipeline
+  ],
+  type: 'com.user.action.logged',
+  data: { action: context.action }
 }))
 ```
 
-#### Orchestrator Response Structure
+### Domain Resolution and Deduplication
 
-The orchestrator returns a structured response containing domain-segregated event buckets:
+The orchestrator automatically resolves symbolic domains and removes duplicates to ensure efficient event emission. For example, if `ArvoDomain.FROM_TRIGGERING_EVENT` resolves to `'user.processing'` and that's the same as the handler's contract domain, only one event is created instead of duplicates. This intelligent deduplication happens after domain resolution, ensuring optimal performance while maintaining the flexibility of symbolic domain specification.
 
-- `events`: Events assigned to the 'default' domain for backward compatibility
-- `allEventDomains`: Array of all unique domain names used in the execution
-- `domainedEvents.all`: Every event regardless of domain assignment
-- `domainedEvents[domainName]`: Events specific to each domain
+Available symbolic constants include `FROM_TRIGGERING_EVENT` (inherit from source event), `FROM_SELF_CONTRACT` (use handler's domain), and `FROM_EVENT_CONTRACT` (use target service domain). You can mix these with explicit domain strings and `null` for comprehensive domain routing control.
 
-This structure enables flexible event processing where different domains can be routed to specialized handlers while maintaining a unified orchestration interface.
+### Domain Context in Parent-Child Relationships
 
+- **Parent orchestrator** operates in one domain (e.g., `'internal'`)
+- **Child orchestrator** might operate in a different domain (e.g., `'external'`) 
+- When the child completes, its completion event is routed back to the **parent's domain context**
+- Each orchestrator can operate in its own domain regardless of parent-child relationship
 
 ## Detailed Component Integration and Operation
 
