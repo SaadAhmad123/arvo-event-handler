@@ -40,6 +40,10 @@ type Handler<
   collectedEvents: Partial<{
     [K in AllServiceEventTypes<TServiceContract>]: ServiceEventTypeMap<TServiceContract>[K][];
   }>;
+  domain: {
+    event: string | null;
+    self: string | null;
+  };
   context: TState['state$$'] | null;
   input: InferVersionedArvoContract<TSelfContract>['accepts'] | null;
   service:

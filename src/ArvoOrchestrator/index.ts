@@ -38,6 +38,7 @@ import type { AcquiredLockStatusType } from '../SyncEventResource/types';
 import AbstractArvoEventHandler from '../AbstractArvoEventHandler';
 import type { ArvoEventHandlerOpenTelemetryOptions } from '../types';
 import { ConfigViolation, ContractViolation, ExecutionViolation } from '../errors';
+import { resolveEventDomain } from '../ArvoDomain';
 
 /**
  * Orchestrates state machine execution and lifecycle management.
@@ -48,6 +49,7 @@ export class ArvoOrchestrator extends AbstractArvoEventHandler {
   readonly registry: IMachineRegistry;
   readonly executionEngine: IMachineExectionEngine;
   readonly syncEventResource: SyncEventResource<MachineMemoryRecord>;
+  readonly systemErrorDomain?: (string | null)[] = [];
 
   get source() {
     return this.registry.machines[0].source;
@@ -70,7 +72,14 @@ export class ArvoOrchestrator extends AbstractArvoEventHandler {
    * @param params - Configuration parameters
    * @throws Error if machines in registry have different sources
    */
-  constructor({ executionunits, memory, registry, executionEngine, requiresResourceLocking }: IArvoOrchestrator) {
+  constructor({
+    executionunits,
+    memory,
+    registry,
+    executionEngine,
+    requiresResourceLocking,
+    systemErrorDomain,
+  }: IArvoOrchestrator) {
     super();
     this.executionunits = executionunits;
     const representativeMachine = registry.machines[0];
@@ -89,6 +98,7 @@ export class ArvoOrchestrator extends AbstractArvoEventHandler {
     this.registry = registry;
     this.executionEngine = executionEngine;
     this.syncEventResource = new SyncEventResource(memory, requiresResourceLocking);
+    this.systemErrorDomain = systemErrorDomain;
   }
 
   /**
@@ -111,7 +121,7 @@ export class ArvoOrchestrator extends AbstractArvoEventHandler {
     orchestrationParentSubject: string | null,
     sourceEvent: ArvoEvent,
     initEventId: string,
-    _domain: string | null | undefined,
+    _domain: string | null,
   ): ArvoEvent {
     logToSpan({
       level: 'INFO',
@@ -131,7 +141,12 @@ export class ArvoOrchestrator extends AbstractArvoEventHandler {
     let contract: VersionedArvoContract<any, any> | null = null;
     let subject: string = sourceEvent.subject;
     let parentId: string = sourceEvent.id;
-    let domain = _domain === undefined ? (sourceEvent.domain ?? this.domain ?? null) : _domain;
+    let domain = resolveEventDomain({
+      domainToResolve: _domain,
+      handlerSelfContract: selfContract,
+      eventContract: null,
+      triggeringEvent: sourceEvent,
+    });
     if (event.type === selfContract.metadata.completeEventType) {
       logToSpan({
         level: 'INFO',
@@ -141,7 +156,12 @@ export class ArvoOrchestrator extends AbstractArvoEventHandler {
       schema = selfContract.emits[selfContract.metadata.completeEventType];
       subject = orchestrationParentSubject ?? sourceEvent.subject;
       parentId = initEventId;
-      domain = _domain === undefined ? (selfContract.domain ?? sourceEvent.domain ?? this.domain ?? null) : _domain;
+      domain = resolveEventDomain({
+        domainToResolve: _domain,
+        handlerSelfContract: selfContract,
+        eventContract: selfContract,
+        triggeringEvent: sourceEvent,
+      });
     } else if (serviceContract[event.type]) {
       logToSpan({
         level: 'INFO',
@@ -149,7 +169,12 @@ export class ArvoOrchestrator extends AbstractArvoEventHandler {
       });
       contract = serviceContract[event.type];
       schema = serviceContract[event.type].accepts.schema;
-      domain = _domain === undefined ? (contract?.domain ?? sourceEvent.domain ?? this.domain ?? null) : _domain;
+      domain = resolveEventDomain({
+        domainToResolve: _domain,
+        handlerSelfContract: selfContract,
+        eventContract: contract,
+        triggeringEvent: sourceEvent,
+      });
 
       // If the event is to call another orchestrator then, extract the parent subject
       // passed to it and then form an new subject. This allows for event chaining
@@ -246,12 +271,6 @@ export class ArvoOrchestrator extends AbstractArvoEventHandler {
 
   /**
    * Core orchestration method that executes state machines in response to events.
-   * Manages the complete event lifecycle:
-   * 1. Acquires lock and state
-   * 2. Validates events and contracts
-   * 3. Executes state machine
-   * 4. Persists new state
-   * 5. Generates response events with domain-based segregation
    *
    * @param event - Event triggering the execution
    * @param opentelemetry - OpenTelemetry configuration
@@ -463,7 +482,7 @@ export class ArvoOrchestrator extends AbstractArvoEventHandler {
               to: parsedEventSubject.meta?.redirectto ?? parsedEventSubject.execution.initiator,
               domain: orchestrationParentSubject
                 ? [ArvoOrchestrationSubject.parse(orchestrationParentSubject).execution.domain]
-                : [undefined],
+                : [null],
             });
           }
 
@@ -476,8 +495,8 @@ export class ArvoOrchestrator extends AbstractArvoEventHandler {
           const emittables: ArvoEvent[] = [];
 
           for (const item of rawMachineEmittedEvents) {
-            const domains = item.domain ?? [null];
-            for (const _dom of Array.from(new Set(domains))) {
+            const createdDomain = new Set<string | null>();
+            for (const _dom of Array.from(new Set(item.domain ?? [null]))) {
               const evt = this.createEmittableEvent(
                 item,
                 machine,
@@ -487,6 +506,11 @@ export class ArvoOrchestrator extends AbstractArvoEventHandler {
                 initEventId,
                 _dom,
               );
+              // Making sure the raw event broadcast is actually unique as the
+              // domain resolution (especially for symbolic) can only happen
+              // in the createEmittableEvent
+              if (createdDomain.has(evt.domain)) continue;
+              createdDomain.add(evt.domain);
               emittables.push(evt);
               for (const [key, value] of Object.entries(emittables[emittables.length - 1].otelAttributes)) {
                 span.setAttribute(`to_emit.${emittables.length - 1}.${key}`, value);
@@ -579,7 +603,20 @@ export class ArvoOrchestrator extends AbstractArvoEventHandler {
           }
 
           const result: ArvoEvent[] = [];
-          for (const _dom of Array.from(new Set([event.domain, this.domain, null]))) {
+          for (const _dom of Array.from(
+            new Set(
+              this.systemErrorDomain
+                ? this.systemErrorDomain.map((item) =>
+                    resolveEventDomain({
+                      domainToResolve: item,
+                      triggeringEvent: event,
+                      handlerSelfContract: this.registry.machines[0].contracts.self,
+                      eventContract: this.registry.machines[0].contracts.self,
+                    }),
+                  )
+                : [event.domain, this.domain, null],
+            ),
+          )) {
             result.push(
               createArvoOrchestratorEventFactory(this.registry.machines[0].contracts.self).systemError({
                 source: this.source,

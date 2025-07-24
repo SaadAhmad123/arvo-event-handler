@@ -11,6 +11,7 @@ import type { ICreateArvoOrchestrator } from './types';
  * @param config.memory - State persistence interface for storing machine states
  * @param config.executionunits - Cost units for execution tracking
  * @param config.machines - Array of state machines to manage. Their resource locking flags determine orchestrator's locking behavior
+ * @param config.systemErrorDomain - An optional array of system error domain overrides
  * @returns Configured ArvoOrchestrator instance with default registry and execution engine
  *
  * @remarks
@@ -22,7 +23,7 @@ import type { ICreateArvoOrchestrator } from './types';
  * @example
  * ```typescript
  * const orchestrator = createArvoOrchestrator({
- *   memory: new MyMemoryImplementation(),
+ *   memory: new SimpleMachineMemory() // or, any other IMachineMemory implementation,
  *   executionunits: 1,
  *   machines: [machineA, machineB]
  * });
@@ -32,6 +33,7 @@ export const createArvoOrchestrator = ({
   executionunits,
   memory,
   machines,
+  systemErrorDomain,
 }: ICreateArvoOrchestrator): ArvoOrchestrator => {
   if (!machines?.length) {
     throw new Error('At least one machine must be provided');
@@ -46,5 +48,6 @@ export const createArvoOrchestrator = ({
     registry,
     executionEngine: new MachineExecutionEngine(),
     requiresResourceLocking,
+    systemErrorDomain,
   });
 };

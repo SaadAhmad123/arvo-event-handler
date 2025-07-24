@@ -56,7 +56,7 @@ export const ArvoDomain = {
 export const resolveEventDomain = (param: {
   domainToResolve: string | null;
   handlerSelfContract: VersionedArvoContract<any, any>;
-  eventContract: VersionedArvoContract<any, any>;
+  eventContract: VersionedArvoContract<any, any> | null;
   triggeringEvent: ArvoEvent;
 }): string | null => {
   const ArvoDomainValues = Object.values(ArvoDomain);

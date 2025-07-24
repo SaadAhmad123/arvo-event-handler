@@ -21,7 +21,7 @@ import { ConfigViolation, ContractViolation } from '../errors';
 import type { ArvoEventHandlerOpenTelemetryOptions } from '../types';
 import { coalesce, coalesceOrDefault, createEventHandlerTelemetryConfig } from '../utils';
 import type { ArvoEventHandlerFunction, ArvoEventHandlerFunctionOutput, IArvoEventHandler } from './types';
-import { ArvoDomain, resolveEventDomain } from '../ArvoDomain';
+import { resolveEventDomain } from '../ArvoDomain';
 
 /**
  * `ArvoEventHandler` is the foundational component for building stateless,
@@ -54,7 +54,7 @@ import { ArvoDomain, resolveEventDomain } from '../ArvoDomain';
  * The handler supports multi-domain event distribution. When the handler
  * returns an event with a `domain` array, it is broadcast to one or more
  * routing contexts.
- * 
+ *
  * ### System Error Domain Control
  * By default, system error events are broadcast into the source event’s domain,
  * the handler’s contract domain, and the `null` domain. This fallback ensures errors

@@ -50,21 +50,30 @@ export type EnqueueArvoEventActionParam<
   TExtension extends CloudEventExtension = CloudEventExtension,
 > = {
   /**
-   * The event domain configuration for multi-domain broadcasting.
+   * The domain configuration for multi-domain event broadcasting.
    *
-   * **Domain Broadcasting Rules:**
-   * - Each element in the array creates a separate ArvoEvent instance
-   * - `undefined` elements resolve using inheritance: `event.domain ?? contract.domain ?? null`
-   * - Duplicate domains are automatically removed to prevent redundant events
-   * - Omitting this field (or setting to `undefined`) defaults to `[null]`
+   * When an event is emitted with a `domain` array, Arvo generates a separate ArvoEvent
+   * for each resolved domain value. This enables parallel routing to multiple contexts
+   * such as analytics, auditing, human-in-the-loop systems, or external integrations.
    *
-   * **Domain Broadcasting Patterns:**
-   * - `['domain1', 'domain2']` → Creates 2 events for different processing contexts
-   * - `['analytics', undefined, 'audit']` → Creates events for analytics, inherited context, and audit
-   * - `[null]` → Creates single event with no domain routing (standard processing)
-   * - `undefined` (or omitted) → Creates single event with `domain: null`
+   * **Accepted Values:**
+   * - A concrete domain string (e.g. `'audit.orders'`)
+   * - `null` for standard internal routing (no domain)
+   * - A symbolic value from {@link ArvoDomain}.
+   *
+   * **Broadcasting Rules:**
+   * - Each resolved domain in the array creates a separate ArvoEvent instance
+   * - Duplicate resolved domains are automatically removed
+   * - If the field is omitted, Arvo defaults to `[null]`
+   *
+   * **Examples:**
+   * - `['analytics.orders', 'audit.orders']` → Creates two routed events
+   * - `[ArvoDomain.FROM_TRIGGERING_EVENT, 'human.review', null]` → Mirrors source domain, routes to review, and standard consumer
+   * - `[null]` → Emits a single event with no domain routing
+   * - _Omitted_ → Same as `[null]`
    */
-  domain?: (string | null | undefined)[];
+  domain?: (string | null)[];
+
   /**
    * Custom extensions for the CloudEvent.
    * Allows for additional metadata to be attached to the event.
