@@ -21,78 +21,87 @@ import { ConfigViolation, ContractViolation } from '../errors';
 import type { ArvoEventHandlerOpenTelemetryOptions } from '../types';
 import { coalesce, coalesceOrDefault, createEventHandlerTelemetryConfig } from '../utils';
 import type { ArvoEventHandlerFunction, ArvoEventHandlerFunctionOutput, IArvoEventHandler } from './types';
+import { ArvoDomain, resolveEventDomain } from '../ArvoDomain';
 
 /**
- * ArvoEventHandler is the core component for processing events in the Arvo system. It enforces
- * contracts between services by ensuring that all events follow their specified formats and rules.
+ * `ArvoEventHandler` is the foundational component for building stateless,
+ * contract-bound services in the Arvo system.
  *
- * The handler is built on two fundamental patterns: Meyer's Design by Contract and Fowler's
- * Tolerant Reader. It binds to an ArvoContract that defines what events it can receive and send
- * across all versions. This versioning is strict - the handler must implement every version defined
- * in its contract, or it will fail both at compile time and runtime.
+ * It enforces strict contract validation, version-aware handler resolution,
+ * and safe, observable event emission — all while maintaining type safety,
+ * traceability, and support for multi-domain workflows.
  *
- * Following the Tolerant Reader pattern, the handler accepts any incoming event but only processes
- * those that exactly match one of its contract versions. When an event matches, it's handled by
- * the specific implementation for that version. This approach maintains compatibility while
- * ensuring precise contract adherence.
+ * ## What It Does
+ * - Ensures incoming events match the contract's `type` and `dataschema`
+ * - Resolves the correct contract version using `dataschema`
+ * - Validates input and output data via Zod schemas
+ * - Executes the version-specific handler function
+ * - Emits one or more response events based on the handler result
+ * - Supports multi-domain broadcasting via `domain[]` on the emitted events
+ * - Automatically emits system error events (`sys.*.error`) on failure
+ * - Integrates deeply with OpenTelemetry for tracing and observability
  *
- * The handler uses Zod for validation, automatically checking both incoming and outgoing events.
- * This means it not only verifies data formats but also applies default values where needed and
- * ensures all conditions are met before and after processing.
+ * ## Error Boundaries
+ * ArvoEventHandler enforces a clear separation between:
  *
- * ## Event Processing Lifecycle
+ * - **Violations** — structural, schema, or config errors that break the contract.
+ *   These are thrown and must be handled explicitly by the caller.
  *
- * 1. **Type Validation**: Ensures the incoming event type matches the handler's contract
- * 2. **Contract Resolution**: Extracts version from dataschema and resolves appropriate contract version
- * 3. **Schema Validation**: Validates event data against the contract's accepts schema
- * 4. **Handler Execution**: Invokes the version-specific handler implementation
- * 5. **Response Processing**: Validates and structures handler output into events
- * 6. **Domain Broadcasting**: Creates multiple events for multi-domain distribution if specified
- * 7. **Routing Configuration**: Applies routing logic based on handler output and event context
- * 8. **Telemetry Integration**: Records processing metrics and tracing information
+ * - **System Errors** — runtime exceptions during execution that are caught and
+ *   emitted as standardized `sys.<contract>.error` events.
  *
- * ## Error Handling Strategy
+ * ## Domain Broadcasting
+ * The handler supports multi-domain event distribution. When the handler
+ * returns an event with a `domain` array, it is broadcast to one or more
+ * routing contexts.
+ * 
+ * ### System Error Domain Control
+ * By default, system error events are broadcast into the source event’s domain,
+ * the handler’s contract domain, and the `null` domain. This fallback ensures errors
+ * are visible across all relevant contexts. Developers can override this behavior
+ * using the optional `systemErrorDomain` field to specify an explicit set of
+ * domain values, including symbolic constants from {@link ArvoDomain}.
  *
- * The handler divides issues into two distinct categories:
+ * ### Supported Domain Values:
+ * - A **concrete domain string** like `'audit.orders'` or `'human.review'`
+ * - `null` to emit with no domain (standard internal flow)
+ * - A **symbolic reference** from {@link ArvoDomain}
  *
- * - **Violations** are serious contract breaches that indicate fundamental problems with how services
- *   are communicating. These errors bubble up to the calling code, allowing developers to handle
- *   these critical issues explicitly. Violations include contract mismatches, schema validation
- *   failures, and configuration errors.
+ * ### Domain Resolution Rules:
+ * - Each item in the `domain` array is resolved via {@link resolveEventDomain}
+ * - Duplicate domains are deduplicated before emitting
+ * - If `domain` is omitted entirely, Arvo defaults to `[null]`
  *
- * - **System Error Events** cover normal runtime errors that occur during event processing. These are
- *   typically workflow-related issues that need to be reported back to the event's source but don't
- *   indicate a broken contract. System errors are converted to structured error events and returned
- *   in the response. **Multi-domain error broadcasting** ensures error events reach all relevant
- *   processing contexts (source event domain, handler contract domain, and null domain).
+ * ### Example:
+ * ```ts
+ * return {
+ *   type: 'evt.user.registered',
+ *   data: { ... },
+ *   domain: ['analytics', ArvoDomain.FROM_TRIGGERING_EVENT, null]
+ * };
+ * ```
+ * This would emit at most 3 copies of the event, domained to:
+ * - `'analytics'`
+ * - the domain of the incoming event
+ * - no domain (default)
  *
- * ## Multi-Domain Event Broadcasting
+ * ### Domain Usage Guidance
  *
- * The handler supports sophisticated multi-domain event distribution through array-based domain specification:
+ * > **Avoid setting `contract.domain` unless fully intentional.**
+ * 99% emitted event should default to `null` (standard processing pipeline).
  *
- * ### Domain Assignment Rules:
- * 1. **Array Processing**: Each element in the `domain` array creates a separate ArvoEvent
- * 2. **Undefined Resolution**: `undefined` elements resolve to: `event.domain ?? handler.contract.domain ?? null`
- * 3. **Automatic Deduplication**: Duplicate domains are removed to prevent redundant events
- * 4. **Default Behavior**: Omitted/undefined `domain` field defaults to `[null]` (single event, no domain)
+ * Contract-level domains enforce implicit routing for every emitted event
+ * in that handler, making the behavior harder to override and debug.
  *
- * ### Domain Patterns:
- * - `domain: ['domain1', 'domain2']` → Creates 2 events: one for each domain
- * - `domain: ['analytics', undefined, null]` → Creates up to 3 events:
- *   - Event with `domain: 'analytics'`
- *   - Event with `domain: event.domain ?? handler.contract.domain ?? null`
- *   - Event with `domain: null`
- * - `domain: [null]` → Single event with explicit no-domain routing
- * - `domain: undefined` (or omitted) → Single event with `domain: null`
+ * Prefer:
+ * - Explicit per-event `domain` values in handler output
+ * - Using `null` or symbolic constants to control domain cleanly
  *
- * ### Error Broadcasting:
- * System errors are automatically broadcast to all relevant processing contexts:
- * - Source event domain (`event.domain`)
- * - Handler contract domain (`handler.contract.domain`)
- * - No-domain context (`null`)
- *
- * Duplicates are automatically removed, so if `event.domain === handler.contract.domain`,
- * only two error events are created instead of three.
+ * ## When to Use Domains
+ * Use domains when handling for specialized contexts:
+ * - `'human.review'` → for human-in-the-loop steps
+ * - `'analytics.workflow'` → to pipe events into observability systems
+ * - `'external.partner.sync'` → to route to external services
  */
 export default class ArvoEventHandler<TContract extends ArvoContract> extends AbstractArvoEventHandler {
   /** Contract instance that defines the event schema and validation rules */
@@ -111,6 +120,8 @@ export default class ArvoEventHandler<TContract extends ArvoContract> extends Ab
   public get source(): TContract['type'] {
     return this.contract.type;
   }
+
+  public readonly systemErrorDomain?: (string | null)[] = undefined;
 
   /**
    * The contract-defined domain for this handler, used as the default domain for emitted events.
@@ -136,6 +147,7 @@ export default class ArvoEventHandler<TContract extends ArvoContract> extends Ab
     this.contract = param.contract;
     this.executionunits = param.executionunits;
     this.handler = param.handler;
+    this.systemErrorDomain = param.systemErrorDomain;
 
     for (const contractVersions of Object.keys(this.contract.versions)) {
       if (!this.handler[contractVersions as ArvoSemanticVersion]) {
@@ -285,7 +297,12 @@ export default class ArvoEventHandler<TContract extends ArvoContract> extends Ab
             try {
               const { __extensions, ...handlerResult } = item;
               const domains = handlerResult.domain?.map((item) =>
-                item === undefined ? (event.domain ?? this.domain ?? null) : item,
+                resolveEventDomain({
+                  domainToResolve: item,
+                  handlerSelfContract: handlerContract,
+                  eventContract: handlerContract,
+                  triggeringEvent: event,
+                }),
               ) ?? [null];
               for (const _dom of Array.from(new Set(domains))) {
                 result.push(
@@ -341,7 +358,20 @@ export default class ArvoEventHandler<TContract extends ArvoContract> extends Ab
           }
 
           const result: ArvoEvent[] = [];
-          for (const _dom of Array.from(new Set([event.domain, this.domain, null]))) {
+          for (const _dom of Array.from(
+            new Set(
+              this.systemErrorDomain
+                ? this.systemErrorDomain.map((item) =>
+                    resolveEventDomain({
+                      domainToResolve: item,
+                      handlerSelfContract: this.contract.version('latest'),
+                      eventContract: this.contract.version('latest'),
+                      triggeringEvent: event,
+                    }),
+                  )
+                : [event.domain, this.domain, null],
+            ),
+          )) {
             result.push(
               createArvoEventFactory(this.contract.version('latest')).systemError({
                 source: this.source,

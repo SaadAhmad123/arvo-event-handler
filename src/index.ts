@@ -31,6 +31,7 @@ import { createSimpleEventBroker } from './utils/SimpleEventBroker/helper';
 import { ArvoResumable } from './ArvoResumable';
 import { createArvoResumable } from './ArvoResumable/factory';
 import { ArvoResumableHandler, ArvoResumableState } from './ArvoResumable/types';
+import { ArvoDomain, resolveEventDomain } from './ArvoDomain';
 
 const xstate = {
   emit,
@@ -81,4 +82,6 @@ export {
   createArvoResumable,
   ArvoResumableHandler,
   ArvoResumableState,
+  ArvoDomain,
+  resolveEventDomain,
 };

@@ -8,7 +8,7 @@ import {
   currentOpenTelemetryHeaders,
 } from 'arvo-core';
 import { z } from 'zod';
-import { type ArvoEventHandlerFunction, ExecutionViolation, createArvoEventHandler } from '../../src';
+import { ArvoDomain, type ArvoEventHandlerFunction, ExecutionViolation, createArvoEventHandler } from '../../src';
 import { telemetrySdkStart, telemetrySdkStop } from '../utils';
 
 describe('ArvoEventHandler', () => {
@@ -144,8 +144,8 @@ describe('ArvoEventHandler', () => {
       handler: {
         '0.0.1': async ({ event }) => {
           return {
-            // undefined -> contract.domain which is null as well
-            domain: [null, null, undefined],
+            // undefined -> self.contract.domain which is null as well
+            domain: [null, null, ArvoDomain.FROM_SELF_CONTRACT],
             type: 'evt.hello.world.success',
             data: {
               result: `My name is ${event.data.name}. I am ${event.data.age} years old`,
@@ -197,7 +197,7 @@ describe('ArvoEventHandler', () => {
         '0.0.1': async ({ event }) => {
           return {
             type: 'evt.hello.world.success',
-            domain: [undefined],
+            domain: [ArvoDomain.FROM_SELF_CONTRACT, ArvoDomain.FROM_TRIGGERING_EVENT],
             data: {
               result: `My name is ${event.data.name}. I am ${event.data.age} years old`,
             },
@@ -218,8 +218,9 @@ describe('ArvoEventHandler', () => {
     });
 
     const result = await handler.execute(mockEvent);
-    expect(result.events.length).toBe(1);
+    expect(result.events.length).toBe(2);
     expect(result.events[0].domain).toBe('test.3333');
+    expect(result.events[1].domain).toBe(null);
   });
 
   it('should execute handler successfully with all domains', async () => {
@@ -248,7 +249,13 @@ describe('ArvoEventHandler', () => {
         '0.0.1': async ({ event }) => {
           return {
             type: 'evt.hello.world.success',
-            domain: [null, undefined, 'test.3'],
+            domain: [
+              null,
+              ArvoDomain.FROM_SELF_CONTRACT,
+              ArvoDomain.FROM_EVENT_CONTRACT,
+              ArvoDomain.FROM_TRIGGERING_EVENT,
+              'test.3',
+            ],
             data: {
               result: `My name is ${event.data.name}. I am ${event.data.age} years old`,
             },
@@ -269,10 +276,11 @@ describe('ArvoEventHandler', () => {
     });
 
     const result = await handler.execute(mockEvent);
-    expect(result.events.length).toBe(3);
+    expect(result.events.length).toBe(4);
     expect(result.events[0].domain).toBe(null);
-    expect(result.events[1].domain).toBe('test.1');
-    expect(result.events[2].domain).toBe('test.3');
+    expect(result.events[1].domain).toBe('test.3333');
+    expect(result.events[2].domain).toBe('test.1');
+    expect(result.events[3].domain).toBe('test.3');
   });
 
   it('should handler error domains for contract, event and null', async () => {
