@@ -17,134 +17,73 @@ npm install arvo-event-handler arvo-core
 yarn add arvo-event-handler arvo-core
 ```
 
-## What This Package Provides
+## The Event Handlers
 
-The `arvo-event-handler` package delivers a comprehensive suite of components that address every aspect of event-driven system development, from individual service implementation to complex workflow orchestration. Each component is designed to work independently while maintaining seamless integration with the broader Arvo ecosystem.
+The Arvo event handling architecture is based on three handler patterns.
 
-- **ArvoEventHandler** transforms ArvoContract definitions into actively enforced service implementations with automatic validation, multi-domain broadcasting, and comprehensive error handling. This component bridges the gap between service contracts and actual business logic, ensuring that services operate reliably within their defined boundaries while providing sophisticated event routing capabilities.
+### 1. Simple Event Handler
 
-- **ArvoMachine** provides state machine-based workflow orchestration using a specialized variant of XState designed specifically for Arvo's event-driven architecture. It enforces synchronous execution patterns while enabling sophisticated state management with built-in contract validation, domain-aware event emission, and automatic resource locking optimization based on workflow complexity.
+This kind of event handling is provided by [`ArvoEventHandler`](src/ArvoEventHandler/README.md). This approach transforms ArvoContract definitions into stateless, pure function handlers that process individual events in isolation. Each handler binds to a specific contract, validates incoming events against schema definitions, executes business logic, and returns response events. It supports multiple contract versions for backward compatibility and enables multi-domain event broadcasting for parallel processing pipelines. This pattern is ideal for microservices, API endpoints, and any scenario where you need reliable, contract-enforced event processing without complex state management or workflow coordination.
 
-- **ArvoOrchestrator** coordinates complex workflows through state machine execution, lifecycle management, and distributed resource coordination. It manages the intricate relationship between machine definitions, memory persistence, and execution engines while maintaining comprehensive telemetry and supporting advanced patterns like parent-child workflow relationships.
+### 2. State-machine based workflow orchestration
 
-- **ArvoResumable** offers a handler-based alternative to state machine orchestration, prioritizing explicit control and familiar imperative programming patterns. It provides equivalent workflow capabilities through direct handler functions rather than declarative state machine definitions, making it ideal for teams preferring procedural approaches to workflow management.
+This kind of event handling is provided by [`ArvoMachine`](src/ArvoMachine/README.md) which defines the state machine and [`ArvoOrchestrator`](src/ArvoOrchestrator/README.md) which executes it. This approach uses declarative state machine definitions to model complex business processes with multiple states, transitions, and conditional logic. ArvoMachine creates XState-compatible machines with Arvo-specific constraints and contract bindings, while ArvoOrchestrator provides the runtime environment for executing these machines with distributed state persistence, resource locking, and comprehensive lifecycle management. This pattern excels at complex workflows with parallel states, timing requirements, conditional branching, and scenarios where visual workflow modeling and deterministic state transitions are crucial for business process management.
 
-## Core Architecture Concepts
+### 3. Dynamic stateful event handling and orchestration
 
-### Contract-First Development Philosophy
+This kind of event handling is provided by [`ArvoResumable`](src/ArvoResumable/README.md). The event handling is a different approach to workflow processing and complements the state machine pattern by offering an imperative programming model where developers write handler functions that explicitly manage workflow state through context objects. Instead of defining states and transitions declaratively, you write code that examines incoming events, updates workflow context, and decides what actions to take next. This approach provides direct control over workflow logic, making it easier to debug and understand for teams familiar with traditional programming patterns, while still offering the same reliability, observability, and distributed coordination features as state machine orchestration.
 
-All components in `arvo-event-handler` embrace contract-first development through deep `ArvoContract` integration. Services define their interfaces using comprehensive schemas that provide compile-time type safety and runtime validation, ensuring reliable inter-service communication while enabling independent service evolution. This approach goes beyond simple data validation to encompass complete behavioral contracts including version management, event routing patterns, and error handling strategies.
+## Core Infrastructure Components
 
-The contract system establishes clear boundaries and expectations between services while providing automatic validation and type inference throughout the development lifecycle. This foundation eliminates common integration issues and enables confident refactoring and system evolution without breaking existing consumers.
+Beyond the three main handler patterns, the package includes essential infrastructure components that enable robust distributed system operation.
 
-### Multi-Domain Event Broadcasting Architecture
+### Memory - State Persistance
 
-The package supports sophisticated event routing through multi-domain broadcasting capabilities that enable events to be distributed across multiple processing contexts simultaneously. This powerful feature allows for patterns like parallel processing pipelines, external system integration, human-in-the-loop workflows, and specialized monitoring systems.
+The [`IMachineMemory`](src/MachineMemory/README.md) interface defines how workflow state gets persisted and coordinated across distributed instances. It implements an optimistic locking strategy with "fail fast on acquire, be tolerant on release" semantics, ensuring data consistency while enabling system recovery from transient failures. 
 
-Domain broadcasting operates through explicit domain specification that creates separate event instances for each target domain. The system automatically handles domain resolution through symbolic constants, deduplication to prevent redundant processing, and intelligent routing while maintaining event ordering and consistency guarantees essential for distributed system reliability.
+This package includes `SimpleMachineMemory` for development/ prototyping scenarios and provides example for implementing cloud-based production-ready distributed storage solutions.
 
-### Comprehensive Observability Integration
+### Error Handling 
 
-Deep OpenTelemetry integration provides unprecedented visibility into system behavior through distributed tracing, structured logging, and performance metrics collection. Every component automatically creates detailed telemetry spans that capture execution context, timing information, business-relevant metadata, and correlation data across service boundaries.
+The Arvo event handling system uses a layered error handling approach that provides clear boundaries between different types of failures, enabling appropriate responses at each level.
 
-The observability system extends beyond basic monitoring to include business process tracking, error correlation across distributed components, and performance optimization insights. This comprehensive approach enables proactive system management, rapid issue resolution, and data-driven optimization decisions while providing the visibility needed for effective capacity planning and system evolution.
+**Business Logic Failures** are expected outcomes in your business processes and should be modeled as explicit events in your `ArvoContract` definitions. For example, when a user already exists during registration or a payment is declined, these represent normal business scenarios rather than system errors. By defining these as emittable events, downstream consumers can distinguish between business logic outcomes and actual system problems, enabling appropriate handling logic for each scenario.
 
-### Sophisticated Error Handling Strategy
+**Transient System Errors** occur when underlying infrastructure or external services fail temporarily. Database connection timeouts, API unavailability, or network issues fall into this category. The system automatically converts uncaught exceptions into standardized system error events with the type pattern `sys.{contract.type}.error`. These events carry error details and can trigger retry mechanisms, circuit breakers, or alternative processing paths while maintaining the event-driven flow of your system.
 
-The package implements a multi-layered error handling approach that distinguishes between different types of failures and provides appropriate response mechanisms for each. The system separates infrastructure-level violations that require immediate operational attention from business logic errors that can be handled within workflow contexts.
+**Violations** represent critical failures that require immediate attention and cannot be handled through normal event processing patterns. The system defines four distinct violation types to help you identify and respond to different categories of critical issues:
 
-System errors automatically convert into events that can be processed within workflow logic, enabling sophisticated error recovery patterns including compensation workflows, retry mechanisms, and alternative execution paths. Meanwhile, violations trigger immediate escalation for operational attention, ensuring that critical system issues receive appropriate priority while maintaining system stability.
+- `ContractViolation` occurs when event data fails contract validation, indicating schema mismatches between services. This typically signals version incompatibilities or data corruption that requires developer intervention to resolve.
 
-### Distributed Resource Management
+- `ConfigViolation` happens when events are routed to handlers that cannot process them, revealing system topology or configuration problems that need infrastructure-level fixes.
 
-Sophisticated distributed resource locking ensures safe concurrent operations across workflow instances while optimizing performance for sequential workflows. The system automatically analyzes workflow structure to determine locking requirements, enabling performance optimization for simple workflows while providing safety guarantees for complex concurrent operations.
+- `ExecutionViolation` provides a mechanism for custom error handling when your business logic encounters scenarios that cannot be resolved through normal event patterns and require special intervention.
 
-Lock management integrates seamlessly with the memory persistence layer to provide configurable locking strategies based on deployment requirements. This approach balances performance optimization with correctness guarantees while supporting deployment patterns ranging from single-instance scenarios to large-scale distributed configurations.
+- `TransactionViolation` is raised specifically by `ArvoOrchestrator` and `ArvoResumable` when state persistence operations fail. The accompanying `TransactionViolationCause` provides detailed information about what went wrong, allowing you to implement appropriate recovery strategies for distributed transaction failures.
 
-### Hierarchical Workflow Orchestration
 
-Advanced parent-child orchestration capabilities enable complex business process modeling through hierarchical workflow relationships. Child workflows operate independently while maintaining proper connection to parent contexts, enabling sophisticated composition patterns and workflow reuse without compromising execution isolation.
+### Local Developement & Testing
 
-The parent-child system maintains proper context propagation and domain-aware event routing while preserving execution boundaries. This design enables building complex business processes from simpler, reusable workflow components while maintaining clear responsibilities and enabling independent evolution of workflow components.
+The package provides `createSimpleEventBroker` utility which creates local event buses perfect for testing, development, and single-function workflow coordination. It enables comprehensive integration testing without external message brokers while supporting the same event patterns used in production distributed systems.
 
-### Dynamic Version Management
 
-Comprehensive version management capabilities enable service evolution without breaking existing consumers through sophisticated backward compatibility mechanisms. Version-specific implementations ensure reliable compatibility while providing clear migration paths for system evolution and enabling different service versions to coexist during transition periods.
+## Architecture Principles
 
-The versioning system integrates deeply with the contract layer to provide compile-time safety for version-specific logic while enabling runtime routing based on event metadata. This approach supports gradual migration strategies and enables smooth system evolution while maintaining operational stability.
+The entire system follows consistent architectural principles that promote reliability and maintainability. All handlers implement the signature `ArvoEvent => Promise<{ events: ArvoEvent[] }>`, creating predictable event flow patterns throughout the system. Contract-first development ensures all service interactions are explicitly defined and validated, eliminating common integration issues while providing compile-time type safety.
 
-## Development and Testing Excellence
+Multi-domain event broadcasting allows single handlers to create events for different processing contexts simultaneously, supporting patterns like audit trails, analytics processing, and external system integration. The comprehensive observability integration provides operational visibility through OpenTelemetry spans, structured logging, and performance metrics collection.
 
-### Factory Pattern Architecture
-
-The `EventHandlerFactory` pattern provides robust dependency injection capabilities that simplify testing while enabling clean architecture principles. Dependencies are explicitly declared and injected through type-safe factory interfaces, making unit testing straightforward and enabling mock implementations for comprehensive isolated testing.
-
-Factory-based design also supports configuration-driven deployment where different environments can provide different implementations without changing business logic. This pattern promotes loose coupling between components and enables flexible deployment strategies while maintaining complete type safety throughout the dependency chain.
-
-### Contract-Based Testing Strategy
-
-Contract definitions enable comprehensive testing strategies that verify both implementation correctness and integration compatibility through automatic schema validation. The type safety system provides compile-time verification of event handling logic while runtime validation ensures data structure compliance.
-
-Integration testing becomes more focused on event flow verification rather than exhaustive interaction testing, since contract enforcement automatically catches many potential integration issues at the contract level. This approach significantly reduces the testing surface area while providing higher confidence in system reliability and behavioral correctness.
-
-### Local Development Architecture
-
-The SimpleEventBroker enables complete event-driven architectures to run locally, allowing comprehensive testing of complex workflows without external dependencies. This capability accelerates development cycles and enables reliable continuous integration testing while maintaining production-like behavior patterns.
-
-Local event architecture supports rapid prototyping, comprehensive integration testing, and effective debugging of complex event flows. Developers can test entire business processes locally while maintaining confidence that the same patterns will work reliably in distributed production environments.
-
-## Performance and Scalability Design
-
-### Horizontal Scaling Architecture
-
-The functional architecture of all components provides natural support for horizontal scaling across distributed computing resources. Event handlers operate as pure functions with consistent behavior regardless of deployment location, while workflow orchestration maintains state through pluggable persistence interfaces that support various scaling strategies.
-
-Scaling approaches can range from simple load balancing across multiple instances to sophisticated partitioning schemes based on workflow subjects, business domains, or processing requirements. The stateless design of event processing enables linear scaling characteristics while the state management abstraction supports various persistence and caching strategies.
-
-### Performance Optimization Framework
-
-Comprehensive performance optimization focuses on efficient resource utilization through careful monitoring and optimization of critical execution paths. Lock acquisition optimization, state persistence efficiency, and event processing throughput receive particular attention to ensure system responsiveness under varying load conditions.
-
-The integrated telemetry system provides detailed insights into performance characteristics that enable data-driven optimization decisions. Resource cleanup mechanisms ensure timely release of system resources while maintaining responsiveness and preventing resource leaks in long-running deployments.
-
-## Production Deployment Considerations
-
-### Memory and State Management
-
-The IMachineMemory interface supports various backend implementations optimized for different deployment scenarios. Production implementations must consider distributed system challenges including lock TTL mechanisms, retry strategies for transient failures, and consistency guarantees for state persistence operations.
-
-State management strategies balance consistency requirements with performance considerations, implementing efficient storage and retrieval patterns while maintaining data integrity. The interface design supports everything from simple in-memory implementations for development to sophisticated distributed database systems for high-scale production deployments.
-
-### Domain-Specific Deployment Patterns
-
-Multi-domain event broadcasting enables sophisticated deployment architectures where different event domains can be routed to specialized processing infrastructure. This capability supports patterns like separating human-workflow events from automated processing, routing compliance events to specialized systems, or directing high-volume analytics events to dedicated processing clusters.
-
-Domain-aware routing supports hybrid deployment strategies where core business logic runs in one environment while specialized processing occurs in optimized infrastructure. This flexibility enables organizations to optimize different aspects of their event-driven systems independently while maintaining unified business logic.
-
-## Error Handling and Reliability
-
-### Violation Classification System
-
-The three violation types provide precise categorization of different failure modes with appropriate handling strategies for each. ContractViolation addresses schema compliance and service contract adherence issues, typically indicating version mismatches or data corruption that requires developer attention.
-
-ConfigViolation handles system configuration and routing problems, often indicating deployment issues or service discovery failures that require operational intervention. ExecutionViolation provides a mechanism for application-specific exceptional conditions that require custom handling outside normal error flow patterns.
-
-### System Resilience Patterns
-
-The error handling architecture enables sophisticated resilience patterns including circuit breakers, compensation workflows, and graceful degradation strategies. System errors automatically convert into events that can trigger alternative execution paths, while violations ensure critical issues receive immediate attention.
-
-This dual-layer approach enables building self-healing systems that can recover from transient failures while ensuring that serious system issues trigger appropriate operational responses. The error handling patterns support both automated recovery mechanisms and human intervention workflows as appropriate for different failure types.
+The functional architecture enables natural horizontal scaling since handlers operate as pure functions with consistent behavior regardless of deployment location. State management through pluggable persistence interfaces supports various scaling strategies from single-instance deployments to sophisticated distributed configurations.
 
 ## Documentation and Resources
 
-| Component | Purpose | Documentation |
-|-----------|---------|---------------|
-| **ArvoEventHandler** | Contract-bound service implementation | [Implementation Guide](src/ArvoEventHandler/README.md) |
-| **ArvoMachine** | State machine workflow orchestration | [State Machine Documentation](src/ArvoMachine/README.md) |
-| **ArvoOrchestrator** | State machine execution engine | [Orchestration Guide](src/ArvoOrchestrator/README.md) |
-| **ArvoResumable** | Handler-based workflow orchestration | [Handler-Based Workflows](src/ArvoResumable/README.md) |
-| **IMachineMemory** | Distributed state persistence interface | [Memory Management](src/IMachineMemory/README.md) |
-| **SimpleEventBroker** | Local event-driven architecture | [Event Broker Documentation](src/SimpleEventBroker/README.md) |
+| Component | Documentation | When to Use |
+|-----------|---------------|-------------|
+| **ArvoEventHandler** | [Simple Event Processing](src/ArvoEventHandler/README.md) | Stateless services, API endpoints, microservices, simple request-response processing |
+| **ArvoMachine** | [State Machine Workflows](src/ArvoMachine/README.md) | Complex business processes with multiple states, conditional branching, parallel execution, visual workflow modeling |
+| **ArvoOrchestrator** | [Workflow Orchestration](src/ArvoOrchestrator/README.md) | Running state machines in production, distributed workflow coordination, comprehensive lifecycle management |
+| **ArvoResumable** | [Handler-Based Workflows](src/ArvoResumable/README.md) | Dynamic workflows, imperative programming preference, rapid prototyping, teams familiar with traditional programming patterns |
+| **MachineMemory** | [State Persistence Interface](src/MachineMemory/README.md) | Custom state storage requirements, distributed locking strategies, production persistence implementations |
 
 ## Package Information
 
