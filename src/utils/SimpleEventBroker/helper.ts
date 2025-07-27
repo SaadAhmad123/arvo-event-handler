@@ -187,10 +187,10 @@ export const createSimpleEventBroker = (
           inheritFrom: 'EVENT',
         });
         for (const evt of response.events) {
-          if (event.domain) {
+          if (evt.domain) {
             await options?.onDomainedEvents?.({
-              domain: event.domain,
-              event: event,
+              domain: evt.domain,
+              event: evt,
               broker: broker,
             });
           } else {
