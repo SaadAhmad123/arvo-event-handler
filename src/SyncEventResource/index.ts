@@ -1,9 +1,9 @@
-import { ArvoOrchestrationSubject, logToSpan, type ArvoEvent } from 'arvo-core';
-import type { IMachineMemory } from '../MachineMemory/interface';
-import type { AcquiredLockStatusType, ReleasedLockStatusType } from './types';
-import { TransactionViolation, TransactionViolationCause } from '../ArvoOrchestrator/error';
 import type { Span } from '@opentelemetry/api';
+import { type ArvoEvent, ArvoOrchestrationSubject, logToSpan } from 'arvo-core';
+import { TransactionViolation, TransactionViolationCause } from '../ArvoOrchestrator/error';
+import type { IMachineMemory } from '../MachineMemory/interface';
 import { ExecutionViolation } from '../errors';
+import type { AcquiredLockStatusType, ReleasedLockStatusType } from './types';
 
 /**
  * A synchronous event resource that manages machine memory state based on event subjects.

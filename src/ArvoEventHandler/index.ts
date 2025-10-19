@@ -16,12 +16,12 @@ import {
   exceptionToSpan,
   logToSpan,
 } from 'arvo-core';
-import IArvoEventHandler from '../IArvoEventHandler';
+import { resolveEventDomain } from '../ArvoDomain';
+import type IArvoEventHandler from '../IArvoEventHandler';
 import { ConfigViolation, ContractViolation } from '../errors';
 import type { ArvoEventHandlerOpenTelemetryOptions } from '../types';
 import { coalesce, coalesceOrDefault, createEventHandlerTelemetryConfig } from '../utils';
 import type { ArvoEventHandlerFunction, ArvoEventHandlerFunctionOutput, ArvoEventHandlerParam } from './types';
-import { resolveEventDomain } from '../ArvoDomain';
 
 /**
  * `ArvoEventHandler` is the foundational component for building stateless,

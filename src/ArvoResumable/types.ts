@@ -1,14 +1,14 @@
+import type { Span } from '@opentelemetry/api';
 import type {
-  VersionedArvoContract,
-  ArvoSemanticVersion,
-  InferVersionedArvoContract,
   ArvoContract,
   ArvoEvent,
-  InferArvoEvent,
+  ArvoSemanticVersion,
   CreateArvoEvent,
+  InferArvoEvent,
+  InferVersionedArvoContract,
+  VersionedArvoContract,
 } from 'arvo-core';
 import type { EnqueueArvoEventActionParam } from '../ArvoMachine/types';
-import type { Span } from '@opentelemetry/api';
 
 type ExtractServiceEventTypes<TServiceContract extends Record<string, VersionedArvoContract<any, any>>> = {
   [K in keyof TServiceContract]:

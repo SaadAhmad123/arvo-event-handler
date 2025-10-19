@@ -2,9 +2,9 @@ import { SpanKind, context } from '@opentelemetry/api';
 import { ArvoOpenTelemetry, logToSpan } from 'arvo-core';
 import { type Actor, type Snapshot, createActor } from 'xstate';
 import type { EnqueueArvoEventActionParam } from '../ArvoMachine/types';
+import type { ArvoEventHandlerOpenTelemetryOptions } from '../types';
 import type { IMachineExectionEngine } from './interface';
 import type { ExecuteMachineInput, ExecuteMachineOutput } from './types';
-import type { ArvoEventHandlerOpenTelemetryOptions } from '../types';
 
 /**
  * Handles state machine execution, event processing, and lifecycle management.

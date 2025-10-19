@@ -1,19 +1,19 @@
 import { type ArvoEvent, createArvoEventFactory, createArvoOrchestratorEventFactory } from 'arvo-core';
-import { type ArvoResumable, createSimpleEventBroker, SimpleMachineMemory } from '../../src';
-import { decrementNumberHandler } from '../ArvoOrchestrator/handler/decrement.number';
-import { incrementNumberHandler } from '../ArvoOrchestrator/handler/increment.number';
-import { valueReadHandler } from '../ArvoOrchestrator/handler/value.read';
-import { valueWriteHandler } from '../ArvoOrchestrator/handler/value.write';
-import { telemetrySdkStart, telemetrySdkStop } from '../utils';
-import { decrementResumable } from './resumables/decrement';
+import { type ArvoResumable, SimpleMachineMemory, createSimpleEventBroker } from '../../src';
 import {
   decrementContract,
   decrementOrchestratorContract,
   valueReadContract,
   valueWriteContract,
 } from '../ArvoOrchestrator/contracts';
-import { incrementResumable } from './resumables/increment';
+import { decrementNumberHandler } from '../ArvoOrchestrator/handler/decrement.number';
+import { incrementNumberHandler } from '../ArvoOrchestrator/handler/increment.number';
+import { valueReadHandler } from '../ArvoOrchestrator/handler/value.read';
+import { valueWriteHandler } from '../ArvoOrchestrator/handler/value.write';
+import { telemetrySdkStart, telemetrySdkStop } from '../utils';
 import { incrementResumableContact } from './contracts/increment.resumable';
+import { decrementResumable } from './resumables/decrement';
+import { incrementResumable } from './resumables/increment';
 
 const promiseTimeout = (timeout = 10) =>
   new Promise<void>((resolve) => {

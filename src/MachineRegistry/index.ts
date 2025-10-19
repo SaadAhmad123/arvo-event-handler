@@ -1,8 +1,8 @@
 import { SpanKind, context } from '@opentelemetry/api';
 import { type ArvoEvent, ArvoOpenTelemetry, ArvoOrchestrationSubject, logToSpan } from 'arvo-core';
 import type ArvoMachine from '../ArvoMachine';
-import type { IMachineRegistry } from './interface';
 import type { ArvoEventHandlerOpenTelemetryOptions } from '../types';
+import type { IMachineRegistry } from './interface';
 
 /**
  * Registry for managing and resolving ArvoMachine instances.

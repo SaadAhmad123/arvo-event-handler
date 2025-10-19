@@ -9,7 +9,6 @@ import type {
   VersionedArvoContract,
 } from 'arvo-core';
 import type { z } from 'zod';
-import { ArvoDomain } from '../ArvoDomain';
 
 /**
  * Represents the input for an ArvoEvent handler function.

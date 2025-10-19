@@ -1,10 +1,11 @@
 import {
   type ArvoOrchestratorEventTypeGen,
-  CreateArvoEvent,
+  type CreateArvoEvent,
   type InferVersionedArvoContract,
   type VersionedArvoContract,
   cleanString,
 } from 'arvo-core';
+import { v4 as uuid4 } from 'uuid';
 import {
   type ActionFunction,
   type MachineConfig,
@@ -27,7 +28,6 @@ import type {
   ToProvidedActor,
 } from './types';
 import { areServiceContractsUnique, detectParallelStates } from './utils';
-import { v4 as uuid4 } from 'uuid';
 
 /**
  * Establishes the foundation for creating Arvo-compatible state machines.

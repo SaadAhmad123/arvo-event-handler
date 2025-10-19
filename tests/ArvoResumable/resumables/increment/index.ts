@@ -1,7 +1,7 @@
-import { createArvoResumable, type EventHandlerFactory, type IMachineMemory } from '../../../../src';
+import { type EventHandlerFactory, type IMachineMemory, createArvoResumable } from '../../../../src';
 import { incrementContract, valueReadContract, valueWriteContract } from '../../../ArvoOrchestrator/contracts';
-import type { IncrementResumableContext } from './types';
 import { incrementResumableContact } from '../../contracts/increment.resumable';
+import type { IncrementResumableContext } from './types';
 
 export const incrementResumable: EventHandlerFactory<{ memory: IMachineMemory<any> }> = ({ memory }) =>
   createArvoResumable({

@@ -7,8 +7,8 @@ import {
   createArvoOrchestratorContract,
   createArvoOrchestratorEventFactory,
 } from 'arvo-core';
-import { ExecutionViolation } from '../../src';
 import { z } from 'zod';
+import { ExecutionViolation } from '../../src';
 import {
   type ArvoOrchestrator,
   type MachineMemoryRecord,

@@ -1,4 +1,4 @@
-import { createArvoResumable, type EventHandlerFactory, type IMachineMemory } from '../../../../src';
+import { type EventHandlerFactory, type IMachineMemory, createArvoResumable } from '../../../../src';
 import {
   decrementContract,
   decrementOrchestratorContract,
