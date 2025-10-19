@@ -47,6 +47,10 @@ describe('ArvoOrchestrator', () => {
 
   it('should orchestrate valid init event', async () => {
     const initEvent = createArvoOrchestratorEventFactory(decrementOrchestratorContract.version('0.0.1')).init({
+      id: {
+        deduplication: 'DEVELOPER_MANAGED',
+        value: 'custom-id',
+      },
       source: 'com.test.test',
       data: {
         key: 'test.key',
@@ -147,6 +151,7 @@ describe('ArvoOrchestrator', () => {
     expect(events.events[0].data.error.length).toBe(0);
     expect(events.events[0].data.final).toBe(0);
     expect(events.events[0].parentid).toBe(initEvent.id);
+    expect(events.events[0].parentid).toBe('custom-id');
 
     expect(events.events[1].type).toBe(valueWriteContract.type);
     expect(events.events[1].to).toBe(valueWriteContract.type);

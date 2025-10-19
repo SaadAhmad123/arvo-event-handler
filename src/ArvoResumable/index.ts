@@ -31,7 +31,7 @@ import { SyncEventResource } from '../SyncEventResource/index';
 import type { AcquiredLockStatusType } from '../SyncEventResource/types';
 import type { EnqueueArvoEventActionParam } from '../ArvoMachine/types';
 import { isError } from '../utils/index';
-import AbstractArvoEventHandler from '../AbstractArvoEventHandler';
+import IArvoEventHandler from '../IArvoEventHandler';
 import { ConfigViolation, ContractViolation, ExecutionViolation } from '../errors';
 import type { ArvoEventHandlerOpenTelemetryOptions } from '../types';
 import { resolveEventDomain } from '../ArvoDomain';
@@ -74,7 +74,8 @@ export class ArvoResumable<
     string,
     VersionedArvoContract<any, any>
   >,
-> extends AbstractArvoEventHandler {
+> implements IArvoEventHandler
+{
   readonly executionunits: number;
   readonly syncEventResource: SyncEventResource<ArvoResumableState<TMemory>>;
   readonly source: string;
@@ -109,7 +110,6 @@ export class ArvoResumable<
     handler: ArvoResumableHandler<ArvoResumableState<TMemory>, TSelfContract, TServiceContract>;
     systemErrorDomain?: (string | null)[];
   }) {
-    super();
     this.executionunits = param.executionunits;
     this.source = param.contracts.self.type;
     this.syncEventResource = new SyncEventResource(param.memory, param.requiresResourceLocking ?? true);
@@ -320,6 +320,7 @@ export class ArvoResumable<
     // Create the event
     const emittableEvent = createArvoEvent(
       {
+        id: event.id,
         source: this.source,
         type: event.type,
         subject: subject,
@@ -567,6 +568,7 @@ export class ArvoResumable<
             ...(executionResult?.output
               ? [
                   {
+                    id: executionResult.output.__id,
                     data: executionResult.output,
                     type: this.contracts.self.metadata.completeEventType,
                     to: parsedEventSubject.meta?.redirectto ?? parsedEventSubject.execution.initiator,

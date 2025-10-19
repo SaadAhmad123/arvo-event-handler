@@ -5,6 +5,7 @@ import type {
   ArvoContract,
   ArvoEvent,
   InferArvoEvent,
+  CreateArvoEvent,
 } from 'arvo-core';
 import type { EnqueueArvoEventActionParam } from '../ArvoMachine/types';
 import type { Span } from '@opentelemetry/api';
@@ -68,7 +69,9 @@ type Handler<
       InferVersionedArvoContract<TSelfContract>['emits'][L]['data'],
       InferVersionedArvoContract<TSelfContract>['emits'][L]['type']
     >['data'];
-  }[keyof InferVersionedArvoContract<TSelfContract>['emits']];
+  }[keyof InferVersionedArvoContract<TSelfContract>['emits']] & {
+    __id?: CreateArvoEvent<Record<string, unknown>, string>['id'];
+  };
   services?: Array<
     {
       [K in keyof TServiceContract]: EnqueueArvoEventActionParam<

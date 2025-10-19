@@ -1,6 +1,6 @@
 import type { ArvoContract } from 'arvo-core';
 import ArvoEventHandler from '.';
-import type { IArvoEventHandler } from './types';
+import type { ArvoEventHandlerParam } from './types';
 
 /**
  * Creates an instance of `ArvoEventHandler` for the specified versioned contract and handlers.
@@ -44,5 +44,5 @@ import type { IArvoEventHandler } from './types';
  * @returns A fully configured `ArvoEventHandler` instance for the given contract
  */
 export const createArvoEventHandler = <TContract extends ArvoContract>(
-  param: IArvoEventHandler<TContract>,
+  param: ArvoEventHandlerParam<TContract>,
 ): ArvoEventHandler<TContract> => new ArvoEventHandler<TContract>(param);

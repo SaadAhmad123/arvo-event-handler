@@ -27,12 +27,10 @@ export const decrementResumable: EventHandlerFactory<{
       '0.0.1': async ({ input, service, context }) => {
         if (service?.type === 'sys.com.decrement.number.error' || service?.type === 'sys.com.value.read.error') {
           return {
-            complete: {
-              data: {
-                success: false,
-                error: [service.data],
-                final: 0,
-              },
+            output: {
+              success: false,
+              error: [service.data],
+              final: 0,
             },
           };
         }

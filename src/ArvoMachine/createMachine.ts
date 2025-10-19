@@ -1,5 +1,6 @@
 import {
   type ArvoOrchestratorEventTypeGen,
+  CreateArvoEvent,
   type InferVersionedArvoContract,
   type VersionedArvoContract,
   cleanString,
@@ -383,7 +384,9 @@ export function setupArvoMachine<
         TSelfContract['emits'][ReturnType<
           typeof ArvoOrchestratorEventTypeGen.complete<ExtractOrchestratorType<TSelfContract['accepts']['type']>>
         >]
-      >,
+      > & {
+        __id?: CreateArvoEvent<Record<string, unknown>, string>['id'];
+      },
       InferServiceContract<TServiceContracts>['emitted'],
       TMeta
     >,

@@ -25,12 +25,10 @@ export const incrementResumable: EventHandlerFactory<{ memory: IMachineMemory<an
           service?.type === 'sys.com.value.write.error'
         ) {
           return {
-            complete: {
-              data: {
-                success: false,
-                error: [service.data],
-                final: [],
-              },
+            output: {
+              success: false,
+              error: [service.data],
+              final: [],
             },
           };
         }

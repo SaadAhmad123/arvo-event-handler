@@ -1,11 +1,11 @@
-import AbstractArvoEventHandler from './AbstractArvoEventHandler';
+import IArvoEventHandler from './IArvoEventHandler';
 import ArvoEventHandler from './ArvoEventHandler';
 import { createArvoEventHandler } from './ArvoEventHandler/helpers';
 import {
   ArvoEventHandlerFunction,
   ArvoEventHandlerFunctionInput,
   ArvoEventHandlerFunctionOutput,
-  IArvoEventHandler,
+  ArvoEventHandlerParam,
 } from './ArvoEventHandler/types';
 import { ConfigViolation, ContractViolation, ExecutionViolation } from './errors';
 import { ArvoEventHandlerOpenTelemetryOptions, EventHandlerFactory, PartialExcept } from './types';
@@ -17,7 +17,7 @@ import { ArvoMachineContext, EnqueueArvoEventActionParam } from './ArvoMachine/t
 import { ArvoOrchestrator } from './ArvoOrchestrator';
 import { TransactionViolation, TransactionViolationCause } from './ArvoOrchestrator/error';
 import { createArvoOrchestrator } from './ArvoOrchestrator/factory';
-import { IArvoOrchestrator, MachineMemoryRecord } from './ArvoOrchestrator/types';
+import { ArvoOrchestratorParam, MachineMemoryRecord } from './ArvoOrchestrator/types';
 import { MachineExecutionEngine } from './MachineExecutionEngine';
 import { IMachineExectionEngine } from './MachineExecutionEngine/interface';
 import { ExecuteMachineInput, ExecuteMachineOutput } from './MachineExecutionEngine/types';
@@ -50,7 +50,7 @@ export {
   getValueOrDefault,
   coalesce,
   coalesceOrDefault,
-  AbstractArvoEventHandler,
+  IArvoEventHandler as AbstractArvoEventHandler,
   ArvoEventHandlerOpenTelemetryOptions,
   EventHandlerFactory,
   ContractViolation,
@@ -69,7 +69,7 @@ export {
   IMachineMemory,
   SimpleMachineMemory,
   MachineMemoryRecord,
-  IArvoOrchestrator,
+  ArvoOrchestratorParam as IArvoOrchestrator,
   TransactionViolation,
   TransactionViolationCause,
   ArvoOrchestrator,

@@ -9,6 +9,7 @@ import {
   createArvoEventFactory,
   createArvoOrchestratorContract,
   createArvoOrchestratorEventFactory,
+  parseArvoEventId,
 } from 'arvo-core';
 
 import { assign, emit } from 'xstate';
@@ -308,6 +309,10 @@ describe('ArvoXState', () => {
           increment: {
             entry: [
               emit(({ context }) => ({
+                id: {
+                  deduplication: 'DEVELOPER_MANAGED',
+                  value: 'custom-increment-id',
+                },
                 domain: [null, 'external'],
                 type: 'com.number.increment' as const,
                 data: {
@@ -370,6 +375,10 @@ describe('ArvoXState', () => {
         output: ({ context }) => {
           return {
             final: context.delta,
+            __id: {
+              deduplication: 'ARVO_MANAGED',
+              value: 'custom-orch-1',
+            },
           };
         },
       });
@@ -406,11 +415,13 @@ describe('ArvoXState', () => {
       });
       expect(output.events.length).toBe(2);
       expect(output.events[0].source).toBe('arvo.orc.test');
+      expect(output.events[0].id).toBe('custom-increment-id');
       expect(output.events[0].type).toBe('com.number.increment');
       expect(output.events[0].data.delta).toBe(1);
       expect(output.events[0].dataschema).toBe(`${incrementServiceContract.uri}/0.0.1`);
       expect(output.events[0].domain).toBe(null);
 
+      expect(output.events[1].id).toBe('custom-increment-id');
       expect(output.events[1].source).toBe('arvo.orc.test');
       expect(output.events[1].type).toBe('com.number.increment');
       expect(output.events[1].data.delta).toBe(1);
@@ -444,6 +455,7 @@ describe('ArvoXState', () => {
 
       expect(nextEvent.events.length).toBe(1);
       expect(nextEvent.events[0].domain).toBe(null);
+      expect(nextEvent.events[0].parentid).toBe('custom-increment-id');
 
       output = await orchestrator.execute(nextEvent.events[0], {
         inheritFrom: 'EVENT',
@@ -469,6 +481,11 @@ describe('ArvoXState', () => {
       expect(output.events[2].to).toBe('com.test.service');
       expect(output.events[2].dataschema).toBe(`${testMachineContract.uri}/0.0.1`);
       expect(output.events[2].domain).toBe(null);
+
+      const parsedId = parseArvoEventId(output.events[2].id);
+      expect(parsedId[1]).toBe(null);
+      if (parsedId[1]) return;
+      expect(parsedId[0].value).toBe('custom-orch-1');
     });
 
     it('should validate events input to the machine', () => {

@@ -5,6 +5,7 @@ import type {
   ArvoSemanticVersion,
   CreateArvoEvent,
   InferArvoEvent,
+  OpenTelemetryHeaders,
   VersionedArvoContract,
 } from 'arvo-core';
 import type { z } from 'zod';
@@ -33,6 +34,9 @@ export type ArvoEventHandlerFunctionInput<TContract extends VersionedArvoContrac
 
   /** The OpenTelemetry span */
   span: Span;
+
+  /** The span headers */
+  spanHeaders: OpenTelemetryHeaders;
 };
 
 /**
@@ -98,7 +102,7 @@ export type ArvoEventHandlerFunction<TContract extends ArvoContract> = {
 /**
  * Interface for an ArvoEvent handler.
  */
-export interface IArvoEventHandler<TContract extends ArvoContract> {
+export type ArvoEventHandlerParam<TContract extends ArvoContract> = {
   /**
    * The contract for the handler defining its input and outputs as well as the description.
    */
@@ -136,4 +140,4 @@ export interface IArvoEventHandler<TContract extends ArvoContract> {
    * @default undefined — uses standard fallback broadcast domains
    */
   systemErrorDomain?: (string | null)[];
-}
+};

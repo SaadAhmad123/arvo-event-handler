@@ -1,4 +1,4 @@
-import type AbstractArvoEventHandler from './AbstractArvoEventHandler';
+import type IArvoEventHandler from './IArvoEventHandler';
 
 /**
  * Makes properties optional except specified keys
@@ -32,6 +32,4 @@ export type ArvoEventHandlerOpenTelemetryOptions = {
  *
  * @template T - Configuration object type
  */
-export type EventHandlerFactory<T = void> = T extends void
-  ? () => AbstractArvoEventHandler
-  : (config: T) => AbstractArvoEventHandler;
+export type EventHandlerFactory<T = void> = T extends void ? () => IArvoEventHandler : (config: T) => IArvoEventHandler;

@@ -16,11 +16,11 @@ import {
   exceptionToSpan,
   logToSpan,
 } from 'arvo-core';
-import AbstractArvoEventHandler from '../AbstractArvoEventHandler';
+import IArvoEventHandler from '../IArvoEventHandler';
 import { ConfigViolation, ContractViolation } from '../errors';
 import type { ArvoEventHandlerOpenTelemetryOptions } from '../types';
 import { coalesce, coalesceOrDefault, createEventHandlerTelemetryConfig } from '../utils';
-import type { ArvoEventHandlerFunction, ArvoEventHandlerFunctionOutput, IArvoEventHandler } from './types';
+import type { ArvoEventHandlerFunction, ArvoEventHandlerFunctionOutput, ArvoEventHandlerParam } from './types';
 import { resolveEventDomain } from '../ArvoDomain';
 
 /**
@@ -103,7 +103,7 @@ import { resolveEventDomain } from '../ArvoDomain';
  * - `'analytics.workflow'` → to pipe events into observability systems
  * - `'external.partner.sync'` → to route to external services
  */
-export default class ArvoEventHandler<TContract extends ArvoContract> extends AbstractArvoEventHandler {
+export default class ArvoEventHandler<TContract extends ArvoContract> implements IArvoEventHandler {
   /** Contract instance that defines the event schema and validation rules */
   public readonly contract: TContract;
 
@@ -142,8 +142,7 @@ export default class ArvoEventHandler<TContract extends ArvoContract> extends Ab
    * @param param - Handler configuration including contract, execution units, and handler implementations
    * @throws When handler implementations are missing for any contract version
    */
-  constructor(param: IArvoEventHandler<TContract>) {
-    super();
+  constructor(param: ArvoEventHandlerParam<TContract>) {
     this.contract = param.contract;
     this.executionunits = param.executionunits;
     this.handler = param.handler;
@@ -276,6 +275,7 @@ export default class ArvoEventHandler<TContract extends ArvoContract> extends Ab
               event: event.domain,
             },
             span: span,
+            spanHeaders: otelSpanHeaders,
           });
 
           if (!_handleOutput)

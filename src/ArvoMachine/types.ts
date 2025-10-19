@@ -4,6 +4,7 @@ import type {
   ArvoOrchestratorEventTypeGen,
   ArvoSemanticVersion,
   CloudEventExtension,
+  CreateArvoEvent,
   InferVersionedArvoContract,
   VersionedArvoContract,
 } from 'arvo-core';
@@ -49,6 +50,10 @@ export type EnqueueArvoEventActionParam<
   TType extends string = string,
   TExtension extends CloudEventExtension = CloudEventExtension,
 > = {
+  /**
+   * The event id
+   */
+  id?: CreateArvoEvent<TData, TType>['id'];
   /**
    * The domain configuration for multi-domain event broadcasting.
    *

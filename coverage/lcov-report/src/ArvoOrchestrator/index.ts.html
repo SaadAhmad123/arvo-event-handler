@@ -23,16 +23,16 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">96.19% </span>
+                <span class="strong">96.13% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>177/184</span>
+                <span class='fraction'>174/181</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">78.83% </span>
+                <span class="strong">78.6% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>149/189</span>
+                <span class='fraction'>147/187</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">96.42% </span>
+                <span class="strong">96.38% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>162/168</span>
+                <span class='fraction'>160/166</span>
             </div>
         
             
@@ -731,7 +731,9 @@
 <a name='L666'></a><a href='#L666'>666</a>
 <a name='L667'></a><a href='#L667'>667</a>
 <a name='L668'></a><a href='#L668'>668</a>
-<a name='L669'></a><a href='#L669'>669</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">8x</span>
+<a name='L669'></a><a href='#L669'>669</a>
+<a name='L670'></a><a href='#L670'>670</a>
+<a name='L671'></a><a href='#L671'>671</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -763,12 +765,13 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-yes">8x</span>
@@ -813,7 +816,6 @@
 <span class="cline-any cline-yes">10x</span>
 <span class="cline-any cline-yes">10x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">10x</span>
 <span class="cline-any cline-yes">10x</span>
 <span class="cline-any cline-yes">10x</span>
 <span class="cline-any cline-yes">10x</span>
@@ -975,6 +977,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">38x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1225,6 +1228,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">34x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">38x</span>
@@ -1412,6 +1416,7 @@ import {
   type ArvoOrchestrationSubjectContent,
   type ArvoOrchestratorContract,
   type ArvoSemanticVersion,
+  CreateArvoEvent,
   EventDataschemaUtil,
   OpenInference,
   OpenInferenceSpanKind,
@@ -1433,10 +1438,10 @@ import type { IMachineMemory } from '../MachineMemory/interface';
 import type { IMachineRegistry } from '../MachineRegistry/interface';
 import { isError } from '../utils';
 import { TransactionViolation, TransactionViolationCause } from './error';
-import type { IArvoOrchestrator, MachineMemoryRecord } from './types';
+import type { ArvoOrchestratorParam, MachineMemoryRecord } from './types';
 import { SyncEventResource } from '../SyncEventResource';
 import type { AcquiredLockStatusType } from '../SyncEventResource/types';
-import AbstractArvoEventHandler from '../AbstractArvoEventHandler';
+import IArvoEventHandler from '../IArvoEventHandler';
 import type { ArvoEventHandlerOpenTelemetryOptions } from '../types';
 import { ConfigViolation, ContractViolation, ExecutionViolation } from '../errors';
 import { resolveEventDomain } from '../ArvoDomain';
@@ -1445,7 +1450,7 @@ import { resolveEventDomain } from '../ArvoDomain';
  * Orchestrates state machine execution and lifecycle management.
  * Handles machine resolution, state management, event processing and error handling.
  */
-export class ArvoOrchestrator extends AbstractArvoEventHandler {
+export class ArvoOrchestrator implements IArvoEventHandler {
   readonly executionunits: number;
   readonly registry: IMachineRegistry;
   readonly executionEngine: IMachineExectionEngine;
@@ -1480,8 +1485,7 @@ export class ArvoOrchestrator extends AbstractArvoEventHandler {
     executionEngine,
     requiresResourceLocking,
     systemErrorDomain,
-  }: IArvoOrchestrator) {
-    super();
+  }: ArvoOrchestratorParam) {
     this.executionunits = executionunits;
     const representativeMachine = registry.machines[0];
     const lastSeenVersions: ArvoSemanticVersion[] = [];
@@ -1644,6 +1648,7 @@ export class ArvoOrchestrator extends AbstractArvoEventHandler {
     // Create the event
     const emittableEvent = createArvoEvent(
       {
+        id: event.id,
         source: this.source,
         type: event.type,
         subject: subject,
@@ -1879,6 +1884,7 @@ export class ArvoOrchestrator extends AbstractArvoEventHandler {
             rawMachineEmittedEvents.push({
               type: (machine.contracts.self as VersionedArvoContract&lt;ArvoOrchestratorContract, ArvoSemanticVersion&gt;)
                 .metadata.completeEventType,
+              id: executionResult.finalOutput.__id as CreateArvoEvent&lt;Record&lt;string, unknown&gt;, string&gt;['id'],
               data: executionResult.finalOutput,
               to: parsedEventSubject.meta<span class="branch-0 cbranch-no" title="branch not covered" >?.r</span>edirectto ?? parsedEventSubject.execution.initiator,
               domain: orchestrationParentSubject
@@ -2074,7 +2080,7 @@ export class ArvoOrchestrator extends AbstractArvoEventHandler {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-07-27T08:17:05.252Z
+                at 2025-10-19T11:09:27.509Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

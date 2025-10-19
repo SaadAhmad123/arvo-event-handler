@@ -1,6 +1,6 @@
 import type { ArvoEvent } from 'arvo-core';
 import { SimpleEventBroker } from '.';
-import type AbstractArvoEventHandler from '../../AbstractArvoEventHandler';
+import type IArvoEventHandler from '../../IArvoEventHandler';
 
 /**
  * Creates a local event broker configured with domain event handlers and provides event resolution capabilities
@@ -155,7 +155,7 @@ import type AbstractArvoEventHandler from '../../AbstractArvoEventHandler';
  * more reliable while maintaining production-like behavior patterns.
  */
 export const createSimpleEventBroker = (
-  eventHandlers: AbstractArvoEventHandler[],
+  eventHandlers: IArvoEventHandler[],
   options?: {
     onError?: (error: Error, event: ArvoEvent) => void;
     onDomainedEvents?: (param: {

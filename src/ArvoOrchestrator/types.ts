@@ -83,7 +83,7 @@ export type MachineMemoryRecord = {
 /**
  * Interface defining the core components of an Arvo orchestrator.
  */
-export interface IArvoOrchestrator {
+export type ArvoOrchestratorParam = {
   /** The cost of the execution of the orchestrator */
   executionunits: number;
 
@@ -103,7 +103,7 @@ export interface IArvoOrchestrator {
    * Optional configuration to customize where system error events are emitted.
    */
   systemErrorDomain?: (string | null)[];
-}
+};
 
 /**
  * Configuration interface for creating an Arvo orchestrator instance.

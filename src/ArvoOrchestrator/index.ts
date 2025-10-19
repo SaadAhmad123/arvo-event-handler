@@ -11,6 +11,7 @@ import {
   type ArvoOrchestrationSubjectContent,
   type ArvoOrchestratorContract,
   type ArvoSemanticVersion,
+  CreateArvoEvent,
   EventDataschemaUtil,
   OpenInference,
   OpenInferenceSpanKind,
@@ -32,10 +33,10 @@ import type { IMachineMemory } from '../MachineMemory/interface';
 import type { IMachineRegistry } from '../MachineRegistry/interface';
 import { isError } from '../utils';
 import { TransactionViolation, TransactionViolationCause } from './error';
-import type { IArvoOrchestrator, MachineMemoryRecord } from './types';
+import type { ArvoOrchestratorParam, MachineMemoryRecord } from './types';
 import { SyncEventResource } from '../SyncEventResource';
 import type { AcquiredLockStatusType } from '../SyncEventResource/types';
-import AbstractArvoEventHandler from '../AbstractArvoEventHandler';
+import IArvoEventHandler from '../IArvoEventHandler';
 import type { ArvoEventHandlerOpenTelemetryOptions } from '../types';
 import { ConfigViolation, ContractViolation, ExecutionViolation } from '../errors';
 import { resolveEventDomain } from '../ArvoDomain';
@@ -44,7 +45,7 @@ import { resolveEventDomain } from '../ArvoDomain';
  * Orchestrates state machine execution and lifecycle management.
  * Handles machine resolution, state management, event processing and error handling.
  */
-export class ArvoOrchestrator extends AbstractArvoEventHandler {
+export class ArvoOrchestrator implements IArvoEventHandler {
   readonly executionunits: number;
   readonly registry: IMachineRegistry;
   readonly executionEngine: IMachineExectionEngine;
@@ -79,8 +80,7 @@ export class ArvoOrchestrator extends AbstractArvoEventHandler {
     executionEngine,
     requiresResourceLocking,
     systemErrorDomain,
-  }: IArvoOrchestrator) {
-    super();
+  }: ArvoOrchestratorParam) {
     this.executionunits = executionunits;
     const representativeMachine = registry.machines[0];
     const lastSeenVersions: ArvoSemanticVersion[] = [];
@@ -243,6 +243,7 @@ export class ArvoOrchestrator extends AbstractArvoEventHandler {
     // Create the event
     const emittableEvent = createArvoEvent(
       {
+        id: event.id,
         source: this.source,
         type: event.type,
         subject: subject,
@@ -478,6 +479,7 @@ export class ArvoOrchestrator extends AbstractArvoEventHandler {
             rawMachineEmittedEvents.push({
               type: (machine.contracts.self as VersionedArvoContract<ArvoOrchestratorContract, ArvoSemanticVersion>)
                 .metadata.completeEventType,
+              id: executionResult.finalOutput.__id as CreateArvoEvent<Record<string, unknown>, string>['id'],
               data: executionResult.finalOutput,
               to: parsedEventSubject.meta?.redirectto ?? parsedEventSubject.execution.initiator,
               domain: orchestrationParentSubject

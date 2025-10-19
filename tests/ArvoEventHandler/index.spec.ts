@@ -248,6 +248,10 @@ describe('ArvoEventHandler', () => {
       handler: {
         '0.0.1': async ({ event }) => {
           return {
+            id: {
+              deduplication: 'DEVELOPER_MANAGED',
+              value: 'custom-id',
+            },
             type: 'evt.hello.world.success',
             domain: [
               null,
@@ -277,9 +281,13 @@ describe('ArvoEventHandler', () => {
 
     const result = await handler.execute(mockEvent);
     expect(result.events.length).toBe(4);
+    expect(result.events[0].id).toBe('custom-id');
     expect(result.events[0].domain).toBe(null);
+    expect(result.events[1].id).toBe('custom-id');
     expect(result.events[1].domain).toBe('test.3333');
+    expect(result.events[2].id).toBe('custom-id');
     expect(result.events[2].domain).toBe('test.1');
+    expect(result.events[3].id).toBe('custom-id');
     expect(result.events[3].domain).toBe('test.3');
   });
 
