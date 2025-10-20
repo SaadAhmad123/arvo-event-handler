@@ -149,20 +149,15 @@
 <a name='L84'></a><a href='#L84'>84</a>
 <a name='L85'></a><a href='#L85'>85</a>
 <a name='L86'></a><a href='#L86'>86</a>
-<a name='L87'></a><a href='#L87'>87</a>
-<a name='L88'></a><a href='#L88'>88</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L87'></a><a href='#L87'>87</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-yes">8x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">8x</span>
-<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -171,18 +166,21 @@
 <span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">8x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">8x</span>
-<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">8x</span>
-<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">8x</span>
@@ -237,26 +235,26 @@
 <span class="cline-any cline-yes">14x</span>
 <span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import IArvoEventHandler from './IArvoEventHandler';
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { assign, emit } from 'xstate';
+import { ArvoDomain, resolveEventDomain } from './ArvoDomain';
 import ArvoEventHandler from './ArvoEventHandler';
 import { createArvoEventHandler } from './ArvoEventHandler/helpers';
 import {
   ArvoEventHandlerFunction,
   ArvoEventHandlerFunctionInput,
   ArvoEventHandlerFunctionOutput,
-  ArvoEventHandlerParam,
 } from './ArvoEventHandler/types';
-import { ConfigViolation, ContractViolation, ExecutionViolation } from './errors';
-import { ArvoEventHandlerOpenTelemetryOptions, EventHandlerFactory, PartialExcept } from './types';
-import { coalesce, coalesceOrDefault, getValueOrDefault, isNullOrUndefined } from './utils';
-import { assign, emit } from 'xstate';
 import ArvoMachine from './ArvoMachine';
 import { setupArvoMachine } from './ArvoMachine/createMachine';
 import { ArvoMachineContext, EnqueueArvoEventActionParam } from './ArvoMachine/types';
+import { TransactionViolation, TransactionViolationCause } from './ArvoOrchestrationUtils/error';
 import { ArvoOrchestrator } from './ArvoOrchestrator';
-import { TransactionViolation, TransactionViolationCause } from './ArvoOrchestrator/error';
 import { createArvoOrchestrator } from './ArvoOrchestrator/factory';
 import { ArvoOrchestratorParam, MachineMemoryRecord } from './ArvoOrchestrator/types';
+import { ArvoResumable } from './ArvoResumable';
+import { createArvoResumable } from './ArvoResumable/factory';
+import { ArvoResumableHandler, ArvoResumableState } from './ArvoResumable/types';
+import IArvoEventHandler from './IArvoEventHandler';
 import { MachineExecutionEngine } from './MachineExecutionEngine';
 import { IMachineExectionEngine } from './MachineExecutionEngine/interface';
 import { ExecuteMachineInput, ExecuteMachineOutput } from './MachineExecutionEngine/types';
@@ -265,12 +263,11 @@ import { TelemetredSimpleMachineMemory } from './MachineMemory/TelemetredSimple'
 import { IMachineMemory } from './MachineMemory/interface';
 import { MachineRegistry } from './MachineRegistry';
 import { IMachineRegistry } from './MachineRegistry/interface';
+import { ConfigViolation, ContractViolation, ExecutionViolation } from './errors';
+import { ArvoEventHandlerOpenTelemetryOptions, EventHandlerFactory, PartialExcept } from './types';
+import { coalesce, coalesceOrDefault, getValueOrDefault, isNullOrUndefined } from './utils';
 import { SimpleEventBroker } from './utils/SimpleEventBroker';
 import { createSimpleEventBroker } from './utils/SimpleEventBroker/helper';
-import { ArvoResumable } from './ArvoResumable';
-import { createArvoResumable } from './ArvoResumable/factory';
-import { ArvoResumableHandler, ArvoResumableState } from './ArvoResumable/types';
-import { ArvoDomain, resolveEventDomain } from './ArvoDomain';
 &nbsp;
 const xstate = {
   emit,
@@ -331,7 +328,7 @@ export {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-10-19T11:09:27.509Z
+                at 2025-10-20T05:28:32.872Z
             </div>
         <script src="../prettify.js"></script>
         <script>

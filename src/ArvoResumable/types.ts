@@ -1,6 +1,7 @@
 import type { Span } from '@opentelemetry/api';
 import type {
   ArvoContract,
+  ArvoErrorType,
   ArvoEvent,
   ArvoSemanticVersion,
   CreateArvoEvent,
@@ -132,72 +133,88 @@ export type ArvoResumableHandler<
   >;
 };
 
-export type ArvoResumableState<T extends Record<string, any>> = {
-  /**
-   * Current execution status of the orchestration workflow
-   *
-   * This field tracks the lifecycle state of the workflow instance to determine
-   * whether it can accept new events and continue processing or has reached
-   * its terminal state.
-   *
-   * @remarks
-   * - **active**: The workflow is running and can accept events for processing.
-   *   It may be waiting for service responses, processing initialization events,
-   *   or handling intermediate workflow steps. The orchestrator will continue
-   *   to route events to active workflows.
-   *
-   * - **done**: The workflow has completed its execution lifecycle. This status
-   *   is set when the handler returns a `complete` event, indicating the workflow
-   *   has finished successfully. Done workflows will not process additional events
-   *   and their state is preserved for audit/debugging purposes.
-   */
-  status: 'active' | 'done';
+export type ArvoResumableState<T extends Record<string, any>> =
+  | {
+      /** Indicates successful execution path */
+      executionStatus: 'normal';
+      /**
+       * Current execution status of the orchestration workflow
+       *
+       * This field tracks the lifecycle state of the workflow instance to determine
+       * whether it can accept new events and continue processing or has reached
+       * its terminal state.
+       *
+       * @remarks
+       * - **active**: The workflow is running and can accept events for processing.
+       *   It may be waiting for service responses, processing initialization events,
+       *   or handling intermediate workflow steps. The orchestrator will continue
+       *   to route events to active workflows.
+       *
+       * - **done**: The workflow has completed its execution lifecycle. This status
+       *   is set when the handler returns a `complete` event, indicating the workflow
+       *   has finished successfully. Done workflows will not process additional events
+       *   and their state is preserved for audit/debugging purposes.
+       */
+      status: 'active' | 'done';
 
-  /** Unique identifier for the machine instance */
-  subject: string;
+      /** Unique identifier for the machine instance */
+      subject: string;
 
-  /**
-   * Reference to the parent orchestration's subject when orchestrations are nested or chained.
-   * This enables hierarchical orchestration patterns where one orchestration can spawn
-   * sub-orchestrations. When the current orchestration completes, its completion event
-   * is routed back to this parent subject rather than staying within the current context.
-   *
-   * - For root orchestrations: null
-   * - For nested orchestrations: contains the subject of the parent orchestration
-   * - Extracted from the `parentSubject$$` field in initialization events
-   */
-  parentSubject: string | null;
+      /**
+       * Reference to the parent orchestration's subject when orchestrations are nested or chained.
+       * This enables hierarchical orchestration patterns where one orchestration can spawn
+       * sub-orchestrations. When the current orchestration completes, its completion event
+       * is routed back to this parent subject rather than staying within the current context.
+       *
+       * - For root orchestrations: null
+       * - For nested orchestrations: contains the subject of the parent orchestration
+       * - Extracted from the `parentSubject$$` field in initialization events
+       */
+      parentSubject: string | null;
 
-  /**
-   * The unique identifier of the event that originally initiated this entire orchestration workflow.
-   * This serves as the root identifier for tracking the complete execution chain from start to finish.
-   *
-   * - For new orchestrations: set to the current event's ID
-   * - For resumed orchestrations: retrieved from the stored state
-   * - Used as the `parentid` for completion events to create a direct lineage back to the workflow's origin
-   *
-   * This enables tracing the entire execution path and ensures completion events reference
-   * the original triggering event rather than just the immediate previous step.
-   */
-  initEventId: string;
+      /**
+       * The unique identifier of the event that originally initiated this entire orchestration workflow.
+       * This serves as the root identifier for tracking the complete execution chain from start to finish.
+       *
+       * - For new orchestrations: set to the current event's ID
+       * - For resumed orchestrations: retrieved from the stored state
+       * - Used as the `parentid` for completion events to create a direct lineage back to the workflow's origin
+       *
+       * This enables tracing the entire execution path and ensures completion events reference
+       * the original triggering event rather than just the immediate previous step.
+       */
+      initEventId: string;
 
-  events: {
-    /** The event consumed by the machine in the last session */
-    consumed: InferArvoEvent<ArvoEvent> | null;
+      events: {
+        /** The event consumed by the machine in the last session */
+        consumed: InferArvoEvent<ArvoEvent> | null;
 
-    /**
-     * The domained events produced by the machine in the last session
-     */
-    produced: InferArvoEvent<ArvoEvent>[];
+        /**
+         * The domained events produced by the machine in the last session
+         */
+        produced: InferArvoEvent<ArvoEvent>[];
 
-    /**
-     * The events expected by the resumable. These events are collected on each execution
-     * as long as the event parent id and the expected key matches. The expected key is the
-     * event.id of the produced event.
-     */
-    expected: Record<string, InferArvoEvent<ArvoEvent>[]> | null;
-  };
+        /**
+         * The events expected by the resumable. These events are collected on each execution
+         * as long as the event parent id and the expected key matches. The expected key is the
+         * event.id of the produced event.
+         */
+        expected: Record<string, InferArvoEvent<ArvoEvent>[]> | null;
+      };
 
-  /** The state used by the resumable */
-  state$$: T | null;
-};
+      /** The state used by the resumable */
+      state$$: T | null;
+    }
+  | {
+      /** Indicates execution failure path */
+      executionStatus: 'failure';
+      /** Unique identifier for the execution process */
+      subject: string;
+      /** Error details */
+      error: ArvoErrorType;
+      status: never;
+      parentSubject: never;
+      initEventId: never;
+      events: never;
+      state$$: never;
+    };

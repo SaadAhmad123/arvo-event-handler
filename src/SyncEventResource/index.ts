@@ -1,6 +1,6 @@
 import type { Span } from '@opentelemetry/api';
 import { type ArvoEvent, ArvoOrchestrationSubject, logToSpan } from 'arvo-core';
-import { TransactionViolation, TransactionViolationCause } from '../ArvoOrchestrator/error';
+import { TransactionViolation, TransactionViolationCause } from '../ArvoOrchestrationUtils/error';
 import type { IMachineMemory } from '../MachineMemory/interface';
 import { ExecutionViolation } from '../errors';
 import type { AcquiredLockStatusType, ReleasedLockStatusType } from './types';

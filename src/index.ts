@@ -10,8 +10,8 @@ import {
 import ArvoMachine from './ArvoMachine';
 import { setupArvoMachine } from './ArvoMachine/createMachine';
 import { ArvoMachineContext, EnqueueArvoEventActionParam } from './ArvoMachine/types';
+import { TransactionViolation, TransactionViolationCause } from './ArvoOrchestrationUtils/error';
 import { ArvoOrchestrator } from './ArvoOrchestrator';
-import { TransactionViolation, TransactionViolationCause } from './ArvoOrchestrator/error';
 import { createArvoOrchestrator } from './ArvoOrchestrator/factory';
 import { ArvoOrchestratorParam, MachineMemoryRecord } from './ArvoOrchestrator/types';
 import { ArvoResumable } from './ArvoResumable';

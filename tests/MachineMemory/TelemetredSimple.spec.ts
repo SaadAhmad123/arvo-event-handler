@@ -7,6 +7,7 @@ describe('TelemetredSimpleMachineMemory', () => {
   beforeEach(() => {
     memory = new TelemetredSimpleMachineMemory();
     validData = {
+      executionStatus: 'normal',
       initEventId: '',
       subject: 'test',
       state: {} as any,

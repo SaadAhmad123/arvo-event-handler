@@ -7,6 +7,7 @@ describe('SimpleMachineMemory', () => {
   beforeEach(() => {
     memory = new SimpleMachineMemory();
     validData = {
+      executionStatus: 'normal',
       initEventId: '',
       subject: 'test',
       state: {} as any,

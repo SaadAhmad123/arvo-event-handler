@@ -1,4 +1,4 @@
-import { SpanKind, SpanStatusCode, context } from '@opentelemetry/api';
+import { SpanKind, context } from '@opentelemetry/api';
 import {
   type ArvoContract,
   type ArvoContractRecord,
@@ -8,7 +8,6 @@ import {
   ArvoExecutionSpanKind,
   ArvoOpenTelemetry,
   ArvoOrchestrationSubject,
-  type ArvoOrchestrationSubjectContent,
   type ArvoOrchestratorContract,
   type ArvoSemanticVersion,
   type CreateArvoEvent,
@@ -17,11 +16,8 @@ import {
   OpenInferenceSpanKind,
   type OpenTelemetryHeaders,
   type VersionedArvoContract,
-  type ViolationError,
   createArvoEvent,
-  createArvoOrchestratorEventFactory,
   currentOpenTelemetryHeaders,
-  exceptionToSpan,
   logToSpan,
 } from 'arvo-core';
 import type { ActorLogic } from 'xstate';
@@ -29,6 +25,8 @@ import type { z } from 'zod';
 import { resolveEventDomain } from '../ArvoDomain';
 import type ArvoMachine from '../ArvoMachine';
 import type { EnqueueArvoEventActionParam } from '../ArvoMachine/types';
+import { TransactionViolation, TransactionViolationCause } from '../ArvoOrchestrationUtils/error';
+import { handleOrchestrationErrors } from '../ArvoOrchestrationUtils/handlerErrors';
 import type IArvoEventHandler from '../IArvoEventHandler';
 import type { IMachineExectionEngine } from '../MachineExecutionEngine/interface';
 import type { IMachineMemory } from '../MachineMemory/interface';
@@ -37,8 +35,6 @@ import { SyncEventResource } from '../SyncEventResource';
 import type { AcquiredLockStatusType } from '../SyncEventResource/types';
 import { ConfigViolation, ContractViolation, ExecutionViolation } from '../errors';
 import type { ArvoEventHandlerOpenTelemetryOptions } from '../types';
-import { isError } from '../utils';
-import { TransactionViolation, TransactionViolationCause } from './error';
 import type { ArvoOrchestratorParam, MachineMemoryRecord } from './types';
 
 /**
@@ -82,19 +78,6 @@ export class ArvoOrchestrator implements IArvoEventHandler {
     systemErrorDomain,
   }: ArvoOrchestratorParam) {
     this.executionunits = executionunits;
-    const representativeMachine = registry.machines[0];
-    const lastSeenVersions: ArvoSemanticVersion[] = [];
-    for (const machine of registry.machines) {
-      if (representativeMachine.source !== machine.source) {
-        throw new Error(`All the machines in the orchestrator must have type '${representativeMachine.source}'`);
-      }
-      if (lastSeenVersions.includes(machine.version)) {
-        throw new Error(
-          `An orchestrator must have unique machine versions. Machine ID:${machine.id} has duplicate version ${machine.version}.`,
-        );
-      }
-      lastSeenVersions.push(machine.version);
-    }
     this.registry = registry;
     this.executionEngine = executionEngine;
     this.syncEventResource = new SyncEventResource(memory, requiresResourceLocking);
@@ -422,6 +405,15 @@ export class ArvoOrchestrator implements IArvoEventHandler {
 
           // Acquiring state
           const state = await this.syncEventResource.acquireState(event, span);
+
+          if (state?.executionStatus === 'failure') {
+            logToSpan({
+              level: 'WARNING',
+              message: `The orchestration has failed in a previous event. Ignoreing event id: ${event.id} with subject: ${event.subject}`,
+            });
+            return { events: [] };
+          }
+
           orchestrationParentSubject = state?.parentSubject ?? null;
           initEventId = state?.initEventId ?? event.id;
 
@@ -529,10 +521,11 @@ export class ArvoOrchestrator implements IArvoEventHandler {
           await this.syncEventResource.persistState(
             event,
             {
+              executionStatus: 'normal',
               initEventId,
               subject: event.subject,
-              parentSubject: orchestrationParentSubject,
               status: executionResult.state.status,
+              parentSubject: orchestrationParentSubject,
               value: (executionResult.state as any).value ?? null,
               state: executionResult.state,
               events: {
@@ -557,98 +550,26 @@ export class ArvoOrchestrator implements IArvoEventHandler {
 
           return { events: emittables };
         } catch (error: unknown) {
-          // If this is not an error this is not exected and must be addressed
-          // This is a fundmental unexpected scenario and must be handled as such
-          // What this show is the there is a non-error object being throw in the
-          // implementation or execution of the machine which is a major NodeJS
-          // violation
-          const e: Error = isError(error)
-            ? error
-            : new ExecutionViolation(
-                `Non-Error object thrown during machine execution: ${typeof error}. This indicates a serious implementation flaw.`,
-              );
-          exceptionToSpan(e);
-          span.setStatus({
-            code: SpanStatusCode.ERROR,
-            message: e.message,
-          });
-
-          // For any violation errors bubble them up to the
-          // called of the function so that they can
-          // be handled gracefully
-          if ((e as ViolationError).name.includes('ViolationError')) {
-            logToSpan({
-              level: 'CRITICAL',
-              message: `Orchestrator violation error: ${e.message}`,
-            });
-            throw e;
-          }
-
-          logToSpan({
-            level: 'ERROR',
-            message: `Orchestrator execution failed: ${e.message}`,
-          });
-
-          // In case of none transaction errors like errors from
-          // the machine or the event creation etc, the are workflow
-          // error and shuold be handled by the workflow. Then are
-          // called system error and must be sent
-          // to the initiator. In as good of a format as possible
-          let parsedEventSubject: ArvoOrchestrationSubjectContent | null = null;
-          try {
-            parsedEventSubject = ArvoOrchestrationSubject.parse(event.subject);
-          } catch (e) {
-            logToSpan({
-              level: 'WARNING',
-              message: `Unable to parse event subject: ${(e as Error).message}`,
-            });
-          }
-
-          const result: ArvoEvent[] = [];
-          for (const _dom of Array.from(
-            new Set(
-              this.systemErrorDomain
-                ? this.systemErrorDomain.map((item) =>
-                    resolveEventDomain({
-                      domainToResolve: item,
-                      triggeringEvent: event,
-                      handlerSelfContract: this.registry.machines[0].contracts.self,
-                      eventContract: this.registry.machines[0].contracts.self,
-                    }),
-                  )
-                : [event.domain, this.domain, null],
-            ),
-          )) {
-            result.push(
-              createArvoOrchestratorEventFactory(this.registry.machines[0].contracts.self).systemError({
-                source: this.source,
-                // If the initiator of the workflow exist then match the
-                // subject so that it can incorporate it in its state. If
-                // parent does not exist then this is the root workflow so
-                // use its own subject
-                subject: orchestrationParentSubject ?? event.subject,
-                // The system error must always go back to
-                // the source which initiated it
-                to: parsedEventSubject?.execution.initiator ?? event.source,
-                error: e,
-                traceparent: otelHeaders.traceparent ?? undefined,
-                tracestate: otelHeaders.tracestate ?? undefined,
-                accesscontrol: event.accesscontrol ?? undefined,
-                executionunits: this.executionunits,
-                // If there is initEventID then use that.
-                // Otherwise, use event id. If the error is in init event
-                // then it will be the same as initEventId. Otherwise,
-                // we still would know what cause this error
-                parentid: initEventId ?? event.id,
-                domain: _dom,
-              }),
-            );
-            for (const [key, value] of Object.entries(result[result.length - 1].otelAttributes)) {
-              span.setAttribute(`to_emit.${result.length - 1}.${key}`, value);
-            }
-          }
+          const { errorToThrow, events: errorEvents } = await handleOrchestrationErrors(
+            'ArvoOrchestrator',
+            {
+              error,
+              event,
+              otelHeaders,
+              orchestrationParentSubject,
+              initEventId,
+              selfContract: this.registry.machines[0].contracts.self,
+              systemErrorDomain: this.systemErrorDomain,
+              executionunits: this.executionunits,
+              source: this.source,
+              domain: this.domain,
+              syncEventResource: this.syncEventResource,
+            },
+            span,
+          );
+          if (errorToThrow) throw errorToThrow;
           return {
-            events: result,
+            events: errorEvents,
           };
         } finally {
           await this.syncEventResource.releaseLock(event, acquiredLock, span);

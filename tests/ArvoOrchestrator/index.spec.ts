@@ -6,9 +6,10 @@ import {
   createArvoEventFactory,
   createArvoOrchestratorContract,
   createArvoOrchestratorEventFactory,
+  createSimpleArvoContract,
 } from 'arvo-core';
 import { z } from 'zod';
-import { ExecutionViolation } from '../../src';
+import { ExecutionViolation, xstate } from '../../src';
 import {
   type ArvoOrchestrator,
   type MachineMemoryRecord,
@@ -609,6 +610,17 @@ describe('ArvoOrchestrator', () => {
   });
 
   it('should throw error event on non violations. Such as when machine internally throws error', async () => {
+    const someServiceEvent = createSimpleArvoContract({
+      uri: '#/test/dumb/service',
+      type: 'dumb.service',
+      versions: {
+        '1.0.0': {
+          accepts: z.object({}),
+          emits: z.object({}),
+        },
+      },
+    });
+
     const dumbOrchestratorContract = createArvoOrchestratorContract({
       uri: '#/test/dumb',
       name: 'dumb',
@@ -626,7 +638,9 @@ describe('ArvoOrchestrator', () => {
     const dumbMachine = setupArvoMachine({
       contracts: {
         self: dumbOrchestratorContract.version('1.0.0'),
-        services: {},
+        services: {
+          someServiceEvent: someServiceEvent.version('1.0.0'),
+        },
       },
       types: {
         context: {} as {
@@ -642,7 +656,7 @@ describe('ArvoOrchestrator', () => {
         },
       },
     }).createMachine({
-      /** @xstate-layout N4IgpgJg5mDOIC5QFsCGBjAFgSwHZgDUBGABhIDoAnAewFcAXMSgYgG0SBdRUAB2tmz1s1XNxAAPREQCsFAMxEATABYA7AE5NADnXSAbFoA0IAJ6JFqueRWble2Xb1FVAXxfG0WPIVIUaDJjYiLiQQPgEhETFJBBl5JTVNdR19I1MpEj1yVWVtOTkc1RVlRTcPDBx8YjIqOkYWVkUQ3n5BYVFQmLjyBRUNbV0DYzNYnXIk9T1cuUn1BTKQT0qfGtxqSjQAGwB9JhoGzjFwtqjOxH0icaSnTJn1RXVh8yLyXNtVTKnVIjsFpe9qhQAG7CTaoSK4XaUfZsQ6hY4Q6LnJxXTQ3PR3B5PWIkaSo5IzOT2OTKGRudwgNYQOBif5VXxHVqIs4IAC0emxrLxEx5PLkfwqAN8tQClEZEXaSIQJWxRB+5D0Ni0ckUin0ihmpQpdJWFDWG1QOz263FJw6oBiCnU1iIWiKMjkuJm0mU2L6+Kc9i0qS0WgFXnpNRB1DBEKh+1NzItiAUqnIMkVihIRDmJDtHPSCC0lze2mkii0GJk0n9y0B5AgIjAkclLNj8fVSZTjvTssLHvuMhK6mUpaFNWNYvhTNr0YQ9jjJDm32Uyi0ikVk1lcteRD0xNxqnsmRL5KAA */
+      /** @xstate-layout N4IgpgJg5mDOIC5QFsCGBjAFgSwHZgDUBGABhIDoAnAewFcAXMSgYgG0SBdRUAB2tmz1s1XNxAAPREQCsFAMxEATABYA7AE5NADnXSAbFoA0IAJ6JFqueRWble2Xb1FVAXxfG0WPIVIUaDJjYiLiQQPgEhETFJBC0tcktlOWllbV0DYzMEAFplInI5VSJikkLpC2lpLTcPDBx8YjIqOkYWVkUQ3n5BYVFQmKJNcnUiZRJlGx19I1MpVWkCxRJFLWcZCfVlGpBPep8m3GpKNAAbAH0mGjbOMXCeqP7EfXzNTScSPTlNRXVM81VFORUrZVB89GpRnptrtvI0KAA3YQnVCRXAXShXNg3UJ3VHRJ5OYavd6fb6-WYIUgLV7qLRfOT2OR5aTQuqw3zkS5HZgAKnYnTC3Txj1ianIRDplS0ijkij0Pz0f0pTPI0nUnzGlVU9g+LO2hwgcDEMIavluQt6+Jyiop2SIBmssjIoyKDK0yj1tS8pqa-la5oilpFEyVxWU5HlqTpikU+hl6kUrO9+woh2OqHOXMoAfufVAMQU6msEoBMjkJGkXxSSpUqiJb3tVWmcSTezh5ER1GRqPRVxzwvziDkqyBhTUJEG5a02qV2S0FHmZAnELdHtb7KaEBEYH7QcHCFlenFstU0r06inM4pI5s6oT6x+X3XPooWd3D339jrJAvRWUyjPBVQ2KIF7UZCttVkew3DcIA */
       id: machineId,
       initial: 'router',
       context: ({ input }) => ({
@@ -673,14 +687,22 @@ describe('ArvoOrchestrator', () => {
         violation_error: {
           entry: { type: 'throwViolationError' },
           always: {
-            target: 'error',
+            target: 'done',
           },
         },
         done: {
           type: 'final',
         },
         error: {
-          type: 'final',
+          on: {
+            "*": {
+              actions: xstate.emit({
+                type: 'com.dumb.service',
+                data: {}
+              }),
+              target: 'error'
+            }
+          }
         },
       },
     });
@@ -705,6 +727,16 @@ describe('ArvoOrchestrator', () => {
     expect(results.events[0].data.errorMessage).toBe('Normal error');
     expect(results.events[0].to).toBe('com.test.test');
 
+    const reresults = await dumbOrchestrator.execute(createArvoEventFactory(someServiceEvent.version('1.0.0')).emits({
+      subject: results.events[0].subject,
+      source: 'test.test.test',
+      type: 'evt.dumb.service.success',
+      data: {}
+    }))
+
+    expect(reresults.events.length).toBe(0);
+
+
     event = createArvoEventFactory(dumbOrchestratorContract.version('1.0.0')).accepts({
       source: 'com.test.test',
       data: {
@@ -713,7 +745,8 @@ describe('ArvoOrchestrator', () => {
       },
     });
 
-    expect(() => dumbOrchestrator.execute(event)).rejects.toThrow('ViolationError<Execution> Violation error');
+    await expect(() => dumbOrchestrator.execute(event)).rejects.toThrow('ViolationError<Execution> Violation error');
+    expect((await machineMemory.read(event.subject))?.executionStatus).toBe('failure')
   });
 
   describe('parentid support', () => {

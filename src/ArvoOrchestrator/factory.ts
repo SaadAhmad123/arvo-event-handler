@@ -1,6 +1,8 @@
+import type { ArvoSemanticVersion } from 'arvo-core';
 import { ArvoOrchestrator } from '.';
 import { MachineExecutionEngine } from '../MachineExecutionEngine';
 import { MachineRegistry } from '../MachineRegistry';
+import { ConfigViolation } from '../errors';
 import type { ICreateArvoOrchestrator } from './types';
 
 /**
@@ -41,6 +43,22 @@ export const createArvoOrchestrator = ({
 
   const registry = new MachineRegistry(...machines);
   const requiresResourceLocking = machines.some((machine) => machine.requiresResourceLocking);
+
+  const representativeMachine = registry.machines[0];
+  const lastSeenVersions: ArvoSemanticVersion[] = [];
+  for (const machine of registry.machines) {
+    if (representativeMachine.source !== machine.source) {
+      throw new ConfigViolation(
+        `All the machines in the orchestrator must have type '${representativeMachine.source}'`,
+      );
+    }
+    if (lastSeenVersions.includes(machine.version)) {
+      throw new ConfigViolation(
+        `An orchestrator must have unique machine versions. Machine ID:${machine.id} has duplicate version ${machine.version}.`,
+      );
+    }
+    lastSeenVersions.push(machine.version);
+  }
 
   return new ArvoOrchestrator({
     executionunits,
