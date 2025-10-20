@@ -23,16 +23,16 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">93.87% </span>
+                <span class="strong">94% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>46/49</span>
+                <span class='fraction'>47/50</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">62.16% </span>
+                <span class="strong">59.45% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>23/37</span>
+                <span class='fraction'>22/37</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">92.85% </span>
+                <span class="strong">93.02% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>39/42</span>
+                <span class='fraction'>40/43</span>
             </div>
         
             
@@ -261,7 +261,13 @@
 <a name='L196'></a><a href='#L196'>196</a>
 <a name='L197'></a><a href='#L197'>197</a>
 <a name='L198'></a><a href='#L198'>198</a>
-<a name='L199'></a><a href='#L199'>199</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">8x</span>
+<a name='L199'></a><a href='#L199'>199</a>
+<a name='L200'></a><a href='#L200'>200</a>
+<a name='L201'></a><a href='#L201'>201</a>
+<a name='L202'></a><a href='#L202'>202</a>
+<a name='L203'></a><a href='#L203'>203</a>
+<a name='L204'></a><a href='#L204'>204</a>
+<a name='L205'></a><a href='#L205'>205</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -278,10 +284,10 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -382,6 +388,12 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">13x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -475,11 +487,11 @@ import {
   logToSpan,
 } from 'arvo-core';
 import { resolveEventDomain } from '../ArvoDomain';
-import type { MachineMemoryRecord } from '../ArvoOrchestrator/types';
-import type { ArvoResumableState } from '../ArvoResumable/types';
 import type { SyncEventResource } from '../SyncEventResource';
 import { ExecutionViolation } from '../errors';
 import { isError } from '../utils';
+import type { OrchestrationExecutionMemoryRecord } from './orchestrationExecutionState';
+import type { ArvoOrchestrationHandlerType } from './types';
 /**
  * Parameters for system error event creation
  */
@@ -561,7 +573,7 @@ export const createSystemErrorEvents = ({
         // Otherwise, use event id. If the error is in init event
         // then it will be the same as initEventId. Otherwise,
         // we still would know what cause this error
-        parentid: initEventId ?? <span class="branch-1 cbranch-no" title="branch not covered" >event.id,</span>
+        parentid: <span class="branch-1 cbranch-no" title="branch not covered" ><span class="branch-0 cbranch-no" title="branch not covered" >initEventId </span>?? e</span>vent.id,
         domain: _dom,
       }),
     );
@@ -570,9 +582,9 @@ export const createSystemErrorEvents = ({
 };
 &nbsp;
 export const handleOrchestrationErrors = async (
-  handlerType: string,
+  _handlerType: ArvoOrchestrationHandlerType,
   param: CreateSystemErrorEventsParams &amp; {
-    syncEventResource: SyncEventResource&lt;MachineMemoryRecord | ArvoResumableState&lt;Record&lt;string, any&gt;&gt;&gt;;
+    syncEventResource: SyncEventResource&lt;OrchestrationExecutionMemoryRecord&lt;Record&lt;string, any&gt;&gt;&gt;;
   },
   span: Span,
 ): Promise&lt;
@@ -585,6 +597,12 @@ export const handleOrchestrationErrors = async (
       events: ArvoEvent[];
     }
 &gt; =&gt; {
+  const handlerType = (
+    {
+      orchestrator: 'ArvoOrchestrator',
+      resumable: 'ArvoResumable',
+    } as Record&lt;typeof _handlerType, string&gt;
+  )[_handlerType];
   // If this is not an error this is not exected and must be addressed
   // This is a fundmental unexpected scenario and must be handled as such
   // What this show is the there is a non-error object being throw in the
@@ -664,7 +682,7 @@ export const handleOrchestrationErrors = async (
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-10-20T10:26:48.592Z
+                at 2025-10-20T11:24:50.856Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

@@ -14,11 +14,11 @@ import {
   logToSpan,
 } from 'arvo-core';
 import { resolveEventDomain } from '../ArvoDomain';
-import type { MachineMemoryRecord } from '../ArvoOrchestrator/types';
-import type { ArvoResumableState } from '../ArvoResumable/types';
 import type { SyncEventResource } from '../SyncEventResource';
 import { ExecutionViolation } from '../errors';
 import { isError } from '../utils';
+import type { OrchestrationExecutionMemoryRecord } from './orchestrationExecutionState';
+import type { ArvoOrchestrationHandlerType } from './types';
 /**
  * Parameters for system error event creation
  */
@@ -109,9 +109,9 @@ export const createSystemErrorEvents = ({
 };
 
 export const handleOrchestrationErrors = async (
-  handlerType: string,
+  _handlerType: ArvoOrchestrationHandlerType,
   param: CreateSystemErrorEventsParams & {
-    syncEventResource: SyncEventResource<MachineMemoryRecord | ArvoResumableState<Record<string, any>>>;
+    syncEventResource: SyncEventResource<OrchestrationExecutionMemoryRecord<Record<string, any>>>;
   },
   span: Span,
 ): Promise<
@@ -124,6 +124,12 @@ export const handleOrchestrationErrors = async (
       events: ArvoEvent[];
     }
 > => {
+  const handlerType = (
+    {
+      orchestrator: 'ArvoOrchestrator',
+      resumable: 'ArvoResumable',
+    } as Record<typeof _handlerType, string>
+  )[_handlerType];
   // If this is not an error this is not exected and must be addressed
   // This is a fundmental unexpected scenario and must be handled as such
   // What this show is the there is a non-error object being throw in the

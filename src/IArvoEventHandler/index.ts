@@ -28,7 +28,6 @@ export default interface IArvoEventHandler {
     opentelemetry: ArvoEventHandlerOpenTelemetryOptions,
   ): Promise<{
     events: ArvoEvent[];
-    metadata?: Record<string, any>;
   }>;
 
   /**
