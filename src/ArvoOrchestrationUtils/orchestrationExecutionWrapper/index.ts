@@ -217,7 +217,7 @@ export const executeWithOrchestrationWrapper = async <
         return returnEventsWithLogging({ events: emittables }, span);
       } catch (error: unknown) {
         const { errorToThrow, events: errorEvents } = await handleOrchestrationErrors(
-          'resumable',
+          _handlerType,
           {
             error,
             event,
