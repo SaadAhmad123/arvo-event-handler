@@ -84,7 +84,7 @@ export {
   ArvoDomain,
   resolveEventDomain,
   isTransactionViolationError,
-  OrchestrationExecutionStatus
+  OrchestrationExecutionStatus,
 };
 
 
