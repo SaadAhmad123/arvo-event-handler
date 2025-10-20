@@ -1,6 +1,5 @@
 import { SpanKind, context } from '@opentelemetry/api';
 import {
-  type ArvoContract,
   type ArvoContractRecord,
   ArvoErrorSchema,
   type ArvoEvent,
@@ -11,20 +10,14 @@ import {
   type ArvoOrchestratorContract,
   type ArvoSemanticVersion,
   type CreateArvoEvent,
-  EventDataschemaUtil,
   OpenInference,
   OpenInferenceSpanKind,
-  type OpenTelemetryHeaders,
   type VersionedArvoContract,
-  createArvoEvent,
   currentOpenTelemetryHeaders,
   logToSpan,
 } from 'arvo-core';
 import type { ActorLogic } from 'xstate';
-import type { z } from 'zod';
-import { resolveEventDomain } from '../ArvoDomain';
-import type ArvoMachine from '../ArvoMachine';
-import type { EnqueueArvoEventActionParam } from '../ArvoMachine/types';
+import { processRawEventsIntoEmittables } from '../ArvoOrchestrationUtils/createEmitableEvent';
 import { TransactionViolation, TransactionViolationCause } from '../ArvoOrchestrationUtils/error';
 import { handleOrchestrationErrors } from '../ArvoOrchestrationUtils/handlerErrors';
 import type IArvoEventHandler from '../IArvoEventHandler';
@@ -33,7 +26,7 @@ import type { IMachineMemory } from '../MachineMemory/interface';
 import type { IMachineRegistry } from '../MachineRegistry/interface';
 import { SyncEventResource } from '../SyncEventResource';
 import type { AcquiredLockStatusType } from '../SyncEventResource/types';
-import { ConfigViolation, ContractViolation, ExecutionViolation } from '../errors';
+import { ConfigViolation, ContractViolation } from '../errors';
 import type { ArvoEventHandlerOpenTelemetryOptions } from '../types';
 import type { ArvoOrchestratorParam, MachineMemoryRecord } from './types';
 
@@ -82,175 +75,6 @@ export class ArvoOrchestrator implements IArvoEventHandler {
     this.executionEngine = executionEngine;
     this.syncEventResource = new SyncEventResource(memory, requiresResourceLocking);
     this.systemErrorDomain = systemErrorDomain;
-  }
-
-  /**
-   * Creates emittable event from execution result
-   * @param event - Source event to emit
-   * @param machine - Machine that generated event
-   * @param otelHeaders - OpenTelemetry headers
-   * @param orchestrationParentSubject - Parent orchestration subject
-   * @param sourceEvent - Original triggering event
-   * @param initEventId - The id of the event which initiated the orchestration in the first place
-   * @param _domain - The domain of the event.
-   *
-   * @throws {ContractViolation} On schema/contract mismatch
-   * @throws {ExecutionViolation} On invalid parentSubject$$ format
-   */
-  protected createEmittableEvent(
-    event: EnqueueArvoEventActionParam,
-    machine: ArvoMachine<any, any, any, any, any>,
-    otelHeaders: OpenTelemetryHeaders,
-    orchestrationParentSubject: string | null,
-    sourceEvent: ArvoEvent,
-    initEventId: string,
-    _domain: string | null,
-  ): ArvoEvent {
-    logToSpan({
-      level: 'INFO',
-      message: `Creating emittable event: ${event.type}`,
-    });
-
-    const selfContract: VersionedArvoContract<ArvoOrchestratorContract, ArvoSemanticVersion> = machine.contracts.self;
-    const serviceContract: Record<
-      string,
-      VersionedArvoContract<ArvoContract, ArvoSemanticVersion>
-    > = Object.fromEntries(
-      (Object.values(machine.contracts.services) as VersionedArvoContract<ArvoContract, ArvoSemanticVersion>[]).map(
-        (item) => [item.accepts.type, item],
-      ),
-    );
-    let schema: z.ZodTypeAny | null = null;
-    let contract: VersionedArvoContract<any, any> | null = null;
-    let subject: string = sourceEvent.subject;
-    let parentId: string = sourceEvent.id;
-    let domain = resolveEventDomain({
-      domainToResolve: _domain,
-      handlerSelfContract: selfContract,
-      eventContract: null,
-      triggeringEvent: sourceEvent,
-    });
-    if (event.type === selfContract.metadata.completeEventType) {
-      logToSpan({
-        level: 'INFO',
-        message: `Creating event for machine workflow completion: ${event.type}`,
-      });
-      contract = selfContract;
-      schema = selfContract.emits[selfContract.metadata.completeEventType];
-      subject = orchestrationParentSubject ?? sourceEvent.subject;
-      parentId = initEventId;
-      domain = resolveEventDomain({
-        domainToResolve: _domain,
-        handlerSelfContract: selfContract,
-        eventContract: selfContract,
-        triggeringEvent: sourceEvent,
-      });
-    } else if (serviceContract[event.type]) {
-      logToSpan({
-        level: 'INFO',
-        message: `Creating service event for external system: ${event.type}`,
-      });
-      contract = serviceContract[event.type];
-      schema = serviceContract[event.type].accepts.schema;
-      domain = resolveEventDomain({
-        domainToResolve: _domain,
-        handlerSelfContract: selfContract,
-        eventContract: contract,
-        triggeringEvent: sourceEvent,
-      });
-
-      // If the event is to call another orchestrator then, extract the parent subject
-      // passed to it and then form an new subject. This allows for event chaining
-      // between orchestrators
-      if ((contract as any).metadata.contractType === 'ArvoOrchestratorContract') {
-        if (event.data.parentSubject$$) {
-          try {
-            ArvoOrchestrationSubject.parse(event.data.parentSubject$$);
-          } catch {
-            throw new ExecutionViolation(
-              `Invalid parentSubject$$ for the event(type='${event.type}', uri='${event.dataschema ?? EventDataschemaUtil.create(contract)}').It must be follow the ArvoOrchestrationSubject schema. The easiest way is to use the current orchestration subject by storing the subject via the context block in the machine definition.`,
-            );
-          }
-        }
-
-        try {
-          if (event.data.parentSubject$$) {
-            subject = ArvoOrchestrationSubject.from({
-              orchestator: contract.accepts.type,
-              version: contract.version,
-              subject: event.data.parentSubject$$,
-              domain: domain ?? null,
-              meta: {
-                redirectto: event.redirectto ?? this.source,
-              },
-            });
-          } else {
-            subject = ArvoOrchestrationSubject.new({
-              version: contract.version,
-              orchestator: contract.accepts.type,
-              initiator: this.source,
-              domain: domain ?? undefined,
-              meta: {
-                redirectto: event.redirectto ?? this.source,
-              },
-            });
-          }
-        } catch (error) {
-          // This is a execution violation because it indicates faulty parent subject
-          // or some fundamental error with subject creation which must be not be propagated
-          // any further and investigated manually.
-          throw new ExecutionViolation(
-            `Orchestration subject creation failed due to invalid parameters - Event: ${event.type} - Check event emit parameters in the machine definition. ${(error as Error)?.message}`,
-          );
-        }
-      }
-    }
-
-    let finalDataschema: string | undefined = event.dataschema;
-    let finalData: any = event.data;
-    // finally if the contract and the schema are available
-    // then use them to validate the event. Otherwise just use
-    // the data from the incoming event which is raw and created
-    // by the machine
-    if (contract && schema) {
-      try {
-        finalData = schema.parse(event.data);
-        finalDataschema = EventDataschemaUtil.create(contract);
-      } catch (error) {
-        throw new ContractViolation(
-          `Invalid event data: Schema validation failed - Check emit parameters in machine definition.\nEvent type: ${event.type}\nDetails: ${(error as Error).message}`,
-        );
-      }
-    }
-
-    // Create the event
-    const emittableEvent = createArvoEvent(
-      {
-        id: event.id,
-        source: this.source,
-        type: event.type,
-        subject: subject,
-        dataschema: finalDataschema ?? undefined,
-        data: finalData,
-        to: event.to ?? event.type,
-        accesscontrol: event.accesscontrol ?? sourceEvent.accesscontrol ?? undefined,
-        // The orchestrator does not respect redirectto from the source event
-        redirectto: event.redirectto ?? this.source,
-        executionunits: event.executionunits ?? this.executionunits,
-        traceparent: otelHeaders.traceparent ?? undefined,
-        tracestate: otelHeaders.tracestate ?? undefined,
-        parentid: parentId,
-        domain: domain ?? undefined,
-      },
-      event.__extensions ?? {},
-    );
-
-    logToSpan({
-      level: 'INFO',
-      message: `Event created successfully: ${emittableEvent.type}`,
-    });
-
-    return emittableEvent;
   }
 
   /**
@@ -403,7 +227,7 @@ export class ArvoOrchestrator implements IArvoEventHandler {
             });
           }
 
-          // Acquiring state
+          // Acquiring state  `
           const state = await this.syncEventResource.acquireState(event, span);
 
           if (state?.executionStatus === 'failure') {
@@ -469,10 +293,10 @@ export class ArvoOrchestrator implements IArvoEventHandler {
           // is not even raw enough to be called an event yet
           if (executionResult.finalOutput) {
             rawMachineEmittedEvents.push({
-              type: (machine.contracts.self as VersionedArvoContract<ArvoOrchestratorContract, ArvoSemanticVersion>)
-                .metadata.completeEventType,
               id: executionResult.finalOutput.__id as CreateArvoEvent<Record<string, unknown>, string>['id'],
               data: executionResult.finalOutput,
+              type: (machine.contracts.self as VersionedArvoContract<ArvoOrchestratorContract, ArvoSemanticVersion>)
+                .metadata.completeEventType,
               to: parsedEventSubject.meta?.redirectto ?? parsedEventSubject.execution.initiator,
               domain: orchestrationParentSubject
                 ? [ArvoOrchestrationSubject.parse(orchestrationParentSubject).execution.domain]
@@ -486,31 +310,20 @@ export class ArvoOrchestrator implements IArvoEventHandler {
 
           // Create the final emittable events after performing
           // validations and subject creations etc.
-          const emittables: ArvoEvent[] = [];
-
-          for (const item of rawMachineEmittedEvents) {
-            const createdDomain = new Set<string | null>();
-            for (const _dom of Array.from(new Set(item.domain ?? [null]))) {
-              const evt = this.createEmittableEvent(
-                item,
-                machine,
-                otelHeaders,
-                orchestrationParentSubject,
-                event,
-                initEventId,
-                _dom,
-              );
-              // Making sure the raw event broadcast is actually unique as the
-              // domain resolution (especially for symbolic) can only happen
-              // in the createEmittableEvent
-              if (createdDomain.has(evt.domain)) continue;
-              createdDomain.add(evt.domain);
-              emittables.push(evt);
-              for (const [key, value] of Object.entries(emittables[emittables.length - 1].otelAttributes)) {
-                span.setAttribute(`to_emit.${emittables.length - 1}.${key}`, value);
-              }
-            }
-          }
+          const emittables = processRawEventsIntoEmittables(
+            {
+              rawEvents: rawMachineEmittedEvents,
+              otelHeaders,
+              orchestrationParentSubject,
+              sourceEvent: event,
+              selfContract: machine.contracts.self,
+              serviceContracts: machine.contracts.services,
+              initEventId,
+              executionunits: this.executionunits,
+              source: this.source,
+            },
+            span,
+          );
 
           logToSpan({
             level: 'INFO',

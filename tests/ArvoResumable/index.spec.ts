@@ -144,21 +144,21 @@ describe('ArvoOrchestrator', () => {
     expect((context?.state$$ as any)?.error.length).toBe(0);
 
     expect(events.events.length).toBe(2);
-    expect(events.events[0].type).toBe(decrementOrchestratorContract.metadata.completeEventType);
-    expect(events.events[0].to).toBe('com.test.test');
+    expect(events.events[0].type).toBe(valueWriteContract.type);
+    expect(events.events[0].to).toBe(valueWriteContract.type);
     expect(events.events[0].source).toBe(decrementOrchestratorContract.type);
-    expect(events.events[0].data.success).toBe(true);
-    expect(events.events[0].data.error.length).toBe(0);
-    expect(events.events[0].data.final).toBe(0);
-    expect(events.events[0].parentid).toBe(initEvent.id);
-    expect(events.events[0].parentid).toBe('custom-id');
+    expect(events.events[0].data.key).toBe(initEvent.data.key);
+    expect(events.events[0].data.value).toBe(0);
+    expect(events.events[0].parentid).toBe(eventToUse.id);
 
-    expect(events.events[1].type).toBe(valueWriteContract.type);
-    expect(events.events[1].to).toBe(valueWriteContract.type);
+    expect(events.events[1].type).toBe(decrementOrchestratorContract.metadata.completeEventType);
+    expect(events.events[1].to).toBe('com.test.test');
     expect(events.events[1].source).toBe(decrementOrchestratorContract.type);
-    expect(events.events[1].data.key).toBe(initEvent.data.key);
-    expect(events.events[1].data.value).toBe(0);
-    expect(events.events[1].parentid).toBe(eventToUse.id);
+    expect(events.events[1].data.success).toBe(true);
+    expect(events.events[1].data.error.length).toBe(0);
+    expect(events.events[1].data.final).toBe(0);
+    expect(events.events[1].parentid).toBe(initEvent.id);
+    expect(events.events[1].parentid).toBe('custom-id');
   });
 
   it('should orchestrate valid init events for dynamic branch resumable', async () => {

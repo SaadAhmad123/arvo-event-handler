@@ -512,7 +512,7 @@ describe('ArvoOrchestrator', () => {
     // biome-ignore  lint/style/noNonNullAssertion: non issue
     expect((brokerError! as ExecutionViolation).message).toBe(
       'ViolationError<Execution> Invalid parentSubject$$ for the ' +
-        "event(type='arvo.orc.dec', uri='#/test/orchestrator/decrement/0.0.2').It must be follow " +
+        "event(type='arvo.orc.dec', uri='#/test/orchestrator/decrement/0.0.2'). It must be follow " +
         'the ArvoOrchestrationSubject schema. The easiest way is to use the current orchestration ' +
         'subject by storing the subject via the context block in the machine definition.',
     );
@@ -695,14 +695,14 @@ describe('ArvoOrchestrator', () => {
         },
         error: {
           on: {
-            "*": {
+            '*': {
               actions: xstate.emit({
                 type: 'com.dumb.service',
-                data: {}
+                data: {},
               }),
-              target: 'error'
-            }
-          }
+              target: 'error',
+            },
+          },
         },
       },
     });
@@ -727,15 +727,16 @@ describe('ArvoOrchestrator', () => {
     expect(results.events[0].data.errorMessage).toBe('Normal error');
     expect(results.events[0].to).toBe('com.test.test');
 
-    const reresults = await dumbOrchestrator.execute(createArvoEventFactory(someServiceEvent.version('1.0.0')).emits({
-      subject: results.events[0].subject,
-      source: 'test.test.test',
-      type: 'evt.dumb.service.success',
-      data: {}
-    }))
+    const reresults = await dumbOrchestrator.execute(
+      createArvoEventFactory(someServiceEvent.version('1.0.0')).emits({
+        subject: results.events[0].subject,
+        source: 'test.test.test',
+        type: 'evt.dumb.service.success',
+        data: {},
+      }),
+    );
 
     expect(reresults.events.length).toBe(0);
-
 
     event = createArvoEventFactory(dumbOrchestratorContract.version('1.0.0')).accepts({
       source: 'com.test.test',
@@ -746,7 +747,7 @@ describe('ArvoOrchestrator', () => {
     });
 
     await expect(() => dumbOrchestrator.execute(event)).rejects.toThrow('ViolationError<Execution> Violation error');
-    expect((await machineMemory.read(event.subject))?.executionStatus).toBe('failure')
+    expect((await machineMemory.read(event.subject))?.executionStatus).toBe(undefined);
   });
 
   describe('parentid support', () => {

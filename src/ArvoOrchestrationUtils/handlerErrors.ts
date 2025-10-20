@@ -8,7 +8,6 @@ import {
   type OpenTelemetryHeaders,
   type VersionedArvoContract,
   type ViolationError,
-  createArvoError,
   createArvoOrchestratorEventFactory,
   exceptionToSpan,
   isViolationError,
@@ -20,7 +19,6 @@ import type { ArvoResumableState } from '../ArvoResumable/types';
 import type { SyncEventResource } from '../SyncEventResource';
 import { ExecutionViolation } from '../errors';
 import { isError } from '../utils';
-import { isTransactionViolationError } from './error';
 /**
  * Parameters for system error event creation
  */
@@ -143,29 +141,14 @@ export const handleOrchestrationErrors = async (
     message: error.message,
   });
 
-  // A transaction violation means that there is something
-  // wrong in the state persitance which inevitably means
-  // state cannot be persisted
-  if (!isTransactionViolationError(error)) {
-    await param.syncEventResource
-      .persistState(
-        param.event,
-        {
-          executionStatus: 'failure',
-          subject: param.event.subject,
-          error: createArvoError(param.error as Error),
-        } as MachineMemoryRecord | ArvoResumableState<Record<string, any>>,
-        null,
-        span,
-      )
-      .catch((e) => {
-        logToSpan({
-          level: 'CRITICAL',
-          message: `Error in orchestrator persisting the failure state: ${e.message}`,
-        });
-      });
-  }
-
+  // Don't persist state on a violation
+  //
+  // A violation means that there is something
+  // wrong in the state persitance or it is a
+  // error which will be handled outside the
+  // Arvo mechanism. So, it makes sense that it
+  // does not impact the state. The violations
+  // can be used to trigger retries as well
   if (isViolationError(error)) {
     logToSpan({
       level: 'CRITICAL',
@@ -176,6 +159,24 @@ export const handleOrchestrationErrors = async (
       events: null,
     };
   }
+
+  await param.syncEventResource
+    .persistState(
+      param.event,
+      {
+        executionStatus: 'failure',
+        subject: param.event.subject,
+        error: param.error as Error,
+      },
+      null,
+      span,
+    )
+    .catch((e) => {
+      logToSpan({
+        level: 'CRITICAL',
+        message: `Error in orchestrator persisting the failure state: ${e.message}`,
+      });
+    });
 
   logToSpan({
     level: 'ERROR',
