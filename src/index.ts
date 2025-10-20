@@ -10,7 +10,7 @@ import {
 import ArvoMachine from './ArvoMachine';
 import { setupArvoMachine } from './ArvoMachine/createMachine';
 import { ArvoMachineContext, EnqueueArvoEventActionParam } from './ArvoMachine/types';
-import { TransactionViolation, TransactionViolationCause } from './ArvoOrchestrationUtils/error';
+import { isTransactionViolationError, TransactionViolation, TransactionViolationCause } from './ArvoOrchestrationUtils/error';
 import { ArvoOrchestrator } from './ArvoOrchestrator';
 import { createArvoOrchestrator } from './ArvoOrchestrator/factory';
 import { ArvoOrchestratorParam, MachineMemoryRecord } from './ArvoOrchestrator/types';
@@ -31,6 +31,7 @@ import { ArvoEventHandlerOpenTelemetryOptions, EventHandlerFactory, PartialExcep
 import { coalesce, coalesceOrDefault, getValueOrDefault, isNullOrUndefined } from './utils';
 import { SimpleEventBroker } from './utils/SimpleEventBroker';
 import { createSimpleEventBroker } from './utils/SimpleEventBroker/helper';
+import { OrchestrationExecutionStatus } from './ArvoOrchestrationUtils/orchestrationExecutionState';
 
 const xstate = {
   emit,
@@ -48,8 +49,7 @@ export {
   isNullOrUndefined,
   getValueOrDefault,
   coalesce,
-  coalesceOrDefault,
-  IArvoEventHandler as AbstractArvoEventHandler,
+  coalesceOrDefault,  
   ArvoEventHandlerOpenTelemetryOptions,
   EventHandlerFactory,
   ContractViolation,
@@ -68,7 +68,7 @@ export {
   IMachineMemory,
   SimpleMachineMemory,
   MachineMemoryRecord,
-  ArvoOrchestratorParam as IArvoOrchestrator,
+  ArvoOrchestratorParam,
   TransactionViolation,
   TransactionViolationCause,
   ArvoOrchestrator,
@@ -83,4 +83,10 @@ export {
   ArvoResumableState,
   ArvoDomain,
   resolveEventDomain,
+  isTransactionViolationError,
+  OrchestrationExecutionStatus
 };
+
+
+
+

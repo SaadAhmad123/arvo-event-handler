@@ -25,7 +25,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>46/46</span>
+                <span class='fraction'>49/49</span>
             </div>
         
             
@@ -37,16 +37,16 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">47.82% </span>
+                <span class="strong">44% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>11/23</span>
+                <span class='fraction'>11/25</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>46/46</span>
+                <span class='fraction'>49/49</span>
             </div>
         
             
@@ -149,7 +149,13 @@
 <a name='L84'></a><a href='#L84'>84</a>
 <a name='L85'></a><a href='#L85'>85</a>
 <a name='L86'></a><a href='#L86'>86</a>
-<a name='L87'></a><a href='#L87'>87</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">8x</span>
+<a name='L87'></a><a href='#L87'>87</a>
+<a name='L88'></a><a href='#L88'>88</a>
+<a name='L89'></a><a href='#L89'>89</a>
+<a name='L90'></a><a href='#L90'>90</a>
+<a name='L91'></a><a href='#L91'>91</a>
+<a name='L92'></a><a href='#L92'>92</a>
+<a name='L93'></a><a href='#L93'>93</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-yes">8x</span>
@@ -179,6 +185,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-yes">8x</span>
@@ -200,7 +207,6 @@
 <span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-yes">8x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">8x</span>
@@ -234,6 +240,12 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">14x</span>
 <span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { assign, emit } from 'xstate';
 import { ArvoDomain, resolveEventDomain } from './ArvoDomain';
@@ -247,7 +259,7 @@ import {
 import ArvoMachine from './ArvoMachine';
 import { setupArvoMachine } from './ArvoMachine/createMachine';
 import { ArvoMachineContext, EnqueueArvoEventActionParam } from './ArvoMachine/types';
-import { TransactionViolation, TransactionViolationCause } from './ArvoOrchestrationUtils/error';
+import { isTransactionViolationError, TransactionViolation, TransactionViolationCause } from './ArvoOrchestrationUtils/error';
 import { ArvoOrchestrator } from './ArvoOrchestrator';
 import { createArvoOrchestrator } from './ArvoOrchestrator/factory';
 import { ArvoOrchestratorParam, MachineMemoryRecord } from './ArvoOrchestrator/types';
@@ -268,6 +280,7 @@ import { ArvoEventHandlerOpenTelemetryOptions, EventHandlerFactory, PartialExcep
 import { coalesce, coalesceOrDefault, getValueOrDefault, isNullOrUndefined } from './utils';
 import { SimpleEventBroker } from './utils/SimpleEventBroker';
 import { createSimpleEventBroker } from './utils/SimpleEventBroker/helper';
+import { OrchestrationExecutionStatus } from './ArvoOrchestrationUtils/orchestrationExecutionState';
 &nbsp;
 const xstate = {
   emit,
@@ -285,8 +298,7 @@ export {
 <span class="fstat-no" title="function not covered" >  isNullOrUndefined,</span>
 <span class="fstat-no" title="function not covered" >  getValueOrDefault,</span>
 <span class="fstat-no" title="function not covered" >  coalesce,</span>
-<span class="fstat-no" title="function not covered" >  coalesceOrDefault,</span>
-  IArvoEventHandler as AbstractArvoEventHandler,
+<span class="fstat-no" title="function not covered" >  coalesceOrDefault,  </span>
   ArvoEventHandlerOpenTelemetryOptions,
   EventHandlerFactory,
 <span class="fstat-no" title="function not covered" >  ContractViolation,</span>
@@ -305,7 +317,7 @@ export {
   IMachineMemory,
   SimpleMachineMemory,
   MachineMemoryRecord,
-  ArvoOrchestratorParam as IArvoOrchestrator,
+  ArvoOrchestratorParam,
 <span class="fstat-no" title="function not covered" >  TransactionViolation,</span>
 <span class="fstat-no" title="function not covered" >  TransactionViolationCause,</span>
 <span class="fstat-no" title="function not covered" >  ArvoOrchestrator,</span>
@@ -320,7 +332,13 @@ export {
   ArvoResumableState,
   ArvoDomain,
 <span class="fstat-no" title="function not covered" >  resolveEventDomain,</span>
+<span class="fstat-no" title="function not covered" >  isTransactionViolationError,</span>
+<span class="fstat-no" title="function not covered" >  OrchestrationExecutionStatus</span>
 };
+&nbsp;
+&nbsp;
+&nbsp;
+&nbsp;
 &nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
@@ -328,7 +346,7 @@ export {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-10-20T11:24:50.856Z
+                at 2025-10-20T11:45:21.277Z
             </div>
         <script src="../prettify.js"></script>
         <script>
