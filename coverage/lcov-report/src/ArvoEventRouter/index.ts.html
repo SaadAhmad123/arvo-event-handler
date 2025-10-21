@@ -701,7 +701,7 @@ export class ArvoEventRouter extends AbstractArvoEventHandler {
         try {
           span.setStatus({ code: SpanStatusCode.OK });
           for (const [key, value] of Object.entries(event.otelAttributes)) {
-            span.setAttribute(`to_process.0.${key}`, value);
+            span.setAttribute(`consumable.0.${key}`, value);
           }
 &nbsp;
           logToSpan({
@@ -761,7 +761,7 @@ export class ArvoEventRouter extends AbstractArvoEventHandler {
 &nbsp;
           for (let index = 0; index &lt; resultingEvents.length; index++) {
             for (const [key, value] of Object.entries(resultingEvents[index].otelAttributes)) {
-              span.setAttribute(`to_emit.${index}.${key}`, value);
+              span.setAttribute(`emittables.${index}.${key}`, value);
             }
           }
 &nbsp;

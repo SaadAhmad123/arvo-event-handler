@@ -1,3 +1,5 @@
+import type { SpanOptions } from '@opentelemetry/api';
+import type { ArvoEvent } from 'arvo-core';
 import type IArvoEventHandler from './IArvoEventHandler';
 
 /**
@@ -33,3 +35,10 @@ export type ArvoEventHandlerOpenTelemetryOptions = {
  * @template T - Configuration object type
  */
 export type EventHandlerFactory<T = void> = T extends void ? () => IArvoEventHandler : (config: T) => IArvoEventHandler;
+
+export type ArvoEventHandlerOtelSpanOptions = SpanOptions & {
+  spanName?: (param: {
+    selfContractUri: string;
+    consumedEvent: ArvoEvent;
+  }) => string;
+};

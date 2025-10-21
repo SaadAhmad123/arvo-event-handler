@@ -8,6 +8,7 @@ import {
   type OpenTelemetryHeaders,
   type VersionedArvoContract,
   type ViolationError,
+  createArvoEventFactory,
   createArvoOrchestratorEventFactory,
   exceptionToSpan,
   isViolationError,
@@ -18,7 +19,7 @@ import type { SyncEventResource } from '../SyncEventResource';
 import { ExecutionViolation } from '../errors';
 import { isError } from '../utils';
 import type { OrchestrationExecutionMemoryRecord } from './orchestrationExecutionState';
-import type { ArvoOrchestrationHandlerType } from './types';
+import { ArvoOrchestrationHandlerMap, type ArvoOrchestrationHandlerType } from './types';
 /**
  * Parameters for system error event creation
  */
@@ -33,6 +34,7 @@ export type CreateSystemErrorEventsParams = {
   executionunits: number;
   source: string;
   domain: string | null;
+  handlerType: ArvoOrchestrationHandlerType;
 };
 
 /**
@@ -49,6 +51,7 @@ export const createSystemErrorEvents = ({
   executionunits,
   source,
   domain,
+  handlerType,
 }: CreateSystemErrorEventsParams & { error: Error }): ArvoEvent[] => {
   // In case of none transaction errors like errors from
   // the machine or the event creation etc, the are workflow
@@ -80,8 +83,9 @@ export const createSystemErrorEvents = ({
   const result: ArvoEvent[] = [];
 
   for (const _dom of Array.from(domainSets)) {
+    const factoryBuilder = handlerType === 'handler' ? createArvoEventFactory : createArvoOrchestratorEventFactory;
     result.push(
-      createArvoOrchestratorEventFactory(selfContract).systemError({
+      factoryBuilder(selfContract).systemError({
         source: source,
         // If the initiator of the workflow exist then match the
         // subject so that it can incorporate it in its state. If
@@ -124,12 +128,7 @@ export const handleOrchestrationErrors = async (
       events: ArvoEvent[];
     }
 > => {
-  const handlerType = (
-    {
-      orchestrator: 'ArvoOrchestrator',
-      resumable: 'ArvoResumable',
-    } as Record<typeof _handlerType, string>
-  )[_handlerType];
+  const handlerType = ArvoOrchestrationHandlerMap[_handlerType];
   // If this is not an error this is not exected and must be addressed
   // This is a fundmental unexpected scenario and must be handled as such
   // What this show is the there is a non-error object being throw in the
@@ -193,7 +192,7 @@ export const handleOrchestrationErrors = async (
 
   for (const [errEvtIdx, errEvt] of Object.entries(errorEvents)) {
     for (const [key, value] of Object.entries(errEvt.otelAttributes)) {
-      span.setAttribute(`to_emit.${errEvtIdx}.${key}`, value);
+      span.setAttribute(`emittables.${errEvtIdx}.${key}`, value);
     }
   }
 

@@ -64,4 +64,7 @@ All event handlers now return an object instead of an array:
 
 - Migrated all `arvo-xstate` features
 - Added `ArvoResumable` handler
-- Added advanced domained handling
+- Added advanced domained handling## [3.0.10] - 2025-10-21
+
+- Better OTEL Logging
+

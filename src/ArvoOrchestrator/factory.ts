@@ -3,7 +3,7 @@ import { ArvoOrchestrator } from '.';
 import { MachineExecutionEngine } from '../MachineExecutionEngine';
 import { MachineRegistry } from '../MachineRegistry';
 import { ConfigViolation } from '../errors';
-import type { ICreateArvoOrchestrator } from './types';
+import type { CreateArvoOrchestratorParam } from './types';
 
 /**
  * Creates a new Arvo orchestrator instance with default components.
@@ -36,7 +36,8 @@ export const createArvoOrchestrator = ({
   memory,
   machines,
   systemErrorDomain,
-}: ICreateArvoOrchestrator): ArvoOrchestrator => {
+  spanOptions,
+}: CreateArvoOrchestratorParam): ArvoOrchestrator => {
   if (!machines?.length) {
     throw new Error('At least one machine must be provided');
   }
@@ -67,5 +68,6 @@ export const createArvoOrchestrator = ({
     executionEngine: new MachineExecutionEngine(),
     requiresResourceLocking,
     systemErrorDomain,
+    spanOptions,
   });
 };

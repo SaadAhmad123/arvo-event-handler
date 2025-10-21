@@ -1,8 +1,13 @@
+import { SpanKind } from '@opentelemetry/api';
 import {
   type ArvoContractRecord,
   ArvoErrorSchema,
   type ArvoEvent,
+  ArvoExecution,
+  ArvoExecutionSpanKind,
   ArvoOrchestrationSubject,
+  OpenInference,
+  OpenInferenceSpanKind,
   logToSpan,
 } from 'arvo-core';
 import type { ActorLogic } from 'xstate';
@@ -14,7 +19,7 @@ import type { IMachineMemory } from '../MachineMemory/interface';
 import type { IMachineRegistry } from '../MachineRegistry/interface';
 import { SyncEventResource } from '../SyncEventResource';
 import { ConfigViolation, ContractViolation } from '../errors';
-import type { ArvoEventHandlerOpenTelemetryOptions } from '../types';
+import type { ArvoEventHandlerOpenTelemetryOptions, ArvoEventHandlerOtelSpanOptions } from '../types';
 import type { ArvoOrchestratorParam, MachineMemoryRecord } from './types';
 
 /**
@@ -27,6 +32,7 @@ export class ArvoOrchestrator implements IArvoEventHandler {
   readonly executionEngine: IMachineExectionEngine;
   readonly syncEventResource: SyncEventResource<MachineMemoryRecord>;
   readonly systemErrorDomain?: (string | null)[] = [];
+  private readonly spanOptions: ArvoEventHandlerOtelSpanOptions;
 
   get source() {
     return this.registry.machines[0].source;
@@ -56,12 +62,25 @@ export class ArvoOrchestrator implements IArvoEventHandler {
     executionEngine,
     requiresResourceLocking,
     systemErrorDomain,
+    spanOptions,
   }: ArvoOrchestratorParam) {
     this.executionunits = executionunits;
     this.registry = registry;
     this.executionEngine = executionEngine;
     this.syncEventResource = new SyncEventResource(memory, requiresResourceLocking);
     this.systemErrorDomain = systemErrorDomain;
+
+    this.spanOptions = {
+      kind: SpanKind.PRODUCER,
+      ...spanOptions,
+      attributes: {
+        [ArvoExecution.ATTR_SPAN_KIND]: ArvoExecutionSpanKind.ORCHESTRATOR,
+        [OpenInference.ATTR_SPAN_KIND]: OpenInferenceSpanKind.CHAIN,
+        ...(spanOptions?.attributes ?? {}),
+        'arvo.handler.source': this.source,
+        'arvo.contract.uri': this?.registry?.machines?.[0]?.contracts?.self?.uri ?? 'N/A',
+      },
+    };
   }
 
   /**
@@ -78,9 +97,7 @@ export class ArvoOrchestrator implements IArvoEventHandler {
    */
   async execute(
     event: ArvoEvent,
-    opentelemetry: ArvoEventHandlerOpenTelemetryOptions = {
-      inheritFrom: 'EVENT',
-    },
+    opentelemetry?: ArvoEventHandlerOpenTelemetryOptions,
   ): Promise<{
     events: ArvoEvent[];
   }> {
@@ -88,8 +105,11 @@ export class ArvoOrchestrator implements IArvoEventHandler {
       {
         _handlerType: 'orchestrator',
         event,
-        opentelemetry,
-        spanName: `Orchestrator<${this.registry.machines[0].contracts.self.uri}>@<${event.type}>`,
+        opentelemetry: opentelemetry ?? { inheritFrom: 'EVENT' },
+        spanOptions: {
+          spanName: ({ selfContractUri, consumedEvent }) => `Orchestrator<${selfContractUri}>@<${consumedEvent.type}>`,
+          ...this.spanOptions,
+        },
         source: this.source,
         syncEventResource: this.syncEventResource,
         executionunits: this.executionunits,

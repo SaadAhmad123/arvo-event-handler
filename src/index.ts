@@ -10,7 +10,12 @@ import {
 import ArvoMachine from './ArvoMachine';
 import { setupArvoMachine } from './ArvoMachine/createMachine';
 import { ArvoMachineContext, EnqueueArvoEventActionParam } from './ArvoMachine/types';
-import { isTransactionViolationError, TransactionViolation, TransactionViolationCause } from './ArvoOrchestrationUtils/error';
+import {
+  TransactionViolation,
+  TransactionViolationCause,
+  isTransactionViolationError,
+} from './ArvoOrchestrationUtils/error';
+import { OrchestrationExecutionStatus } from './ArvoOrchestrationUtils/orchestrationExecutionState';
 import { ArvoOrchestrator } from './ArvoOrchestrator';
 import { createArvoOrchestrator } from './ArvoOrchestrator/factory';
 import { ArvoOrchestratorParam, MachineMemoryRecord } from './ArvoOrchestrator/types';
@@ -27,11 +32,15 @@ import { IMachineMemory } from './MachineMemory/interface';
 import { MachineRegistry } from './MachineRegistry';
 import { IMachineRegistry } from './MachineRegistry/interface';
 import { ConfigViolation, ContractViolation, ExecutionViolation } from './errors';
-import { ArvoEventHandlerOpenTelemetryOptions, EventHandlerFactory, PartialExcept } from './types';
+import {
+  ArvoEventHandlerOpenTelemetryOptions,
+  ArvoEventHandlerOtelSpanOptions,
+  EventHandlerFactory,
+  PartialExcept,
+} from './types';
 import { coalesce, coalesceOrDefault, getValueOrDefault, isNullOrUndefined } from './utils';
 import { SimpleEventBroker } from './utils/SimpleEventBroker';
 import { createSimpleEventBroker } from './utils/SimpleEventBroker/helper';
-import { OrchestrationExecutionStatus } from './ArvoOrchestrationUtils/orchestrationExecutionState';
 
 const xstate = {
   emit,
@@ -49,7 +58,7 @@ export {
   isNullOrUndefined,
   getValueOrDefault,
   coalesce,
-  coalesceOrDefault,  
+  coalesceOrDefault,
   ArvoEventHandlerOpenTelemetryOptions,
   EventHandlerFactory,
   ContractViolation,
@@ -85,8 +94,5 @@ export {
   resolveEventDomain,
   isTransactionViolationError,
   OrchestrationExecutionStatus,
+  ArvoEventHandlerOtelSpanOptions,
 };
-
-
-
-

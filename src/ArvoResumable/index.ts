@@ -1,10 +1,14 @@
-import type { Span } from '@opentelemetry/api';
+import { type Span, SpanKind } from '@opentelemetry/api';
 import {
   type ArvoEvent,
+  ArvoExecution,
+  ArvoExecutionSpanKind,
   ArvoOrchestrationSubject,
   type ArvoOrchestratorContract,
   EventDataschemaUtil,
   type InferArvoEvent,
+  OpenInference,
+  OpenInferenceSpanKind,
   type VersionedArvoContract,
   isWildCardArvoSematicVersion,
   logToSpan,
@@ -16,7 +20,7 @@ import type IArvoEventHandler from '../IArvoEventHandler';
 import type { IMachineMemory } from '../MachineMemory/interface';
 import { SyncEventResource } from '../SyncEventResource/index';
 import { ConfigViolation, ExecutionViolation } from '../errors';
-import type { ArvoEventHandlerOpenTelemetryOptions } from '../types';
+import type { ArvoEventHandlerOpenTelemetryOptions, ArvoEventHandlerOtelSpanOptions } from '../types';
 import type { ArvoResumableHandler, ArvoResumableState } from './types';
 
 /**
@@ -64,6 +68,7 @@ export class ArvoResumable<
   readonly source: string;
   readonly handler: ArvoResumableHandler<ArvoResumableState<TMemory>, TSelfContract, TServiceContract>;
   readonly systemErrorDomain?: (string | null)[] = [];
+  private readonly spanOptions: ArvoEventHandlerOtelSpanOptions;
 
   readonly contracts: {
     self: TSelfContract;
@@ -92,6 +97,7 @@ export class ArvoResumable<
     requiresResourceLocking?: boolean;
     handler: ArvoResumableHandler<ArvoResumableState<TMemory>, TSelfContract, TServiceContract>;
     systemErrorDomain?: (string | null)[];
+    spanOptions?: ArvoEventHandlerOtelSpanOptions;
   }) {
     this.executionunits = param.executionunits;
     this.source = param.contracts.self.type;
@@ -99,6 +105,18 @@ export class ArvoResumable<
     this.contracts = param.contracts;
     this.handler = param.handler;
     this.systemErrorDomain = param.systemErrorDomain;
+
+    this.spanOptions = {
+      kind: SpanKind.PRODUCER,
+      ...param.spanOptions,
+      attributes: {
+        [ArvoExecution.ATTR_SPAN_KIND]: ArvoExecutionSpanKind.ORCHESTRATOR,
+        [OpenInference.ATTR_SPAN_KIND]: OpenInferenceSpanKind.CHAIN,
+        ...(param.spanOptions?.attributes ?? {}),
+        'arvo.handler.source': this.source,
+        'arvo.contract.uri': this.contracts.self.uri,
+      },
+    };
   }
 
   protected validateInput(
@@ -185,7 +203,7 @@ export class ArvoResumable<
    */
   async execute(
     event: ArvoEvent,
-    opentelemetry: ArvoEventHandlerOpenTelemetryOptions,
+    opentelemetry?: ArvoEventHandlerOpenTelemetryOptions,
   ): Promise<{
     events: ArvoEvent[];
   }> {
@@ -193,8 +211,11 @@ export class ArvoResumable<
       {
         _handlerType: 'resumable',
         event,
-        opentelemetry,
-        spanName: `Resumable<${this.contracts.self.uri}>@<${event.type}>`,
+        opentelemetry: opentelemetry ?? { inheritFrom: 'EVENT' },
+        spanOptions: {
+          spanName: ({ selfContractUri, consumedEvent }) => `Resumable<${selfContractUri}>@<${consumedEvent.type}>`,
+          ...this.spanOptions,
+        },
         source: this.source,
         syncEventResource: this.syncEventResource,
         executionunits: this.executionunits,

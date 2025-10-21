@@ -231,7 +231,7 @@ export const processRawEventsIntoEmittables = (
       );
       emittables.push(evt);
       for (const [key, value] of Object.entries(emittables[emittables.length - 1].otelAttributes)) {
-        span.setAttribute(`to_emit.${emittables.length - 1}.${key}`, value);
+        span.setAttribute(`emittables.${emittables.length - 1}.${key}`, value);
       }
     }
   }

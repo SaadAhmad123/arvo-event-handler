@@ -25,7 +25,7 @@ export default interface IArvoEventHandler {
    */
   execute(
     event: ArvoEvent,
-    opentelemetry: ArvoEventHandlerOpenTelemetryOptions,
+    opentelemetry?: ArvoEventHandlerOpenTelemetryOptions,
   ): Promise<{
     events: ArvoEvent[];
   }>;

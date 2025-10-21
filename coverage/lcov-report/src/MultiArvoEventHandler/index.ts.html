@@ -544,7 +544,7 @@ export default class MultiArvoEventHandler extends AbstractArvoEventHandler {
         try {
           span.setStatus({ code: SpanStatusCode.OK });
           for (const [key, value] of Object.entries(event.otelAttributes)) {
-            span.setAttribute(`to_process.0.${key}`, value);
+            span.setAttribute(`consumable.0.${key}`, value);
           }
 &nbsp;
           logToSpan({

@@ -1,4 +1,4 @@
-import { SpanKind, type SpanOptions, SpanStatusCode } from '@opentelemetry/api';
+import { SpanKind, SpanStatusCode } from '@opentelemetry/api';
 import {
   type ArvoContract,
   type ArvoEvent,
@@ -10,16 +10,18 @@ import {
   OpenInference,
   OpenInferenceSpanKind,
   type VersionedArvoContract,
-  type ViolationError,
   createArvoEventFactory,
   currentOpenTelemetryHeaders,
   exceptionToSpan,
+  isViolationError,
   logToSpan,
 } from 'arvo-core';
 import { resolveEventDomain } from '../ArvoDomain';
+import { createSystemErrorEvents } from '../ArvoOrchestrationUtils/handlerErrors';
+import { returnEventsWithLogging } from '../ArvoOrchestrationUtils/orchestrationExecutionWrapper';
 import type IArvoEventHandler from '../IArvoEventHandler';
 import { ConfigViolation, ContractViolation } from '../errors';
-import type { ArvoEventHandlerOpenTelemetryOptions } from '../types';
+import type { ArvoEventHandlerOpenTelemetryOptions, ArvoEventHandlerOtelSpanOptions } from '../types';
 import { coalesce, coalesceOrDefault, createEventHandlerTelemetryConfig } from '../utils';
 import type { ArvoEventHandlerFunction, ArvoEventHandlerFunctionOutput, ArvoEventHandlerParam } from './types';
 
@@ -111,7 +113,7 @@ export default class ArvoEventHandler<TContract extends ArvoContract> implements
   public readonly executionunits: number;
 
   /** OpenTelemetry configuration for event handling spans */
-  public readonly spanOptions: SpanOptions;
+  public readonly spanOptions: ArvoEventHandlerOtelSpanOptions;
 
   /** Version-specific event handler implementation map */
   public readonly handler: ArvoEventHandlerFunction<TContract>;
@@ -189,16 +191,15 @@ export default class ArvoEventHandler<TContract extends ArvoContract> implements
    */
   public async execute(
     event: ArvoEvent,
-    opentelemetry: ArvoEventHandlerOpenTelemetryOptions = {
-      inheritFrom: 'EVENT',
-    },
+    opentelemetry?: ArvoEventHandlerOpenTelemetryOptions,
   ): Promise<{
     events: ArvoEvent[];
   }> {
     const otelConfig = createEventHandlerTelemetryConfig(
-      `Handler<${this.contract.uri}>`,
+      this.spanOptions.spanName?.({ selfContractUri: this.contract.uri, consumedEvent: event }) ||
+        `Handler<${this.contract.uri}>`,
       this.spanOptions,
-      opentelemetry,
+      opentelemetry ?? { inheritFrom: 'EVENT' },
       event,
     );
     return await ArvoOpenTelemetry.getInstance().startActiveSpan({
@@ -206,9 +207,11 @@ export default class ArvoEventHandler<TContract extends ArvoContract> implements
       fn: async (span) => {
         const otelSpanHeaders = currentOpenTelemetryHeaders();
         try {
+          span.setAttribute('arvo.handler.execution.status', 'normal');
+          span.setAttribute('arvo.handler.execution.type', 'handler');
           span.setStatus({ code: SpanStatusCode.OK });
           for (const [key, value] of Object.entries(event.otelAttributes)) {
-            span.setAttribute(`to_process.0.${key}`, value);
+            span.setAttribute(`consumable.0.${key}`, value);
           }
 
           if (this.contract.type !== event.type) {
@@ -325,77 +328,52 @@ export default class ArvoEventHandler<TContract extends ArvoContract> implements
                   ),
                 );
                 for (const [key, value] of Object.entries(result[result.length - 1].otelAttributes)) {
-                  span.setAttribute(`to_emit.${result.length - 1}.${key}`, value);
+                  span.setAttribute(`emittables.${result.length - 1}.${key}`, value);
                 }
               }
             } catch (e) {
               throw new ContractViolation((e as Error)?.message ?? 'Invalid data');
             }
           }
-
-          logToSpan({
-            level: 'INFO',
-            message: `Event processing completed successfully. Generated ${result.length} event(s)`,
-          });
-
-          logToSpan({
-            level: 'INFO',
-            message: 'Event handled successfully',
-          });
-
-          return {
-            events: result,
-          };
+          return returnEventsWithLogging({ events: result }, span);
         } catch (error) {
+          span.setAttribute('arvo.handler.execution.status', 'failure');
           exceptionToSpan(error as Error);
           span.setStatus({
             code: SpanStatusCode.ERROR,
             message: `Event processing failed: ${(error as Error).message}`,
           });
 
-          if ((error as ViolationError).name.includes('ViolationError')) {
+          if (isViolationError(error)) {
             throw error;
           }
 
-          const result: ArvoEvent[] = [];
-          for (const _dom of Array.from(
-            new Set(
-              this.systemErrorDomain
-                ? this.systemErrorDomain.map((item) =>
-                    resolveEventDomain({
-                      domainToResolve: item,
-                      handlerSelfContract: this.contract.version('latest'),
-                      eventContract: this.contract.version('latest'),
-                      triggeringEvent: event,
-                    }),
-                  )
-                : [event.domain, this.domain, null],
-            ),
-          )) {
-            result.push(
-              createArvoEventFactory(this.contract.version('latest')).systemError({
-                source: this.source,
-                subject: event.subject,
-                // The system error must always got back to
-                // the source
-                to: event.source,
-                error: error as Error,
-                executionunits: this.executionunits,
-                traceparent: otelSpanHeaders.traceparent ?? undefined,
-                tracestate: otelSpanHeaders.tracestate ?? undefined,
-                accesscontrol: event.accesscontrol ?? undefined,
-                parentid: event.id ?? undefined,
-                domain: _dom,
-              }),
-            );
-            for (const [key, value] of Object.entries(result[result.length - 1].otelAttributes)) {
-              span.setAttribute(`to_emit.${result.length - 1}.${key}`, value);
+          const errorEvents = createSystemErrorEvents({
+            error: error as Error,
+            event,
+            otelHeaders: otelSpanHeaders,
+            orchestrationParentSubject: null,
+            initEventId: event.id,
+            selfContract: this.contract.version('any'),
+            systemErrorDomain: undefined,
+            executionunits: this.executionunits,
+            source: this.source,
+            domain: this.domain,
+            handlerType: 'handler',
+          });
+
+          for (const [errEvtIdx, errEvt] of Object.entries(errorEvents)) {
+            for (const [key, value] of Object.entries(errEvt.otelAttributes)) {
+              span.setAttribute(`emittables.${errEvtIdx}.${key}`, value);
             }
           }
 
-          return {
-            events: result,
-          };
+          return returnEventsWithLogging(
+            {
+              events: errorEvents,
+            },
+            span,
+          );
         } finally {
           span.end();
         }

@@ -1,8 +1,8 @@
 import type { ArvoOrchestratorContract, VersionedArvoContract } from 'arvo-core';
-import { v4 as uuid4 } from 'uuid';
 import { ArvoResumable } from '.';
-import { areServiceContractsUnique } from '../ArvoMachine/utils';
+import { servicesValidation } from '../ArvoOrchestrationUtils/servicesValidation';
 import type { IMachineMemory } from '../MachineMemory/interface';
+import type { ArvoEventHandlerOtelSpanOptions } from '../types';
 import type { ArvoResumableHandler, ArvoResumableState } from './types';
 
 /**
@@ -49,24 +49,9 @@ export const createArvoResumable = <
   executionunits?: number;
   requiresResourceLocking?: boolean;
   systemErrorDomain?: (string | null)[];
+  spanOptions?: ArvoEventHandlerOtelSpanOptions;
 }) => {
-  const __areServiceContractsUnique = areServiceContractsUnique(param.contracts.services);
-  if (!__areServiceContractsUnique.result) {
-    throw new Error(
-      `The service contracts must have unique URIs. Multiple versions of the same contract are not allow. The contracts '${__areServiceContractsUnique.keys[0]}' and '${__areServiceContractsUnique.keys[1]}' have the same URI '${__areServiceContractsUnique.contractUri}'`,
-    );
-  }
-
-  const __checkIfSelfIsAService = areServiceContractsUnique({
-    ...param.contracts.services,
-    [uuid4()]: param.contracts.self,
-  });
-  if (!__checkIfSelfIsAService.result) {
-    throw new Error(
-      `Circular dependency detected: Machine with URI '${param.contracts.self.uri}' is registered as service '${__checkIfSelfIsAService.keys[1]}'. Self-referential services create execution loops and are prohibited.`,
-    );
-  }
-
+  servicesValidation(param.contracts, 'resumable');
   return new ArvoResumable<TMemory, TSelfContract, TServiceContract>({
     contracts: param.contracts,
     memory: param.memory as IMachineMemory<ArvoResumableState<TMemory>>,
@@ -74,5 +59,6 @@ export const createArvoResumable = <
     executionunits: param.executionunits ?? 0,
     requiresResourceLocking: param.requiresResourceLocking ?? Object.keys(param.contracts.services).length > 1,
     systemErrorDomain: param.systemErrorDomain,
+    spanOptions: param.spanOptions,
   });
 };

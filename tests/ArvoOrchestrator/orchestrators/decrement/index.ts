@@ -9,4 +9,7 @@ export const decrementOrchestrator: EventHandlerFactory<OrchestratorConfig> = ({
     memory,
     executionunits: 0.1,
     machines: [machineV001, machineV002],
+    spanOptions: {
+      spanName: ({ consumedEvent }) => `Decrement Orchestrator@${consumedEvent.type}`,
+    },
   });

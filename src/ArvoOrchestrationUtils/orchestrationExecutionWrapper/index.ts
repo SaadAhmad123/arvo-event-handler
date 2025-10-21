@@ -1,14 +1,10 @@
-import { type Span, SpanKind, context } from '@opentelemetry/api';
+import { type Span, SpanStatusCode } from '@opentelemetry/api';
 import {
   type ArvoEvent,
-  ArvoExecution,
-  ArvoExecutionSpanKind,
   ArvoOpenTelemetry,
   type ArvoOrchestrationSubjectContent,
   type ArvoOrchestratorContract,
   type ArvoSemanticVersion,
-  OpenInference,
-  OpenInferenceSpanKind,
   type OpenTelemetryHeaders,
   type VersionedArvoContract,
   currentOpenTelemetryHeaders,
@@ -17,7 +13,8 @@ import {
 import type IArvoEventHandler from '../../IArvoEventHandler';
 import type { SyncEventResource } from '../../SyncEventResource';
 import type { AcquiredLockStatusType } from '../../SyncEventResource/types';
-import type { ArvoEventHandlerOpenTelemetryOptions } from '../../types';
+import type { ArvoEventHandlerOpenTelemetryOptions, ArvoEventHandlerOtelSpanOptions } from '../../types';
+import { createEventHandlerTelemetryConfig } from '../../utils';
 import { handleOrchestrationErrors } from '../handlerErrors';
 import type { OrchestrationExecutionMemoryRecord } from '../orchestrationExecutionState';
 import type { ArvoOrchestrationHandlerType } from '../types';
@@ -27,7 +24,6 @@ import { validateAndParseSubject } from './validateAndParseSubject';
 export type OrchestrationExecutionContext<TState extends OrchestrationExecutionMemoryRecord<Record<string, any>>> = {
   event: ArvoEvent;
   opentelemetry: ArvoEventHandlerOpenTelemetryOptions;
-  spanName: string;
   source: string;
   syncEventResource: SyncEventResource<TState>;
   executionunits: number;
@@ -35,6 +31,9 @@ export type OrchestrationExecutionContext<TState extends OrchestrationExecutionM
   selfContract: VersionedArvoContract<ArvoOrchestratorContract, ArvoSemanticVersion>;
   domain: string | null;
   _handlerType: ArvoOrchestrationHandlerType;
+  spanOptions: ArvoEventHandlerOtelSpanOptions & {
+    spanName: NonNullable<ArvoEventHandlerOtelSpanOptions['spanName']>;
+  };
 };
 
 export type CoreExecutionFn<TState extends OrchestrationExecutionMemoryRecord<Record<string, any>>> = (params: {
@@ -77,7 +76,7 @@ export const executeWithOrchestrationWrapper = async <
   {
     event,
     opentelemetry,
-    spanName,
+    spanOptions,
     source,
     syncEventResource,
     executionunits,
@@ -88,33 +87,21 @@ export const executeWithOrchestrationWrapper = async <
   }: OrchestrationExecutionContext<TState>,
   coreExecutionFn: CoreExecutionFn<TState>,
 ): Promise<Awaited<ReturnType<IArvoEventHandler['execute']>>> => {
+  const otelConfig = createEventHandlerTelemetryConfig(
+    spanOptions.spanName({ selfContractUri: selfContract.uri, consumedEvent: event }),
+    spanOptions,
+    opentelemetry,
+    event,
+  );
   return await ArvoOpenTelemetry.getInstance().startActiveSpan({
-    name: spanName,
-    spanOptions: {
-      kind: SpanKind.PRODUCER,
-      attributes: {
-        [ArvoExecution.ATTR_SPAN_KIND]: ArvoExecutionSpanKind.ORCHESTRATOR,
-        [OpenInference.ATTR_SPAN_KIND]: OpenInferenceSpanKind.CHAIN,
-        ...Object.fromEntries(
-          Object.entries(event.otelAttributes).map(([key, value]) => [`to_process.0.${key}`, value]),
-        ),
-      },
-    },
-    context:
-      opentelemetry.inheritFrom === 'EVENT'
-        ? {
-            inheritFrom: 'TRACE_HEADERS',
-            traceHeaders: {
-              traceparent: event.traceparent,
-              tracestate: event.tracestate,
-            },
-          }
-        : {
-            inheritFrom: 'CONTEXT',
-            context: context.active(),
-          },
-    disableSpanManagement: true,
+    ...otelConfig,
     fn: async (span) => {
+      span.setStatus({ code: SpanStatusCode.OK });
+      span.setAttribute('arvo.handler.execution.type', _handlerType);
+      span.setAttribute('arvo.handler.execution.status', 'normal');
+      for (const [key, value] of Object.entries(event.otelAttributes)) {
+        span.setAttribute(`consumable.0.${key}`, value);
+      }
       logToSpan(
         {
           level: 'INFO',
@@ -143,6 +130,7 @@ export const executeWithOrchestrationWrapper = async <
         const state = await syncEventResource.acquireState(event, span);
 
         if (state?.executionStatus === 'failure') {
+          span.setAttribute('arvo.handler.execution.status', state.executionStatus);
           logToSpan(
             {
               level: 'WARNING',
@@ -150,6 +138,10 @@ export const executeWithOrchestrationWrapper = async <
             },
             span,
           );
+          span.setStatus({
+            code: SpanStatusCode.ERROR,
+            message: `The orchestration has failed in a previous event. Ignoring event id: ${event.id} with event subject: ${event.subject}`,
+          });
           return returnEventsWithLogging({ events: [] }, span);
         }
 
@@ -192,12 +184,10 @@ export const executeWithOrchestrationWrapper = async <
           _handlerType,
         });
 
-        span.setAttribute(`arvo.${_handlerType}.execution.status`, newState.executionStatus)
-
         // Add OpenTelemetry attributes for emitted events
         for (let i = 0; i < emittables.length; i++) {
           for (const [key, value] of Object.entries(emittables[i].otelAttributes)) {
-            span.setAttribute(`to_emit.${i}.${key}`, value);
+            span.setAttribute(`emittables.${i}.${key}`, value);
           }
         }
 
@@ -216,6 +206,7 @@ export const executeWithOrchestrationWrapper = async <
 
         return returnEventsWithLogging({ events: emittables }, span);
       } catch (error: unknown) {
+        span.setAttribute('arvo.handler.execution.status', 'failure');
         const { errorToThrow, events: errorEvents } = await handleOrchestrationErrors(
           _handlerType,
           {
@@ -230,6 +221,7 @@ export const executeWithOrchestrationWrapper = async <
             source: source,
             domain: domain,
             syncEventResource: syncEventResource as any,
+            handlerType: _handlerType,
           },
           span,
         );

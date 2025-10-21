@@ -5,6 +5,7 @@ import type { OrchestrationExecutionMemoryRecord } from '../ArvoOrchestrationUti
 import type { IMachineExectionEngine } from '../MachineExecutionEngine/interface';
 import type { IMachineMemory } from '../MachineMemory/interface';
 import type { IMachineRegistry } from '../MachineRegistry/interface';
+import type { ArvoEventHandlerOtelSpanOptions } from '../types';
 
 export type TryFunctionOutput<TData, TError extends Error> =
   | {
@@ -102,28 +103,6 @@ export type ArvoOrchestratorParam = {
 
   /**
    * Optional configuration to customize where system error events are emitted.
-   */
-  systemErrorDomain?: (string | null)[];
-};
-
-/**
- * Configuration interface for creating an Arvo orchestrator instance.
- */
-export interface ICreateArvoOrchestrator {
-  /** Memory interface for storing and retrieving machine state */
-  memory: IMachineMemory<MachineMemoryRecord>;
-
-  /** The cost of the execution of the orchestrator */
-  executionunits: number;
-
-  /**
-   * Collection of state machines to be managed by the orchestrator.
-   * All machines must have the same source identifier.
-   */
-  machines: ArvoMachine<any, any, any, any, any>[];
-
-  /**
-   * Optional configuration to customize where system error events are emitted.
    *
    * This overrides the default system error domain fallback of:
    * `[event.domain, self.contract.domain, null]`
@@ -136,4 +115,23 @@ export interface ICreateArvoOrchestrator {
    * @default undefined — uses standard fallback broadcast domains
    */
   systemErrorDomain?: (string | null)[];
-}
+
+  /**
+   * The OpenTelemetry span options
+   */
+  spanOptions?: ArvoEventHandlerOtelSpanOptions;
+};
+
+/**
+ * Configuration interface for creating an Arvo orchestrator instance.
+ */
+export type CreateArvoOrchestratorParam = Pick<
+  ArvoOrchestratorParam,
+  'memory' | 'executionunits' | 'spanOptions' | 'systemErrorDomain'
+> & {
+  /**
+   * Collection of state machines to be managed by the orchestrator.
+   * All machines must have the same source identifier.
+   */
+  machines: ArvoMachine<any, any, any, any, any>[];
+};

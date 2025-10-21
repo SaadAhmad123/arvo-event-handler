@@ -155,7 +155,13 @@
 <a name='L90'></a><a href='#L90'>90</a>
 <a name='L91'></a><a href='#L91'>91</a>
 <a name='L92'></a><a href='#L92'>92</a>
-<a name='L93'></a><a href='#L93'>93</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">8x</span>
+<a name='L93'></a><a href='#L93'>93</a>
+<a name='L94'></a><a href='#L94'>94</a>
+<a name='L95'></a><a href='#L95'>95</a>
+<a name='L96'></a><a href='#L96'>96</a>
+<a name='L97'></a><a href='#L97'>97</a>
+<a name='L98'></a><a href='#L98'>98</a>
+<a name='L99'></a><a href='#L99'>99</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-yes">8x</span>
@@ -168,6 +174,11 @@
 <span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -185,7 +196,11 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-yes">8x</span>
@@ -244,9 +259,6 @@
 <span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { assign, emit } from 'xstate';
 import { ArvoDomain, resolveEventDomain } from './ArvoDomain';
 import ArvoEventHandler from './ArvoEventHandler';
@@ -259,7 +271,12 @@ import {
 import ArvoMachine from './ArvoMachine';
 import { setupArvoMachine } from './ArvoMachine/createMachine';
 import { ArvoMachineContext, EnqueueArvoEventActionParam } from './ArvoMachine/types';
-import { isTransactionViolationError, TransactionViolation, TransactionViolationCause } from './ArvoOrchestrationUtils/error';
+import {
+  TransactionViolation,
+  TransactionViolationCause,
+  isTransactionViolationError,
+} from './ArvoOrchestrationUtils/error';
+import { OrchestrationExecutionStatus } from './ArvoOrchestrationUtils/orchestrationExecutionState';
 import { ArvoOrchestrator } from './ArvoOrchestrator';
 import { createArvoOrchestrator } from './ArvoOrchestrator/factory';
 import { ArvoOrchestratorParam, MachineMemoryRecord } from './ArvoOrchestrator/types';
@@ -276,11 +293,15 @@ import { IMachineMemory } from './MachineMemory/interface';
 import { MachineRegistry } from './MachineRegistry';
 import { IMachineRegistry } from './MachineRegistry/interface';
 import { ConfigViolation, ContractViolation, ExecutionViolation } from './errors';
-import { ArvoEventHandlerOpenTelemetryOptions, EventHandlerFactory, PartialExcept } from './types';
+import {
+  ArvoEventHandlerOpenTelemetryOptions,
+  ArvoEventHandlerOtelSpanOptions,
+  EventHandlerFactory,
+  PartialExcept,
+} from './types';
 import { coalesce, coalesceOrDefault, getValueOrDefault, isNullOrUndefined } from './utils';
 import { SimpleEventBroker } from './utils/SimpleEventBroker';
 import { createSimpleEventBroker } from './utils/SimpleEventBroker/helper';
-import { OrchestrationExecutionStatus } from './ArvoOrchestrationUtils/orchestrationExecutionState';
 &nbsp;
 const xstate = {
   emit,
@@ -298,7 +319,7 @@ export {
 <span class="fstat-no" title="function not covered" >  isNullOrUndefined,</span>
 <span class="fstat-no" title="function not covered" >  getValueOrDefault,</span>
 <span class="fstat-no" title="function not covered" >  coalesce,</span>
-<span class="fstat-no" title="function not covered" >  coalesceOrDefault,  </span>
+<span class="fstat-no" title="function not covered" >  coalesceOrDefault,</span>
   ArvoEventHandlerOpenTelemetryOptions,
   EventHandlerFactory,
 <span class="fstat-no" title="function not covered" >  ContractViolation,</span>
@@ -333,12 +354,9 @@ export {
   ArvoDomain,
 <span class="fstat-no" title="function not covered" >  resolveEventDomain,</span>
 <span class="fstat-no" title="function not covered" >  isTransactionViolationError,</span>
-<span class="fstat-no" title="function not covered" >  OrchestrationExecutionStatus</span>
+<span class="fstat-no" title="function not covered" >  OrchestrationExecutionStatus,</span>
+  ArvoEventHandlerOtelSpanOptions,
 };
-&nbsp;
-&nbsp;
-&nbsp;
-&nbsp;
 &nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
@@ -346,7 +364,7 @@ export {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-10-20T11:45:21.277Z
+                at 2025-10-21T10:21:42.935Z
             </div>
         <script src="../prettify.js"></script>
         <script>

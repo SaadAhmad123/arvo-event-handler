@@ -1,4 +1,4 @@
-import type { Span, SpanOptions } from '@opentelemetry/api';
+import type { Span } from '@opentelemetry/api';
 import type {
   ArvoContract,
   ArvoEvent,
@@ -9,6 +9,7 @@ import type {
   VersionedArvoContract,
 } from 'arvo-core';
 import type { z } from 'zod';
+import type { ArvoEventHandlerOtelSpanOptions } from '../types';
 
 /**
  * Represents the input for an ArvoEvent handler function.
@@ -123,7 +124,7 @@ export type ArvoEventHandlerParam<TContract extends ArvoContract> = {
   /**
    * The OpenTelemetry span options
    */
-  spanOptions?: SpanOptions;
+  spanOptions?: ArvoEventHandlerOtelSpanOptions;
 
   /**
    * Optional configuration to customize where system error events are emitted.
