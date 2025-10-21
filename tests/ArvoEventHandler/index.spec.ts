@@ -8,7 +8,13 @@ import {
   currentOpenTelemetryHeaders,
 } from 'arvo-core';
 import { z } from 'zod';
-import { ArvoDomain, type ArvoEventHandlerFunction, ExecutionViolation, createArvoEventHandler } from '../../src';
+import {
+  ArvoDomain,
+  type ArvoEventHandlerFunction,
+  type EventHandlerFactory,
+  ExecutionViolation,
+  createArvoEventHandler,
+} from '../../src';
 import { telemetrySdkStart, telemetrySdkStop } from '../utils';
 
 describe('ArvoEventHandler', () => {
@@ -61,12 +67,13 @@ describe('ArvoEventHandler', () => {
   };
 
   it('should create an instance with default source', () => {
-    const handler = createArvoEventHandler({
-      contract: mockContract,
-      executionunits: 100,
-      handler: mockHandlerFunction,
-    });
-    expect(handler.source).toBe(mockContract.type);
+    const handler: EventHandlerFactory = () =>
+      createArvoEventHandler({
+        contract: mockContract,
+        executionunits: 100,
+        handler: mockHandlerFunction,
+      });
+    expect(handler().source).toBe(mockContract.type);
   });
 
   it('should execute handler successfully', async () => {
@@ -172,39 +179,41 @@ describe('ArvoEventHandler', () => {
   });
 
   it('should execute handler successfully with event domain inheritied from contract', async () => {
-    const handler = createArvoEventHandler({
-      contract: createArvoContract({
-        uri: '#/test/ArvoEventHandler',
-        type: 'com.hello.world',
-        domain: 'test.3333',
-        versions: {
-          '0.0.1': {
-            accepts: z.object({
-              name: z.string(),
-              age: z.number(),
+    const hc = createArvoContract({
+      uri: '#/test/ArvoEventHandler',
+      type: 'com.hello.world',
+      domain: 'test.3333',
+      versions: {
+        '0.0.1': {
+          accepts: z.object({
+            name: z.string(),
+            age: z.number(),
+          }),
+          emits: {
+            'evt.hello.world.success': z.object({
+              result: z.string(),
             }),
-            emits: {
-              'evt.hello.world.success': z.object({
-                result: z.string(),
-              }),
-              'evt.hello.world.error': ArvoErrorSchema,
-            },
+            'evt.hello.world.error': ArvoErrorSchema,
           },
-        },
-      }),
-      executionunits: 100,
-      handler: {
-        '0.0.1': async ({ event }) => {
-          return {
-            type: 'evt.hello.world.success',
-            domain: [ArvoDomain.FROM_SELF_CONTRACT, ArvoDomain.FROM_TRIGGERING_EVENT],
-            data: {
-              result: `My name is ${event.data.name}. I am ${event.data.age} years old`,
-            },
-          };
         },
       },
     });
+    const handler: EventHandlerFactory = () =>
+      createArvoEventHandler({
+        contract: hc,
+        executionunits: 100,
+        handler: {
+          '0.0.1': async ({ event }) => {
+            return {
+              type: 'evt.hello.world.success',
+              domain: [ArvoDomain.FROM_SELF_CONTRACT, ArvoDomain.FROM_TRIGGERING_EVENT],
+              data: {
+                result: `My name is ${event.data.name}. I am ${event.data.age} years old`,
+              },
+            };
+          },
+        },
+      });
 
     const mockEvent = createArvoEventFactory(mockContract.version('0.0.1')).accepts({
       to: 'com.hello.world',
@@ -217,7 +226,7 @@ describe('ArvoEventHandler', () => {
       },
     });
 
-    const result = await handler.execute(mockEvent);
+    const result = await handler().execute(mockEvent);
     expect(result.events.length).toBe(2);
     expect(result.events[0].domain).toBe('test.3333');
     expect(result.events[1].domain).toBe(null);

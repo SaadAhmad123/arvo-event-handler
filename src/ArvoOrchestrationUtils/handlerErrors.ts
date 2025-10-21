@@ -1,9 +1,9 @@
 import { type Span, SpanStatusCode } from '@opentelemetry/api';
 import {
+  type ArvoContract,
   type ArvoEvent,
   ArvoOrchestrationSubject,
   type ArvoOrchestrationSubjectContent,
-  type ArvoOrchestratorContract,
   type ArvoSemanticVersion,
   type OpenTelemetryHeaders,
   type VersionedArvoContract,
@@ -29,7 +29,7 @@ export type CreateSystemErrorEventsParams = {
   otelHeaders: OpenTelemetryHeaders;
   orchestrationParentSubject: string | null;
   initEventId: string | null;
-  selfContract: VersionedArvoContract<ArvoOrchestratorContract, ArvoSemanticVersion>;
+  selfContract: VersionedArvoContract<ArvoContract, ArvoSemanticVersion>;
   systemErrorDomain?: (string | null)[];
   executionunits: number;
   source: string;
