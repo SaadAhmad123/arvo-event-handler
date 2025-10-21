@@ -5,7 +5,6 @@ import {
   type VersionedArvoContract,
   cleanString,
 } from 'arvo-core';
-import { v4 as uuid4 } from 'uuid';
 import {
   type ActionFunction,
   type MachineConfig,
@@ -18,6 +17,7 @@ import {
 } from 'xstate';
 import type { z } from 'zod';
 import ArvoMachine from '.';
+import { servicesValidation } from '../ArvoOrchestrationUtils/servicesValidation';
 import { getAllPaths } from '../utils/object';
 import type {
   ArvoMachineContext,
@@ -27,7 +27,7 @@ import type {
   ToParameterizedObject,
   ToProvidedActor,
 } from './types';
-import { areServiceContractsUnique, detectParallelStates } from './utils';
+import { detectParallelStates } from './utils';
 
 /**
  * Establishes the foundation for creating Arvo-compatible state machines.
@@ -286,22 +286,7 @@ export function setupArvoMachine<
     );
   }
 
-  const __areServiceContractsUnique = areServiceContractsUnique(param.contracts.services);
-  if (!__areServiceContractsUnique.result) {
-    throw new Error(
-      `The service contracts must have unique URIs. Multiple versions of the same contract are not allow. The contracts '${__areServiceContractsUnique.keys[0]}' and '${__areServiceContractsUnique.keys[1]}' have the same URI '${__areServiceContractsUnique.contractUri}'`,
-    );
-  }
-
-  const __checkIfSelfIsAService = areServiceContractsUnique({
-    ...param.contracts.services,
-    [uuid4()]: param.contracts.self,
-  });
-  if (!__checkIfSelfIsAService.result) {
-    throw new Error(
-      `Circular dependency detected: Machine with URI '${param.contracts.self.uri}' is registered as service '${__checkIfSelfIsAService.keys[1]}'. Self-referential services create execution loops and are prohibited.`,
-    );
-  }
+  servicesValidation(param.contracts, 'machine');
 
   const combinedActions = {
     ...((param.actions ?? {}) as typeof param.actions),

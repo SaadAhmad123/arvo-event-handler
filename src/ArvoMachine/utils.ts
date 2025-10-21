@@ -1,4 +1,3 @@
-import type { ArvoContract, VersionedArvoContract } from 'arvo-core';
 import type { MachineConfig } from 'xstate';
 
 /**
@@ -36,40 +35,4 @@ export const detectParallelStates = (config?: MachineConfig<any, any, any, any, 
     }
   }
   return false;
-};
-
-/**
- * Validates that all service contracts in a collection have unique URIs.
- *
- * Iterates through the provided contracts and checks if any URI appears more than once.
- * Multiple versions of the same contract (with the same URI) are not allowed.
- *
- * @param contracts - A record mapping contract keys to their respective ArvoContract objects
- * @returns An object with a boolean result indicating if all contracts are unique, and the error keys if not
- */
-export const areServiceContractsUnique = (
-  contracts: Record<string, ArvoContract | VersionedArvoContract<any, any>>,
-):
-  | {
-      result: false;
-      keys: [string, string];
-      contractUri: string;
-    }
-  | {
-      result: true;
-    } => {
-  const uriToKeyMap: Record<string, string> = {};
-  for (const [key, contract] of Object.entries(contracts)) {
-    if (uriToKeyMap[contract.uri]) {
-      return {
-        result: false,
-        keys: [key, uriToKeyMap[contract.uri]],
-        contractUri: contract.uri,
-      };
-    }
-    uriToKeyMap[contract.uri] = key;
-  }
-  return {
-    result: true,
-  };
 };

@@ -149,7 +149,7 @@ describe('ArvoXState', () => {
           },
         }),
       ).toThrow(
-        "The service contracts must have unique URIs. Multiple versions of the same contract are not allow. The contracts 'increment2' and 'increment1' have the same URI '#/test/service/increment'",
+        "ViolationError<Config> In ArvoMachine, the service contracts must have unique URIs. Multiple versions of the same contract are not allow. The contracts 'increment2' and 'increment1' have the same URI '#/test/service/increment'",
       );
 
       expect(() =>
@@ -165,7 +165,7 @@ describe('ArvoXState', () => {
           },
         }),
       ).toThrow(
-        "The service contracts must have unique URIs. Multiple versions of the same contract are not allow. The contracts 'increment2' and 'increment1' have the same URI '#/test/service/increment'",
+        "ViolationError<Config> In ArvoMachine, the service contracts must have unique URIs. Multiple versions of the same contract are not allow. The contracts 'increment2' and 'increment1' have the same URI '#/test/service/increment'",
       );
     });
 
