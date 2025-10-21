@@ -44,7 +44,7 @@ export const createSystemErrorEvents = ({
   error,
   event,
   otelHeaders,
-  orchestrationParentSubject,
+  orchestrationParentSubject: _orchestrationParentSubject,
   initEventId,
   selfContract,
   systemErrorDomain,
@@ -59,13 +59,18 @@ export const createSystemErrorEvents = ({
   // called system error and must be sent
   // to the initiator. In as good of a format as possible
   let parsedEventSubject: ArvoOrchestrationSubjectContent | null = null;
-  try {
-    parsedEventSubject = ArvoOrchestrationSubject.parse(event.subject);
-  } catch (e) {
-    logToSpan({
-      level: 'WARNING',
-      message: `Unable to parse event subject: ${(e as Error).message}`,
-    });
+  let orchestrationParentSubject: string | null = null;
+
+  if (handlerType === 'orchestrator' || handlerType === 'resumable') {
+    orchestrationParentSubject = _orchestrationParentSubject;
+    try {
+      parsedEventSubject = ArvoOrchestrationSubject.parse(event.subject);
+    } catch (e) {
+      logToSpan({
+        level: 'WARNING',
+        message: `Unable to parse event subject: ${(e as Error).message}`,
+      });
+    }
   }
 
   const domainSets = new Set(
@@ -94,7 +99,7 @@ export const createSystemErrorEvents = ({
         subject: orchestrationParentSubject ?? event.subject,
         // The system error must always go back to
         // the source which initiated it
-        to: parsedEventSubject?.execution.initiator ?? event.source,
+        to: parsedEventSubject?.execution?.initiator ?? event.source,
         error: error,
         traceparent: otelHeaders.traceparent ?? undefined,
         tracestate: otelHeaders.tracestate ?? undefined,

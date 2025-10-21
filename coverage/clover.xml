@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<coverage generated="1761042102958" clover="3.2.0">
-  <project timestamp="1761042102958" name="All files">
-    <metrics statements="940" coveredstatements="901" conditionals="852" coveredconditionals="697" methods="169" coveredmethods="144" elements="1961" coveredelements="1742" complexity="0" loc="940" ncloc="940" packages="14" files="32" classes="32"/>
+<coverage generated="1761046926234" clover="3.2.0">
+  <project timestamp="1761046926234" name="All files">
+    <metrics statements="943" coveredstatements="903" conditionals="859" coveredconditionals="704" methods="169" coveredmethods="144" elements="1971" coveredelements="1751" complexity="0" loc="943" ncloc="943" packages="14" files="32" classes="32"/>
     <package name="src">
       <metrics statements="71" coveredstatements="71" conditionals="20" coveredconditionals="15" methods="32" coveredmethods="18"/>
       <file name="ArvoDomain.ts" path="/Users/saadahmad/Documents/Projects/arvo-event-handler/src/ArvoDomain.ts">
@@ -295,7 +295,7 @@
       </file>
     </package>
     <package name="src.ArvoOrchestrationUtils">
-      <metrics statements="136" coveredstatements="128" conditionals="131" coveredconditionals="91" methods="13" coveredmethods="10"/>
+      <metrics statements="139" coveredstatements="130" conditionals="138" coveredconditionals="98" methods="13" coveredmethods="10"/>
       <file name="createEmitableEvent.ts" path="/Users/saadahmad/Documents/Projects/arvo-event-handler/src/ArvoOrchestrationUtils/createEmitableEvent.ts">
         <metrics statements="63" coveredstatements="61" conditionals="82" coveredconditionals="62" methods="3" coveredmethods="3"/>
         <line num="2" count="8" type="stmt"/>
@@ -374,7 +374,7 @@
         <line num="33" count="0" type="stmt"/>
       </file>
       <file name="handlerErrors.ts" path="/Users/saadahmad/Documents/Projects/arvo-event-handler/src/ArvoOrchestrationUtils/handlerErrors.ts">
-        <metrics statements="46" coveredstatements="44" conditionals="39" coveredconditionals="28" methods="5" coveredmethods="3"/>
+        <metrics statements="49" coveredstatements="46" conditionals="46" coveredconditionals="35" methods="5" coveredmethods="3"/>
         <line num="1" count="8" type="stmt"/>
         <line num="2" count="8" type="stmt"/>
         <line num="17" count="8" type="stmt"/>
@@ -395,32 +395,35 @@
         <line num="54" count="7" type="stmt"/>
         <line num="61" count="7" type="stmt"/>
         <line num="62" count="7" type="stmt"/>
-        <line num="63" count="7" type="stmt"/>
-        <line num="65" count="5" type="stmt"/>
-        <line num="71" count="7" type="stmt"/>
-        <line num="74" count="0" type="stmt"/>
-        <line num="83" count="7" type="stmt"/>
-        <line num="85" count="10" type="stmt"/>
-        <line num="86" count="10" type="cond" truecount="2" falsecount="0"/>
-        <line num="87" count="10" type="stmt"/>
-        <line num="112" count="7" type="stmt"/>
-        <line num="115" count="8" type="stmt"/>
-        <line num="120" count="13" type="stmt"/>
-        <line num="131" count="13" type="stmt"/>
-        <line num="137" count="13" type="cond" truecount="1" falsecount="1"/>
-        <line num="143" count="13" type="stmt"/>
-        <line num="144" count="13" type="stmt"/>
-        <line num="157" count="13" type="cond" truecount="1" falsecount="0"/>
-        <line num="158" count="11" type="stmt"/>
-        <line num="162" count="11" type="stmt"/>
-        <line num="168" count="4" type="stmt"/>
-        <line num="180" count="0" type="stmt"/>
-        <line num="186" count="2" type="stmt"/>
+        <line num="64" count="7" type="cond" truecount="3" falsecount="0"/>
+        <line num="65" count="2" type="stmt"/>
+        <line num="66" count="2" type="stmt"/>
+        <line num="67" count="2" type="stmt"/>
+        <line num="69" count="0" type="stmt"/>
+        <line num="76" count="7" type="stmt"/>
+        <line num="79" count="0" type="stmt"/>
+        <line num="88" count="7" type="stmt"/>
+        <line num="90" count="10" type="stmt"/>
+        <line num="91" count="10" type="cond" truecount="2" falsecount="0"/>
+        <line num="92" count="10" type="stmt"/>
+        <line num="117" count="7" type="stmt"/>
+        <line num="120" count="8" type="stmt"/>
+        <line num="125" count="13" type="stmt"/>
+        <line num="136" count="13" type="stmt"/>
+        <line num="142" count="13" type="cond" truecount="1" falsecount="1"/>
+        <line num="148" count="13" type="stmt"/>
+        <line num="149" count="13" type="stmt"/>
+        <line num="162" count="13" type="cond" truecount="1" falsecount="0"/>
+        <line num="163" count="11" type="stmt"/>
+        <line num="167" count="11" type="stmt"/>
+        <line num="173" count="4" type="stmt"/>
+        <line num="185" count="0" type="stmt"/>
         <line num="191" count="2" type="stmt"/>
-        <line num="193" count="2" type="stmt"/>
-        <line num="194" count="26" type="stmt"/>
-        <line num="195" count="26" type="stmt"/>
-        <line num="199" count="2" type="stmt"/>
+        <line num="196" count="2" type="stmt"/>
+        <line num="198" count="2" type="stmt"/>
+        <line num="199" count="26" type="stmt"/>
+        <line num="200" count="26" type="stmt"/>
+        <line num="204" count="2" type="stmt"/>
       </file>
       <file name="orchestrationExecutionState.ts" path="/Users/saadahmad/Documents/Projects/arvo-event-handler/src/ArvoOrchestrationUtils/orchestrationExecutionState.ts">
         <metrics statements="1" coveredstatements="1" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
