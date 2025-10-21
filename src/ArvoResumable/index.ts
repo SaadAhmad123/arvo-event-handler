@@ -110,7 +110,7 @@ export class ArvoResumable<
       kind: SpanKind.PRODUCER,
       ...param.spanOptions,
       attributes: {
-        [ArvoExecution.ATTR_SPAN_KIND]: ArvoExecutionSpanKind.ORCHESTRATOR,
+        [ArvoExecution.ATTR_SPAN_KIND]: ArvoExecutionSpanKind.RESUMABLE,
         [OpenInference.ATTR_SPAN_KIND]: OpenInferenceSpanKind.CHAIN,
         ...(param.spanOptions?.attributes ?? {}),
         'arvo.handler.source': this.source,
