@@ -28,169 +28,21 @@ import type {
   ToProvidedActor,
 } from './types';
 import { detectParallelStates } from './utils';
+import { ConfigViolation } from '../errors';
 
 /**
  * Establishes the foundation for creating Arvo-compatible state machines.
  *
- * This function configures the core elements of an Arvo state machine, including
- * built-in actions like `enqueueArvoEvent`, and enforces Arvo-specific constraints
- * to ensure compatibility with the Arvo event-driven system.
- *
- * @param param - Configuration object for the machine setup
- * @returns An object containing the `createMachine` function
- * @throws {Error} If 'actors', 'delays', or reserved action names are used in the configuration
- *
- * @description
- * `setupArvoMachine` is a crucial function in the Arvo ecosystem, designed to create
- * synchronous state machine orchestrations for Arvo's event-driven architecture.
- * It builds upon XState, providing a tailored implementation that:
- *
- * 1. Enforces synchronous behavior to maintain predictable state transitions
- * 3. Implements Arvo-specific constraints and features
- *
- * Key features:
- * - Synchronous execution: Ensures deterministic behavior in event-driven systems
- * - Built-in actions: Includes `enqueueArvoEvent` for Arvo event handling
- * - Constraint checking: Prevents usage of asynchronous features like 'actors' or 'delays'
- *
- * @remarks
- * While `setupArvoMachine` is based on XState's `setup` and `createMachine` functions,
- * it includes Arvo-specific modifications and restrictions. For a deeper understanding
- * of the underlying XState concepts, refer to the official XState documentation:
- * - XState setup: https://stately.ai/docs/setup
- * - XState createMachine: https://stately.ai/docs/machines
- *
- * @example
- * Here's a comprehensive example demonstrating how to use `setupArvoMachine`:
- *
- * ```typescript
- * import { setupArvoMachine } from 'arvo-xstate'
- * import { createArvoOrchestratorContract, ArvoErrorSchema, createArvoContract } from 'arvo-core'
- * import { z } from 'zod'
- *
- * // Define the LLM orchestrator contract
- * const llmContract = createArvoOrchestratorContract({
- *   uri: `#/orchestrators/llm/`,
- *   type: 'llm',
- *   versions: {
- *     '0.0.1': {
- *       init: z.object({
- *         request: z.string(),
- *         llm: z.enum(['gpt-4', 'gpt-4o']),
- *       }),
- *       complete: z.object({
- *         response: z.string(),
- *       })
- *     }
- *   }
- * })
- *
- * // Define the OpenAI service contract
- * const openAiContract = createArvoContract({
- *   uri: `#/services/openai`,
- *   type: 'com.openai.completions',
- *   versions: {
- *     '0.0.1': {
- *       accepts: z.object({
- *         request: z.string()
- *       }),
- *       emits: {
- *         'evt.openai.completions.success': z.object({
- *           response: z.string(),
- *         })
- *       }
- *     }
- *   }
- * })
- *
- * const machineId = 'machineV100'
- *
- * // Set up the Arvo machine
- * const llmMachine = setupArvoMachine({
- *   contracts: {
- *     self: llmContract.version('0.0.1'),
- *     services: {
- *       openAiContract.version('0.0.1'),
- *     }
- *   },
- *   types: {
- *     context: {} as {
- *       request: string,
- *       llm: string,
- *       response: string | null,
- *       errors: z.infer<typeof ArvoErrorSchema>[]
- *     },
- *     tags: {} as 'pending' | 'success' | 'error',
- *   },
- *   actions: {
- *     log: ({context, event}) => console.log({context, event})
- *   },
- *   guards: {
- *     isValid: ({context, event}) => Boolean(context.request)
- *   }
- * }).createMachine({
- *   id: machineId,
- *   context: ({input}) => ({
- *     request: input.request,
- *     llm: input.llm,
- *     response: null,
- *     errors: [],
- *   }),
- *   initial: 'validate',
- *   states: {
- *     validate: {
- *       always: [
- *         {
- *           guard: 'isValid',
- *           target: 'llm',
- *         },
- *         {
- *           target: 'error',
- *         }
- *       ]
- *     },
- *     llm: {
- *       entry: [
- *         {
- *           type: 'log',
- *         },
- *         emit(({context}) => ({
- *           type: 'com.openai.completions',
- *           data: {
- *             request: context.request,
- *           },
- *         }))
- *       ],
- *       on: {
- *         'evt.openai.completions.success': {
- *           actions: [
- *             assign({response: ({event}) => event.response})
- *           ],
- *           target: 'done'
- *         },
- *         'sys.com.openai.completions.error': {
- *           actions: [
- *             assign({errors: ({context, event}) => [...context.errors, event.body]})
- *           ],
- *           target: 'error'
- *         }
- *       }
- *     },
- *     done: {
- *       type: 'final'
- *     },
- *     error: {
- *       type: 'final'
- *     },
- *   }
- * });
- * ```
- *
- * This example demonstrates:
- * 1. Defining Arvo contracts for the orchestrator and a service
- * 2. Setting up an Arvo machine with contracts, types, actions, and guards
- * 3. Creating a machine with states for validation, LLM interaction, and error handling
- * 4. Using XState features like `emit` bound with Arvo contracts for event emitting and event handling via transitions
+ * Designed for synchronous state machine orchestrations in Arvo's event-driven architecture.
+ * Builds upon XState with Arvo-specific constraints to enforce predictable state transitions.
+ * 
+ * @throws {ConfigViolation} When configuration violates Arvo constraints:
+ * - Using `actors` or `delays` (async behavior not supported)
+ * - Overriding reserved `enqueueArvoEvent` action name
+ * - Machine version mismatch with contract version
+ * - Using `invoke` or `after` in state configurations
+ * - Service contracts with duplicate URIs (multiple versions of same contract)
+ * - Circular dependency (self contract URI matches a service contract URI)
  */
 export function setupArvoMachine<
   TContext extends MachineContext,
@@ -204,14 +56,29 @@ export function setupArvoMachine<
   TMeta extends MetaObject = MetaObject,
 >(param: {
   schemas?: unknown;
+  /**
+   * Contract definitions for the machine's event interface.
+   * Defines what events the machine accepts, emits, and exchanges with services.
+   */
   contracts: {
-    // The self orchestrator contract defining the machine init input
-    // data structure and completion output data structure
+    /**
+     * Self contract defining the machine's initialization input structure
+     * and the completion output structure when the machine finishes execution.
+     */
     self: TSelfContract;
-    // Definition of all the services the orchestrator talks to and
-    // send and/or recieves events from
+    
+    /**
+     * Service contracts defining the event interfaces for external services.
+     * Each service specifies the events it accepts and emits, enabling
+     * type-safe communication between the machine and its dependencies.
+     */
     services: TServiceContracts;
   };
+  /**
+   * Type definitions for the machine's internal structure.
+   * Specifies the shape of context and other variables used throughout
+   * the machine's lifecycle. These types enable full type inference and safety.
+   */
   types?: Omit<
     SetupTypes<
       TContext,
@@ -228,6 +95,26 @@ export function setupArvoMachine<
     >,
     'input' | 'output' | 'children' | 'emitted'
   >;
+  /**
+   * Named action implementations that can be referenced throughout the machine.
+   * Actions perform side effects like data transformations, context updates,
+   * and event emissions. Each action receives the current context and event,
+   * along with any parameters defined in its type.
+   * 
+   * For more information, see [xstate action docs](https://stately.ai/docs/actions)
+   * 
+   * @example
+   * ```typescript
+   * actions: {
+   *   updateUser: ({ context, event }, params) => {
+   *     // Transform and update context
+   *   },
+   *   logEvent: ({ event }) => {
+   *     // Log for debugging
+   *   }
+   * }
+   * ```
+   */
   actions?: {
     [K in keyof TActions]: ActionFunction<
       TContext,
@@ -241,6 +128,26 @@ export function setupArvoMachine<
       InferServiceContract<TServiceContracts>['emitted']
     >;
   };
+  /**
+   * Named guard implementations that control conditional state transitions.
+   * Guards are boolean functions that determine whether a transition should occur
+   * based on the current context and event. They enable dynamic flow control
+   * without side effects.
+   * 
+   * For more information, see [xstate guard docs](https://stately.ai/docs/guards)
+   * 
+   * @example
+   * ```typescript
+   * guards: {
+   *   isAuthorized: ({ context, event }, params) => {
+   *     return context.user.role === 'admin';
+   *   },
+   *   hasRequiredData: ({ context }) => {
+   *     return context.data !== null;
+   *   }
+   * }
+   * ```
+   */
   guards?: {
     [K in keyof TGuards]: (
       args: {
@@ -264,15 +171,15 @@ export function setupArvoMachine<
   };
 
   if ((param as any).actors) {
-    throw new Error(createConfigErrorMessage('actor'));
+    throw new ConfigViolation(createConfigErrorMessage('actor'));
   }
 
   if ((param as any).delays) {
-    throw new Error(createConfigErrorMessage('delays'));
+    throw new ConfigViolation(createConfigErrorMessage('delays'));
   }
 
   if (param.actions?.enqueueArvoEvent) {
-    throw new Error(
+    throw new ConfigViolation(
       cleanString(`
         Configuration Error: Reserved action name 'enqueueArvoEvent'
         
@@ -337,18 +244,6 @@ export function setupArvoMachine<
 
   /**
    * Creates an Arvo-compatible XState machine.
-   *
-   * @param config - The configuration object for the machine
-   * @returns An ArvoMachine instance
-   *
-   * @throws Error if 'invoke' or 'after' configurations are used
-   *
-   * @remarks
-   * This function creates a state machine based on the provided configuration.
-   * It performs additional checks to ensure the machine adheres to Arvo's constraints,
-   * such as disallowing 'invoke' and 'after' configurations which could introduce
-   * asynchronous behavior.
-   * ```
    */
   const createMachine = <
     const TConfig extends MachineConfig<
@@ -384,7 +279,7 @@ export function setupArvoMachine<
     const machineVersion: TSelfContract['version'] = config.version ?? param.contracts.self.version;
 
     if (machineVersion !== param.contracts.self.version) {
-      throw new Error(
+      throw new ConfigViolation(
         `Version mismatch: Machine version must be '${param.contracts.self.version}' or undefined, received '${config.version}'`,
       );
     }
@@ -431,13 +326,13 @@ export function setupArvoMachine<
 
     for (const item of getAllPaths(config.states ?? {})) {
       if (item.path.includes('invoke')) {
-        throw new Error(createConfigErrorMessage('invoke', item.path));
+        throw new ConfigViolation(createConfigErrorMessage('invoke', item.path) ?? 'Invoke not allowed');
       }
       if (item.path.includes('after')) {
-        throw new Error(createConfigErrorMessage('after', item.path));
+        throw new ConfigViolation(createConfigErrorMessage('after', item.path) ?? 'After not allowed');
       }
       if (item.path.includes('enqueueArvoEvent')) {
-        throw new Error(createConfigErrorMessage('enqueueArvoEvent', item.path));
+        throw new ConfigViolation(createConfigErrorMessage('enqueueArvoEvent', item.path) ?? 'EnqueueArvoEvent not allowed');
       }
     }
 
@@ -458,5 +353,43 @@ export function setupArvoMachine<
       requiresLocking,
     );
   };
-  return { createMachine };
+  return { 
+    /**
+     * Creates an Arvo-compatible state machine with the specified configuration.
+     * 
+     * Constructs a fully-typed state machine that orchestrates event-driven workflows
+     * using the contracts and types defined in setup. The machine enforces synchronous
+     * execution and validates configuration against Arvo constraints.
+     * 
+     * For more information, see [xstate state machine docs](https://stately.ai/docs/states)
+     * @returns {ArvoMachine} A configured Arvo machine ready for execution
+     * @throws {ConfigViolation} When configuration violates Arvo constraints (see {@link setupArvoMachine} docs)
+     * 
+     * @example
+     * ```typescript
+     * const machine = setup.createMachine({
+     *   id: 'machineV100',
+     *   initial: 'verifying',
+     *   context: ({ input }) => ({
+     *     userId: input.data.userId,
+     *     verified: false
+     *   }),
+     *   states: {
+     *     verifying: {
+     *       on: {
+     *         'com.user.verified': {
+     *           target: 'active',
+     *           actions: { type: 'updateUser' }
+     *         }
+     *       }
+     *     },
+     *     active: {
+     *       type: 'final'
+     *     }
+     *   }
+     * });
+     * ```
+     */
+    createMachine 
+  };
 }

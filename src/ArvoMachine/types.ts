@@ -15,13 +15,11 @@ import type { z } from 'zod';
  * Represents an extended context for Arvo XState machines, including additional properties
  * for volatile and internal data.
  *
- * @remarks
  * This type extends the base XState MachineContext with additional properties
  * to provide more flexibility and organization in storing machine-related data.
  *
  * The `$$` suffix in property names is used to indicate special storage objects within the context.
- *
- * @note
+ * 
  * To avoid runtime errors, it is recommended not to use `arvo$$` object at all in the
  * machine context
  */
@@ -38,12 +36,6 @@ export type ArvoMachineContext = {
  * Represents the parameters for the emitArvoEvent action in ArvoXState.
  * This type defines a subset of properties from the CreateArvoEvent type,
  * specifically tailored for emitting an ArvoEvent within the state machine context.
- *
- * @remarks
- * The EmitArvoEventActionParam type is crucial for maintaining consistency and
- * type safety when emitting events in an ArvoXState machine. It ensures that
- * only relevant properties are included and properly typed.
- * ```
  */
 export type EnqueueArvoEventActionParam<
   TData extends ArvoEventData = ArvoEventData,
@@ -54,79 +46,36 @@ export type EnqueueArvoEventActionParam<
    * The event id
    */
   id?: CreateArvoEvent<TData, TType>['id'];
+
   /**
    * The domain configuration for multi-domain event broadcasting.
-   *
-   * When an event is emitted with a `domain` array, Arvo generates a separate ArvoEvent
-   * for each resolved domain value. This enables parallel routing to multiple contexts
-   * such as analytics, auditing, human-in-the-loop systems, or external integrations.
-   *
-   * **Accepted Values:**
-   * - A concrete domain string (e.g. `'audit.orders'`)
-   * - `null` for standard internal routing (no domain)
-   * - A symbolic value from {@link ArvoDomain}.
-   *
-   * **Broadcasting Rules:**
-   * - Each resolved domain in the array creates a separate ArvoEvent instance
-   * - Duplicate resolved domains are automatically removed
-   * - If the field is omitted, Arvo defaults to `[null]`
-   *
-   * **Examples:**
-   * - `['analytics.orders', 'audit.orders']` → Creates two routed events
-   * - `[ArvoDomain.FROM_TRIGGERING_EVENT, 'human.review', null]` → Mirrors source domain, routes to review, and standard consumer
-   * - `[null]` → Emits a single event with no domain routing
-   * - _Omitted_ → Same as `[null]`
    */
   domain?: (string | null)[];
 
   /**
    * Custom extensions for the CloudEvent.
    * Allows for additional metadata to be attached to the event.
-   *
-   * @remarks
-   * Use this field to include any non-standard attributes that are not
-   * covered by the core CloudEvent specification or Arvo extensions.
    */
   __extensions?: TExtension;
 
   /**
    * Defines access controls for the event.
    * Can be a UserID, encrypted string, or key-value pairs.
-   *
-   * @remarks
-   * This field is used to implement fine-grained access control on event
-   * consumption. The exact format and interpretation may depend on your
-   * system's access control mechanisms.
    */
   accesscontrol?: string;
 
   /**
    * The event payload. This payload must be JSON serializable.
-   *
-   * @remarks
-   * The data field contains the event-specific information. Ensure that
-   * the structure of this data conforms to the schema specified in the
-   * `dataschema` field, if provided.
    */
   data: TData;
 
   /**
    * Identifies the schema that the `data` adheres to.
-   * Must be a valid URI if present.
-   *
-   * @remarks
-   * Use this field to provide a link to the schema definition for the
-   * event data. This helps consumers understand and validate the event structure.
    */
   dataschema?: string;
 
   /**
    * Indicates alternative recipients or destinations for events.
-   * Must be a valid URI if present.
-   *
-   * @remarks
-   * Use this field to implement event forwarding or to specify secondary
-   * event consumers in addition to the primary one specified in the `to` field.
    */
   redirectto?: string;
 
@@ -134,38 +83,21 @@ export type EnqueueArvoEventActionParam<
    * Defines the consumer machine of the event. Used for event routing.
    * Must be a valid URI if present. If not available, the `type` field
    * is used as a default.
-   *
-   * @remarks
-   * This field is crucial for directing events to specific services or
-   * components in your system. Ensure the URI is correctly formatted and
-   * recognized by your event routing infrastructure.
    */
   to?: string;
 
   /**
    * Describes the type of event.
-   * Should be prefixed with a reverse-DNS name.
-   *
-   * @remarks
-   * The event type is a key field for consumers to understand the nature
-   * of the event without inspecting its data. Use a consistent naming convention
-   * to enhance system-wide event comprehension.
    */
   type: TType;
 
   /**
    * Represents the cost associated with generating the cloudevent.
-   *
-   * @remarks
-   * By default, it uses the actor's executionunits. This field can be used for
-   * resource accounting or billing purposes. Only override this if you have a specific
-   * reason to assign a different cost to this particular event emission.
    */
   executionunits?: number;
 };
 
 /**
- * @remarks
  * This is an internal type. Copied as it is from the
  * xstate core [here](https://github.com/statelyai/xstate/blob/main/packages/core/src/setup.ts#L26)
  */
@@ -180,7 +112,6 @@ export type ToParameterizedObject<TParameterizedMap extends Record<string, Param
       }>;
 
 /**
- * @remarks
  * This is an internal type. Copied as it is from the
  * xstate core [here](https://github.com/statelyai/xstate/blob/main/packages/core/src/setup.ts#L43)
  */
@@ -203,10 +134,6 @@ export type ToProvidedActor<
 
 /**
  * Infers emittable events from a versioned Arvo contract.
- *
- * @template T - Versioned Arvo contract type
- *
- * @remarks
  * Extracts all possible events that can be emitted by a contract,
  * including system error events.
  */
@@ -220,10 +147,6 @@ export type InferEmittableEventsFromVersionedArvoContract<
 
 /**
  * Extracts the orchestrator type from an event type string.
- *
- * @template T - Event type string
- *
- * @remarks
  * Parses the specific orchestrator type from a fully qualified event type string.
  */
 export type ExtractOrchestratorType<T extends string> =
@@ -231,10 +154,6 @@ export type ExtractOrchestratorType<T extends string> =
 
 /**
  * Infers the complete service contract from a record of versioned Arvo contracts.
- *
- * @template T - Record of versioned Arvo contracts
- *
- * @remarks
  * Generates a comprehensive type definition including both emitted and received events
  * for all services in the contract.
  *

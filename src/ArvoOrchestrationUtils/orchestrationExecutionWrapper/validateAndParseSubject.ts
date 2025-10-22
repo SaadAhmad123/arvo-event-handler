@@ -3,7 +3,12 @@ import { type ArvoEvent, ArvoOrchestrationSubject, type ArvoOrchestrationSubject
 import type { SyncEventResource } from '../../SyncEventResource';
 
 /**
- * Validates and parses orchestration subject
+ * Validates and parses an orchestration event's subject.
+ * 
+ * Ensures the event subject is valid and matches the expected orchestrator source.
+ * Returns null if validation fails, allowing graceful handling of mismatched events.
+ *
+ * @returns Parsed subject content or null if validation fails
  */
 export const validateAndParseSubject = (
   event: ArvoEvent,

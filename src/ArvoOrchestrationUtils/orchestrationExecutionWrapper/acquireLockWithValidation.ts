@@ -5,7 +5,11 @@ import type { AcquiredLockStatusType } from '../../SyncEventResource/types';
 import { TransactionViolation, TransactionViolationCause } from '../error';
 
 /**
- * Handles lock acquisition with proper error handling
+ * Acquires an exclusive lock for event processing with validation.
+ * 
+ * Attempts to obtain a lock on the event's subject to ensure exclusive access during
+ * processing. Throws if lock cannot be acquired, preventing concurrent modifications.
+ * @throws {TransactionViolation} When lock cannot be acquired
  */
 export const acquireLockWithValidation = async (
   syncEventResource: SyncEventResource<Record<string, any>>,

@@ -16,19 +16,50 @@ import { resolveEventDomain } from '../ArvoDomain';
 import type { EnqueueArvoEventActionParam } from '../ArvoMachine/types';
 import { ContractViolation, ExecutionViolation } from '../errors';
 
+/**
+ * Parameters for creating an emittable event from raw event data.
+ */
 export type CreateEmittableEventParams = {
+  /** Raw event parameters from machine execution */
   event: EnqueueArvoEventActionParam;
+  /** OpenTelemetry headers for distributed tracing */
   otelHeaders: OpenTelemetryHeaders;
+  /** Parent orchestration subject for nested workflows */
   orchestrationParentSubject: string | null;
+  /** Event that triggered this emission */
   sourceEvent: ArvoEvent;
+  /** Self contract for orchestrator validation */
   selfContract: VersionedArvoContract<ArvoOrchestratorContract, ArvoSemanticVersion>;
+  /** Service contracts for external event validation */
   serviceContracts: Record<string, VersionedArvoContract<any, any>>;
+  /** ID of the workflow initialization event */
   initEventId: string;
+  /** Domain for event routing */
   domain: string | null;
+  /** Execution units to assign to event */
   executionunits: number;
+  /** Source identifier for the orchestrator */
   source: string;
 };
 
+/**
+ * Creates a fully-formed emittable event from raw event parameters.
+ * 
+ * Transforms machine-emitted event data into valid Arvo events by:
+ * - Validating against appropriate contracts (self or service)
+ * - Resolving domains for routing
+ * - Generating proper subjects for orchestration events
+ * - Adding tracing context and metadata
+ * 
+ * Handles three event types differently:
+ * 1. Completion events - routed to workflow initiator with parent subject
+ * 2. Service orchestrator events - creates/extends orchestration subjects
+ * 3. Regular service events - standard external service calls
+ *
+ * @returns Fully-formed Arvo event ready for emission
+ * @throws {ContractViolation} When event data fails schema validation
+ * @throws {ExecutionViolation} When orchestration subject creation fails
+ */
 export const createEmittableEvent = (
   {
     event,

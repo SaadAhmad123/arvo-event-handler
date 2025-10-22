@@ -7,6 +7,9 @@ import type { IMachineMemory } from '../MachineMemory/interface';
 import type { IMachineRegistry } from '../MachineRegistry/interface';
 import type { ArvoEventHandlerOtelSpanOptions } from '../types';
 
+/**
+ * Discriminated union representing the result of a try operation.
+ */
 export type TryFunctionOutput<TData, TError extends Error> =
   | {
       type: 'success';
@@ -18,120 +21,142 @@ export type TryFunctionOutput<TData, TError extends Error> =
     };
 
 /**
- * Represents the state record stored in machine memory.
+ * State record persisted in machine memory for orchestration execution.
+ * 
+ * Extends the base orchestration execution record with machine-specific state
+ * including XState snapshots, event history, and hierarchical orchestration context.
  */
 export type MachineMemoryRecord = OrchestrationExecutionMemoryRecord<{
-  /** Unique identifier for the machine instance */
+  /** Unique identifier for this orchestration instance */
   subject: string;
 
   /**
-   * Reference to the parent orchestration's subject when orchestrations are nested or chained.
-   * This enables hierarchical orchestration patterns where one orchestration can spawn
-   * sub-orchestrations. When the current orchestration completes, its completion event
-   * is routed back to this parent subject rather than staying within the current context.
+   * Parent orchestration subject for nested workflows.
+   * 
+   * Enables hierarchical orchestration patterns where one orchestration spawns
+   * sub-orchestrations. When the current orchestration completes, its completion
+   * event routes back to this parent subject.
    *
-   * - For root orchestrations: null
-   * - For nested orchestrations: contains the subject of the parent orchestration
-   * - Extracted from the `parentSubject$$` field in initialization events
+   * - Root orchestrations: `null`
+   * - Nested orchestrations: parent's subject identifier
+   * - Source: `parentSubject$$` field in initialization events
    */
   parentSubject: string | null;
 
   /**
-   * The unique identifier of the event that originally initiated this entire orchestration workflow.
-   * This serves as the root identifier for tracking the complete execution chain from start to finish.
+   * ID of the event that initiated this orchestration workflow.
+   * 
+   * Serves as the root identifier for tracing the complete execution chain.
+   * Used as `parentid` for completion events to maintain lineage back to
+   * the workflow's origin.
    *
-   * - For new orchestrations: set to the current event's ID
-   * - For resumed orchestrations: retrieved from the stored state
-   * - Used as the `parentid` for completion events to create a direct lineage back to the workflow's origin
-   *
-   * This enables tracing the entire execution path and ensures completion events reference
-   * the original triggering event rather than just the immediate previous step.
+   * - New orchestrations: set to current event's ID
+   * - Resumed orchestrations: retrieved from stored state
    */
   initEventId: string;
 
   /**
-   * Current execution status of the machine. The status field represents the current
-   * state of the machine's lifecycle. While commonly used values are:
-   * - 'active': Machine is currently executing
-   * - 'done': Machine has completed its execution successfully
-   * - 'error': Machine encountered an error during execution
-   * - 'stopped': Machine execution was explicitly stopped
-   *
-   * Due to XState dependency, the status can be any string value defined in the
-   * state machine definition. This allows for custom states specific to the
-   * business logic implemented in the state machine.
+   * Current machine execution status.
+   * 
+   * Common values include:
+   * - `'active'`: Machine is executing
+   * - `'done'`: Machine completed successfully
+   * - `'error'`: Machine encountered an error
+   * - `'stopped'`: Machine was explicitly stopped
+   * 
+   * Custom values can be defined in the state machine configuration.
    */
   status: string;
 
-  /** Current value stored in the machine state */
+  /** Current state value (string for simple states, object for compound states) */
   value: string | Record<string, any> | null;
 
-  /** XState snapshot representing the machine's current state */
+  /** XState snapshot representing the complete machine state */
   state: Snapshot<any>;
 
+  /**
+   * Event history from the last execution session.
+   */
   events: {
-    /** The event consumed by the machine in the last session */
+    /** Event consumed by the machine in the last session */
     consumed: InferArvoEvent<ArvoEvent> | null;
-    /**
-     * The events produced by the machine in the last session
-     */
+    /** Events produced by the machine in the last session */
     produced: InferArvoEvent<ArvoEvent>[];
   };
 
-  /** Machine definition string */
+  /** Serialized machine definition for debugging and inspection */
   machineDefinition: string | null;
 }>;
 
 /**
- * Interface defining the core components of an Arvo orchestrator.
+ * Configuration parameters for ArvoOrchestrator constructor.
+ * 
+ * Defines all required components and settings for orchestrator initialization.
+ * For simplified creation with default components, use {@link createArvoOrchestrator}.
  */
 export type ArvoOrchestratorParam = {
-  /** The cost of the execution of the orchestrator */
+  /** Computational cost metric assigned to orchestrator operations */
   executionunits: number;
 
-  /** Memory interface for storing and retrieving machine state */
+  /** Memory interface for state persistence and retrieval */
   memory: IMachineMemory<MachineMemoryRecord>;
 
   /** Registry for managing and resolving machine instances */
   registry: IMachineRegistry;
 
-  /** Engine responsible for machine execution */
+  /** Engine responsible for executing state machine logic */
   executionEngine: IMachineExectionEngine;
 
-  /* A flag notifying the orchestrator if the resource locking is needed or not */
+  /** Whether to enforce resource locking for concurrent safety */
   requiresResourceLocking: boolean;
 
   /**
-   * Optional configuration to customize where system error events are emitted.
+   * Optional domains for system error event routing.
    *
-   * This overrides the default system error domain fallback of:
+   * Overrides the default fallback sequence of:
    * `[event.domain, self.contract.domain, null]`
    *
-   * Use this to precisely control the set of domains that should receive structured
-   * `sys.*.error` events when uncaught exceptions occur in the handler.
+   * Controls where structured `sys.*.error` events are emitted when
+   * uncaught exceptions occur. Supports symbolic constants from {@link ArvoDomain}.
    *
-   * Symbolic constants from {@link ArvoDomain} are supported.
-   *
-   * @default undefined — uses standard fallback broadcast domains
+   * @default undefined - uses standard fallback broadcast domains
    */
   systemErrorDomain?: (string | null)[];
 
-  /**
-   * The OpenTelemetry span options
-   */
+  /** OpenTelemetry span configuration for distributed tracing */
   spanOptions?: ArvoEventHandlerOtelSpanOptions;
 };
 
 /**
- * Configuration interface for creating an Arvo orchestrator instance.
+ * Configuration parameters for creating an orchestrator via factory function.
+ * 
+ * Simplified interface for {@link createArvoOrchestrator} that automatically
+ * constructs default registry and execution engine components.
  */
 export type CreateArvoOrchestratorParam = Pick<
   ArvoOrchestratorParam,
   'memory' | 'executionunits' | 'spanOptions' | 'systemErrorDomain'
 > & {
+  /** 
+   * Optional override for resource locking requirement.
+   * 
+   * When undefined, locking is automatically enabled if any machine requires it.
+   * Explicitly set to control locking behavior regardless of machine requirements.
+   * 
+   * Resource locking is needed when:
+   * - Machines contain parallel states with simultaneous active states
+   * - Preventing race conditions in concurrent event processing
+   * - Maintaining state consistency across distributed executions
+   * 
+   * @default undefined - auto-determined from machines
+   */
+  requiresResourceLocking?: ArvoOrchestratorParam['requiresResourceLocking'];
+  
   /**
-   * Collection of state machines to be managed by the orchestrator.
-   * All machines must have the same source identifier.
+   * State machines to register with the orchestrator.
+   * 
+   * All machines must share the same source identifier and have unique versions.
+   * At least one machine is required.
    */
   machines: ArvoMachine<any, any, any, any, any>[];
 };

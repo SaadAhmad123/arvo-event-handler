@@ -21,34 +21,65 @@ import type { ArvoOrchestrationHandlerType } from '../types';
 import { acquireLockWithValidation } from './acquireLockWithValidation';
 import { validateAndParseSubject } from './validateAndParseSubject';
 
+/**
+ * Configuration context for orchestration execution.
+ * Contains all resources and settings needed for the execution lifecycle.
+ */
 export type OrchestrationExecutionContext<TState extends OrchestrationExecutionMemoryRecord<Record<string, any>>> = {
+  /** Event triggering the orchestration */
   event: ArvoEvent;
+  /** OpenTelemetry configuration for tracing */
   opentelemetry: ArvoEventHandlerOpenTelemetryOptions;
+  /** Source identifier for the orchestrator */
   source: string;
+  /** Resource manager for state and lock operations */
   syncEventResource: SyncEventResource<TState>;
+  /** Maximum execution units per cycle */
   executionunits: number;
+  /** Optional domains for system error routing */
   systemErrorDomain?: (string | null)[];
+  /** Self contract defining orchestrator interface */
   selfContract: VersionedArvoContract<ArvoOrchestratorContract, ArvoSemanticVersion>;
+  /** Domain for event routing */
   domain: string | null;
+  /** Type of orchestration handler */
   _handlerType: ArvoOrchestrationHandlerType;
+  /** OpenTelemetry span configuration */
   spanOptions: ArvoEventHandlerOtelSpanOptions & {
     spanName: NonNullable<ArvoEventHandlerOtelSpanOptions['spanName']>;
   };
 };
 
+/**
+ * Core execution function signature for orchestration logic.
+ * Receives prepared context and returns emitted events with new state.
+ */
 export type CoreExecutionFn<TState extends OrchestrationExecutionMemoryRecord<Record<string, any>>> = (params: {
+  /** OpenTelemetry span for tracing */
   span: any;
+  /** Current OpenTelemetry headers */
   otelHeaders: OpenTelemetryHeaders;
+  /** Parent orchestration subject if nested */
   orchestrationParentSubject: string | null;
+  /** ID of the initialization event */
   initEventId: string;
+  /** Parsed event subject content */
   parsedEventSubject: ArvoOrchestrationSubjectContent;
+  /** Current persisted state or null for new orchestrations */
   state: TState | null;
+  /** Type of handler executing */
   _handlerType: ArvoOrchestrationHandlerType;
 }) => Promise<{
+  /** Events to emit from this execution */
   emittables: ArvoEvent[];
+  /** New state to persist */
   newState: TState;
 }>;
 
+/**
+ * Helper to log and return execution results.
+ * @returns The same result after logging
+ */
 export const returnEventsWithLogging = (
   param: Awaited<ReturnType<IArvoEventHandler['execute']>>,
   span: Span,
@@ -64,11 +95,19 @@ export const returnEventsWithLogging = (
 };
 
 /**
- * Wraps orchestration execution with common infrastructure:
- * - OpenTelemetry span management
- * - Lock acquisition and release
- * - State management
- * - Error handling and system error generation
+ * Wraps orchestration execution with infrastructure concerns.
+ * 
+ * Provides a complete execution wrapper that handles:
+ * - OpenTelemetry span creation and management
+ * - Event subject validation and parsing
+ * - Lock acquisition for concurrent safety
+ * - State retrieval and persistence
+ * - Error handling with system error event generation
+ * - Lock release in all scenarios
+ * 
+ * This wrapper ensures consistent behavior across all orchestration handlers
+ * while allowing custom core logic via the execution function parameter.
+ * @returns Emitted events from successful execution or error handling
  */
 export const executeWithOrchestrationWrapper = async <
   TState extends OrchestrationExecutionMemoryRecord<Record<string, any>>,

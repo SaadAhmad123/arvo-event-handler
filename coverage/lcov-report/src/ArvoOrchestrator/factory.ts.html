@@ -23,16 +23,16 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">96.42% </span>
+                <span class="strong">96.55% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>27/28</span>
+                <span class='fraction'>28/29</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">71.42% </span>
+                <span class="strong">72.72% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>5/7</span>
+                <span class='fraction'>8/11</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">95.65% </span>
+                <span class="strong">95.83% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>22/23</span>
+                <span class='fraction'>23/24</span>
             </div>
         
             
@@ -136,7 +136,11 @@
 <a name='L71'></a><a href='#L71'>71</a>
 <a name='L72'></a><a href='#L72'>72</a>
 <a name='L73'></a><a href='#L73'>73</a>
-<a name='L74'></a><a href='#L74'>74</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L74'></a><a href='#L74'>74</a>
+<a name='L75'></a><a href='#L75'>75</a>
+<a name='L76'></a><a href='#L76'>76</a>
+<a name='L77'></a><a href='#L77'>77</a>
+<a name='L78'></a><a href='#L78'>78</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-yes">8x</span>
@@ -169,7 +173,11 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">10x</span>
 <span class="cline-any cline-yes">10x</span>
 <span class="cline-any cline-yes">10x</span>
 <span class="cline-any cline-yes">10x</span>
@@ -218,29 +226,32 @@ import type { CreateArvoOrchestratorParam } from './types';
 &nbsp;
 /**
  * Creates a new Arvo orchestrator instance with default components.
- * For custom components, use ArvoOrchestrator constructor directly.
- *
- * @param config - Orchestrator configuration
- * @param config.memory - State persistence interface for storing machine states
- * @param config.executionunits - Cost units for execution tracking
- * @param config.machines - Array of state machines to manage. Their resource locking flags determine orchestrator's locking behavior
- * @param config.systemErrorDomain - An optional array of system error domain overrides
- * @returns Configured ArvoOrchestrator instance with default registry and execution engine
- *
- * @remarks
- * The orchestrator's resource locking is enabled if any machine requires it. Locking is needed when:
- * - Machine contains parallel states where multiple states can be active simultaneously
- * - Race conditions need to be prevented in concurrent processing
- * - State consistency must be maintained across distributed executions
+ * 
+ * Factory function that constructs an orchestrator with standard execution engine
+ * and registry implementations. Validates that all machines share the same source
+ * identifier and have unique versions.
+ * 
+ * @param params - Configuration parameters for the orchestrator
+ * @returns Configured ArvoOrchestrator instance ready for event handling
+ * 
+ * @throws {Error} When no machines are provided
+ * @throws {ConfigViolation} When machines have different source identifiers
+ * @throws {ConfigViolation} When machines have duplicate versions
  *
  * @example
  * ```typescript
  * const orchestrator = createArvoOrchestrator({
- *   memory: new SimpleMachineMemory() // or, any other IMachineMemory implementation,
+ *   memory: new SimpleMachineMemory(),
  *   executionunits: 1,
- *   machines: [machineA, machineB]
+ *   machines: [userOnboardingMachine, paymentMachine]
  * });
+ * 
+ * // Process events
+ * const result = await orchestrator.execute(event);
  * ```
+ * 
+ * @see {@link setupArvoMachine} for creating machine definitions
+ * @see {@link ArvoOrchestrator} for direct instantiation with custom components
  */
 export const createArvoOrchestrator = ({
   executionunits,
@@ -248,13 +259,14 @@ export const createArvoOrchestrator = ({
   machines,
   systemErrorDomain,
   spanOptions,
+  requiresResourceLocking: _locking,
 }: CreateArvoOrchestratorParam): ArvoOrchestrator =&gt; {
   <span class="missing-if-branch" title="if path not taken" >I</span>if (!machines<span class="branch-0 cbranch-no" title="branch not covered" >?.l</span>ength) {
 <span class="cstat-no" title="statement not covered" >    throw new Error('At least one machine must be provided');</span>
   }
 &nbsp;
   const registry = new MachineRegistry(...machines);
-  const requiresResourceLocking = machines.some((machine) =&gt; machine.requiresResourceLocking);
+  const requiresResourceLocking = <span class="branch-0 cbranch-no" title="branch not covered" >_locking </span>?? machines.some((machine) =&gt; machine.requiresResourceLocking);
 &nbsp;
   const representativeMachine = registry.machines[0];
   const lastSeenVersions: ArvoSemanticVersion[] = [];
@@ -289,7 +301,7 @@ export const createArvoOrchestrator = ({
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-10-21T13:27:33.991Z
+                at 2025-10-22T14:50:06.939Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

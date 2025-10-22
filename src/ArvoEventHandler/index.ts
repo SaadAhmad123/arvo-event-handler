@@ -26,124 +26,35 @@ import { coalesce, coalesceOrDefault, createEventHandlerTelemetryConfig } from '
 import type { ArvoEventHandlerFunction, ArvoEventHandlerFunctionOutput, ArvoEventHandlerParam } from './types';
 
 /**
- * `ArvoEventHandler` is the foundational component for building stateless,
+ * The foundational component for building stateless,
  * contract-bound services in the Arvo system.
- *
- * It enforces strict contract validation, version-aware handler resolution,
- * and safe, observable event emission — all while maintaining type safety,
- * traceability, and support for multi-domain workflows.
- *
- * ## What It Does
- * - Ensures incoming events match the contract's `type` and `dataschema`
- * - Resolves the correct contract version using `dataschema`
- * - Validates input and output data via Zod schemas
- * - Executes the version-specific handler function
- * - Emits one or more response events based on the handler result
- * - Supports multi-domain broadcasting via `domain[]` on the emitted events
- * - Automatically emits system error events (`sys.*.error`) on failure
- * - Integrates deeply with OpenTelemetry for tracing and observability
- *
- * ## Error Boundaries
- * ArvoEventHandler enforces a clear separation between:
- *
- * - **Violations** — structural, schema, or config errors that break the contract.
- *   These are thrown and must be handled explicitly by the caller.
- *
- * - **System Errors** — runtime exceptions during execution that are caught and
- *   emitted as standardized `sys.<contract>.error` events.
- *
- * ## Domain Broadcasting
- * The handler supports multi-domain event distribution. When the handler
- * returns an event with a `domain` array, it is broadcast to one or more
- * routing contexts.
- *
- * ### System Error Domain Control
- * By default, system error events are broadcast into the source event’s domain,
- * the handler’s contract domain, and the `null` domain. This fallback ensures errors
- * are visible across all relevant contexts. Developers can override this behavior
- * using the optional `systemErrorDomain` field to specify an explicit set of
- * domain values, including symbolic constants from {@link ArvoDomain}.
- *
- * ### Supported Domain Values:
- * - A **concrete domain string** like `'audit.orders'` or `'human.review'`
- * - `null` to emit with no domain (standard internal flow)
- * - A **symbolic reference** from {@link ArvoDomain}
- *
- * ### Domain Resolution Rules:
- * - Each item in the `domain` array is resolved via {@link resolveEventDomain}
- * - Duplicate domains are deduplicated before emitting
- * - If `domain` is omitted entirely, Arvo defaults to `[null]`
- *
- * ### Example:
- * ```ts
- * return {
- *   type: 'evt.user.registered',
- *   data: { ... },
- *   domain: ['analytics', ArvoDomain.FROM_TRIGGERING_EVENT, null]
- * };
- * ```
- * This would emit at most 3 copies of the event, domained to:
- * - `'analytics'`
- * - the domain of the incoming event
- * - no domain (default)
- *
- * ### Domain Usage Guidance
- *
- * > **Avoid setting `contract.domain` unless fully intentional.**
- * 99% emitted event should default to `null` (standard processing pipeline).
- *
- * Contract-level domains enforce implicit routing for every emitted event
- * in that handler, making the behavior harder to override and debug.
- *
- * Prefer:
- * - Explicit per-event `domain` values in handler output
- * - Using `null` or symbolic constants to control domain cleanly
- *
- * ## When to Use Domains
- * Use domains when handling for specialized contexts:
- * - `'human.review'` → for human-in-the-loop steps
- * - `'analytics.workflow'` → to pipe events into observability systems
- * - `'external.partner.sync'` → to route to external services
  */
 export default class ArvoEventHandler<TContract extends ArvoContract> implements IArvoEventHandler {
   /** Contract instance that defines the event schema and validation rules */
-  public readonly contract: TContract;
+  readonly contract: TContract;
 
   /** Computational cost metric associated with event handling operations */
-  public readonly executionunits: number;
+  readonly executionunits: number;
 
   /** OpenTelemetry configuration for event handling spans */
-  public readonly spanOptions: ArvoEventHandlerOtelSpanOptions;
+  readonly spanOptions: ArvoEventHandlerOtelSpanOptions;
 
   /** Version-specific event handler implementation map */
-  public readonly handler: ArvoEventHandlerFunction<TContract>;
+  readonly handler: ArvoEventHandlerFunction<TContract>;
 
   /** The source identifier for events produced by this handler */
-  public get source(): TContract['type'] {
+  get source(): TContract['type'] {
     return this.contract.type;
   }
 
-  public readonly systemErrorDomain?: (string | null)[] = undefined;
+  /** Optional domains for routing system error events */
+  readonly systemErrorDomain?: (string | null)[] = undefined;
 
-  /**
-   * The contract-defined domain for this handler, used as the default domain for emitted events.
-   * Can be overridden by individual handler implementations for cross-domain workflows.
-   * Returns null if no domain is specified, indicating standard processing context.
-   */
-  public get domain(): string | null {
+  /** The contract-defined domain for the handler */
+  get domain(): string | null {
     return this.contract.domain;
   }
 
-  /**
-   * Initializes a new ArvoEventHandler instance with the specified contract and configuration.
-   * Validates handler implementations against contract versions during initialization.
-   *
-   * The constructor ensures that handler implementations exist for all supported contract
-   * versions and configures OpenTelemetry span attributes for monitoring event handling.
-   *
-   * @param param - Handler configuration including contract, execution units, and handler implementations
-   * @throws When handler implementations are missing for any contract version
-   */
   constructor(param: ArvoEventHandlerParam<TContract>) {
     this.contract = param.contract;
     this.executionunits = param.executionunits;
@@ -175,13 +86,7 @@ export default class ArvoEventHandler<TContract extends ArvoContract> implements
    * Processes an incoming event according to the handler's contract specifications. This method
    * handles the complete lifecycle of event processing including validation, execution, error
    * handling, and multi-domain event broadcasting, while maintaining detailed telemetry through OpenTelemetry.
-   *
-   * @param event - The incoming event to process
-   * @param opentelemetry - Configuration for OpenTelemetry context inheritance, defaults to inheriting from the event
-   * @returns Promise resolving to a structured result containing an array of output events
-   * @returns Structured response containing:
-   *   - `events`: Array of events to be emitted (may contain multiple events per handler output due to domain broadcasting)
-   *
+   * 
    * @throws {ContractViolation} when input or output event data violates the contract schema,
    *                             or when event emission fails due to invalid data
    * @throws {ConfigViolation} when event type doesn't match contract type, when the
@@ -189,7 +94,7 @@ export default class ArvoEventHandler<TContract extends ArvoContract> implements
    *                           in handler configuration, or when contract URI mismatch occurs
    * @throws {ExecutionViolation} for explicitly handled runtime errors that should bubble up
    */
-  public async execute(
+  async execute(
     event: ArvoEvent,
     opentelemetry?: ArvoEventHandlerOpenTelemetryOptions,
   ): Promise<{
@@ -355,7 +260,7 @@ export default class ArvoEventHandler<TContract extends ArvoContract> implements
             orchestrationParentSubject: null,
             initEventId: event.id,
             selfContract: this.contract.version('any'),
-            systemErrorDomain: undefined,
+            systemErrorDomain: this.systemErrorDomain,
             executionunits: this.executionunits,
             source: this.source,
             domain: this.domain,
@@ -383,20 +288,11 @@ export default class ArvoEventHandler<TContract extends ArvoContract> implements
 
   /**
    * Provides access to the system error event schema configuration.
-   *
-   * The schema defines the structure of error events emitted during execution failures.
-   * These events are automatically generated when runtime errors occur and follow a
-   * standardized format for consistent error handling across the system.
-   *
-   * Error events follow the naming convention: `sys.<contract-type>.error`
-   *
-   * @example
-   * For a contract handling 'com.user.create' events, system error events
-   * will have the type 'sys.com.user.create.error'
-   *
-   * @returns The error event schema containing type and validation rules
    */
-  public get systemErrorSchema() {
-    return this.contract.systemError;
+  get systemErrorSchema() {
+    return {
+      ...this.contract.systemError,
+      domain: this.systemErrorDomain
+    };
   }
 }

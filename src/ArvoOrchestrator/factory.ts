@@ -7,29 +7,32 @@ import type { CreateArvoOrchestratorParam } from './types';
 
 /**
  * Creates a new Arvo orchestrator instance with default components.
- * For custom components, use ArvoOrchestrator constructor directly.
- *
- * @param config - Orchestrator configuration
- * @param config.memory - State persistence interface for storing machine states
- * @param config.executionunits - Cost units for execution tracking
- * @param config.machines - Array of state machines to manage. Their resource locking flags determine orchestrator's locking behavior
- * @param config.systemErrorDomain - An optional array of system error domain overrides
- * @returns Configured ArvoOrchestrator instance with default registry and execution engine
- *
- * @remarks
- * The orchestrator's resource locking is enabled if any machine requires it. Locking is needed when:
- * - Machine contains parallel states where multiple states can be active simultaneously
- * - Race conditions need to be prevented in concurrent processing
- * - State consistency must be maintained across distributed executions
+ * 
+ * Factory function that constructs an orchestrator with standard execution engine
+ * and registry implementations. Validates that all machines share the same source
+ * identifier and have unique versions.
+ * 
+ * @param params - Configuration parameters for the orchestrator
+ * @returns Configured ArvoOrchestrator instance ready for event handling
+ * 
+ * @throws {Error} When no machines are provided
+ * @throws {ConfigViolation} When machines have different source identifiers
+ * @throws {ConfigViolation} When machines have duplicate versions
  *
  * @example
  * ```typescript
  * const orchestrator = createArvoOrchestrator({
- *   memory: new SimpleMachineMemory() // or, any other IMachineMemory implementation,
+ *   memory: new SimpleMachineMemory(),
  *   executionunits: 1,
- *   machines: [machineA, machineB]
+ *   machines: [userOnboardingMachine, paymentMachine]
  * });
+ * 
+ * // Process events
+ * const result = await orchestrator.execute(event);
  * ```
+ * 
+ * @see {@link setupArvoMachine} for creating machine definitions
+ * @see {@link ArvoOrchestrator} for direct instantiation with custom components
  */
 export const createArvoOrchestrator = ({
   executionunits,
@@ -37,13 +40,14 @@ export const createArvoOrchestrator = ({
   machines,
   systemErrorDomain,
   spanOptions,
+  requiresResourceLocking: _locking,
 }: CreateArvoOrchestratorParam): ArvoOrchestrator => {
   if (!machines?.length) {
     throw new Error('At least one machine must be provided');
   }
 
   const registry = new MachineRegistry(...machines);
-  const requiresResourceLocking = machines.some((machine) => machine.requiresResourceLocking);
+  const requiresResourceLocking = _locking ?? machines.some((machine) => machine.requiresResourceLocking);
 
   const representativeMachine = registry.machines[0];
   const lastSeenVersions: ArvoSemanticVersion[] = [];

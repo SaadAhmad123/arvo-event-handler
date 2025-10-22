@@ -101,7 +101,31 @@
 <a name='L36'></a><a href='#L36'>36</a>
 <a name='L37'></a><a href='#L37'>37</a>
 <a name='L38'></a><a href='#L38'>38</a>
-<a name='L39'></a><a href='#L39'>39</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">8x</span>
+<a name='L39'></a><a href='#L39'>39</a>
+<a name='L40'></a><a href='#L40'>40</a>
+<a name='L41'></a><a href='#L41'>41</a>
+<a name='L42'></a><a href='#L42'>42</a>
+<a name='L43'></a><a href='#L43'>43</a>
+<a name='L44'></a><a href='#L44'>44</a>
+<a name='L45'></a><a href='#L45'>45</a>
+<a name='L46'></a><a href='#L46'>46</a>
+<a name='L47'></a><a href='#L47'>47</a>
+<a name='L48'></a><a href='#L48'>48</a>
+<a name='L49'></a><a href='#L49'>49</a>
+<a name='L50'></a><a href='#L50'>50</a>
+<a name='L51'></a><a href='#L51'>51</a>
+<a name='L52'></a><a href='#L52'>52</a>
+<a name='L53'></a><a href='#L53'>53</a>
+<a name='L54'></a><a href='#L54'>54</a>
+<a name='L55'></a><a href='#L55'>55</a>
+<a name='L56'></a><a href='#L56'>56</a>
+<a name='L57'></a><a href='#L57'>57</a>
+<a name='L58'></a><a href='#L58'>58</a>
+<a name='L59'></a><a href='#L59'>59</a>
+<a name='L60'></a><a href='#L60'>60</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -113,7 +137,19 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -131,6 +167,13 @@
 <span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -138,20 +181,34 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { type ArvoEvent, ViolationError, isViolationError } from 'arvo-core';
 &nbsp;
+/**
+ * Enumeration of transaction violation causes for state management operations.
+ */
 export const TransactionViolationCause = {
+  /** Failed to read from machine memory */
   READ_FAILURE: 'READ_MACHINE_MEMORY_FAILURE',
+  /** Failed to acquire lock on machine memory */
   LOCK_FAILURE: 'LOCK_MACHINE_MEMORY_FAILURE',
+  /** Failed to write to machine memory */
   WRITE_FAILURE: 'WRITE_MACHINE_MEMORY_FAILURE',
+  /** Lock acquisition was denied */
   LOCK_UNACQUIRED: 'LOCK_UNACQUIRED',
+  /** Event subject format is invalid */
   INVALID_SUBJECT: 'INVALID_SUBJECT',
 } as const;
 &nbsp;
 export type TransactionViolationCauseType = (typeof TransactionViolationCause)[keyof typeof TransactionViolationCause];
 &nbsp;
+/**
+ * Error representing failures in orchestrator state transaction operations.
+ * 
+ * Indicates issues with lock acquisition, state persistence, or memory access
+ * during orchestration execution. These errors typically trigger retries.
+ */
 export class TransactionViolation extends ViolationError&lt;'OrchestratorTransaction'&gt; {
+  /** Specific cause of the transaction failure */
   readonly cause: TransactionViolationCauseType;
 &nbsp;
   constructor(param: {
@@ -170,21 +227,27 @@ export class TransactionViolation extends ViolationError&lt;'OrchestratorTransac
   }
 }
 &nbsp;
+/**
+ * Type guard checking if an error is a TransactionViolation.
+ * 
+ * @param error - Error to check
+ * @param cause - Optional specific cause to match
+ * @returns True if error is TransactionViolation with optional matching cause
+ */
 export const isTransactionViolationError = <span class="fstat-no" title="function not covered" >(e</span>rror: unknown, cause?: TransactionViolationCauseType) =&gt; {
 <span class="cstat-no" title="statement not covered" >  return (</span>
     isViolationError(error) &amp;&amp;
     (error as TransactionViolation).type === 'OrchestratorTransaction' &amp;&amp;
     (cause ? (error as TransactionViolation).cause === cause : true)
   );
-};
-&nbsp;</pre></td></tr></table></pre>
+};</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
             </div><!-- /wrapper -->
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-10-21T13:27:33.991Z
+                at 2025-10-22T14:50:06.939Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

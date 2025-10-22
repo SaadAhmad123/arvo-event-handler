@@ -24,37 +24,45 @@ import type { ArvoOrchestratorParam, MachineMemoryRecord } from './types';
 
 /**
  * Orchestrates state machine execution and lifecycle management.
- * Handles machine resolution, state management, event processing and error handling.
+ * 
+ * Coordinates machine resolution, state persistence, event processing, and error handling
+ * for Arvo's event-driven orchestration workflows. Manages the complete lifecycle from
+ * event receipt through machine execution to emitting result events.
  */
 export class ArvoOrchestrator implements IArvoEventHandler {
+  /** Computational cost metric associated with event handling operations */
   readonly executionunits: number;
+  /** Registry containing available state machines */
   readonly registry: IMachineRegistry;
+  /** Engine responsible for executing state machine logic */
   readonly executionEngine: IMachineExectionEngine;
+  /** Resource manager for state synchronization and memory access */
   readonly syncEventResource: SyncEventResource<MachineMemoryRecord>;
-  readonly systemErrorDomain?: (string | null)[] = [];
-  private readonly spanOptions: ArvoEventHandlerOtelSpanOptions;
+  /** Optional domains for routing system error events */
+  readonly systemErrorDomain?: (string | null)[] = undefined;
+  /** OpenTelemetry span configuration for observability */
+  readonly spanOptions: ArvoEventHandlerOtelSpanOptions;
 
+  /** Source identifier from the first registered machine */
   get source() {
     return this.registry.machines[0].source;
   }
 
+  /** Whether this orchestrator requires resource locking for concurrent safety */
   get requiresResourceLocking(): boolean {
     return this.syncEventResource.requiresResourceLocking;
   }
 
+  /** Memory interface for state persistence and retrieval */
   get memory(): IMachineMemory<MachineMemoryRecord> {
     return this.syncEventResource.memory;
   }
 
+  /** The contract-defined domain for the handler */
   get domain(): string | null {
     return this.registry.machines[0].contracts.self.domain;
   }
 
-  /**
-   * Creates a new orchestrator instance
-   * @param params - Configuration parameters
-   * @throws Error if machines in registry have different sources
-   */
   constructor({
     executionunits,
     memory,
@@ -84,16 +92,24 @@ export class ArvoOrchestrator implements IArvoEventHandler {
   }
 
   /**
-   * Core orchestration method that executes state machines in response to events.
+   * Executes state machine orchestration for an incoming event.
+   * 
+   * Performs the complete orchestration workflow: resolves the appropriate machine,
+   * validates input, executes the machine logic, processes emitted events, and persists
+   * the new state. Handles both new orchestrations and continuation of existing ones.
+   * 
+   * For violation errors (transaction, execution, contract, config), the error is thrown
+   * to enable retry mechanisms. For non-violation errors, system error events are emitted
+   * to the workflow initiator, and the orchestration enters a terminal failure state.
    *
-   * @param event - Event triggering the execution
-   * @param opentelemetry - OpenTelemetry configuration
-   * @returns Object containing domained events
+   * @param event - The incoming event triggering orchestration
+   * @param opentelemetry - Optional OpenTelemetry configuration for tracing
+   * @returns Object containing emitted events from the orchestration or system errors
    *
-   * @throws {TransactionViolation} Lock/state operations failed
-   * @throws {ExecutionViolation} Invalid event structure/flow
-   * @throws {ContractViolation} Schema/contract mismatch
-   * @throws {ConfigViolation} Missing/invalid machine version
+   * @throws {TransactionViolation} When lock acquisition or state operations fail (retriable)
+   * @throws {ExecutionViolation} When event structure or execution flow is invalid (retriable)
+   * @throws {ContractViolation} When event data doesn't match contract schema (retriable)
+   * @throws {ConfigViolation} When machine resolution fails or version is missing (retriable)
    */
   async execute(
     event: ArvoEvent,
@@ -224,12 +240,13 @@ export class ArvoOrchestrator implements IArvoEventHandler {
   }
 
   /**
-   * Gets the error schema for this orchestrator
+   * Provides access to the system error event schema configuration.
    */
-  get systemErrorSchema(): ArvoContractRecord {
+  get systemErrorSchema() {
     return {
       type: this.registry.machines[0].contracts.self.systemError.type,
       schema: ArvoErrorSchema,
+      domain: this.systemErrorDomain
     };
   }
 }

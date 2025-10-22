@@ -20,25 +20,44 @@ import { ExecutionViolation } from '../errors';
 import { isError } from '../utils';
 import type { OrchestrationExecutionMemoryRecord } from './orchestrationExecutionState';
 import { ArvoOrchestrationHandlerMap, type ArvoOrchestrationHandlerType } from './types';
+
 /**
- * Parameters for system error event creation
+ * Parameters for creating system error events during orchestration failures.
  */
 export type CreateSystemErrorEventsParams = {
+  /** The error that occurred */
   error: unknown;
+  /** Event that triggered the error */
   event: ArvoEvent;
+  /** OpenTelemetry headers for tracing */
   otelHeaders: OpenTelemetryHeaders;
+  /** Parent orchestration subject if nested */
   orchestrationParentSubject: string | null;
+  /** ID of the initiating event */
   initEventId: string | null;
+  /** Self contract defining error schema */
   selfContract: VersionedArvoContract<ArvoContract, ArvoSemanticVersion>;
+  /** Optional domains for error event routing */
   systemErrorDomain?: (string | null)[];
+  /** Execution units for error events */
   executionunits: number;
+  /** Source identifier */
   source: string;
+  /** Domain for error events */
   domain: string | null;
+  /** Type of handler reporting the error */
   handlerType: ArvoOrchestrationHandlerType;
 };
 
 /**
- * Creates system error events
+ * Creates standardized system error events for orchestration failures.
+ * 
+ * Generates error events that route back to the workflow initiator, preserving
+ * tracing context and orchestration hierarchy. Supports multiple domains for
+ * error distribution.
+ *
+ * @param params - Error event creation parameters
+ * @returns Array of system error events for each configured domain
  */
 export const createSystemErrorEvents = ({
   error,
@@ -74,7 +93,7 @@ export const createSystemErrorEvents = ({
   }
 
   const domainSets = new Set(
-    systemErrorDomain
+    systemErrorDomain?.length
       ? systemErrorDomain.map((item) =>
           resolveEventDomain({
             domainToResolve: item,
@@ -117,6 +136,16 @@ export const createSystemErrorEvents = ({
   return result;
 };
 
+/**
+ * Handles errors during orchestration execution with proper state management.
+ * 
+ * Processes errors by determining if they are violations (retriable) or execution
+ * errors (terminal). For execution errors, persists failure state and generates
+ * system error events. For violations, returns the error to be thrown without
+ * state persistence.
+ *
+ * @returns Either the violation error to throw or system error events to emit
+ */
 export const handleOrchestrationErrors = async (
   _handlerType: ArvoOrchestrationHandlerType,
   param: CreateSystemErrorEventsParams & {
