@@ -68,3 +68,7 @@ All event handlers now return an object instead of an array:
 
 - Better OTEL Logging
 
+## [3.0.15] - 2025-10-23
+
+- Updated the tsdocs in the code
+
