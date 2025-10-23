@@ -4,13 +4,11 @@ import { ConfigViolation } from '../errors';
 import { ArvoOrchestrationHandlerMap, type ArvoOrchestrationHandlerType } from './types';
 
 /**
- * Validates that all service contracts in a collection have unique URIs.
+ * Validates that all service contracts have unique URIs.
  *
- * Iterates through the provided contracts and checks if any URI appears more than once.
- * Multiple versions of the same contract (with the same URI) are not allowed.
- *
- * @param contracts - A record mapping contract keys to their respective ArvoContract objects
- * @returns An object with a boolean result indicating if all contracts are unique, and the error keys if not
+ * Ensures no duplicate contract URIs exist in the service collection.
+ * Multiple versions of the same contract (same URI) are not permitted as
+ * they create ambiguity in event routing and contract resolution.
  */
 export const areServiceContractsUnique = (
   contracts: Record<string, ArvoContract | VersionedArvoContract<any, any>>,
@@ -39,6 +37,16 @@ export const areServiceContractsUnique = (
   };
 };
 
+/**
+ * Validates service contracts for orchestration handlers.
+ *
+ * Performs two critical validations:
+ * 1. Ensures all service contracts have unique URIs (no duplicate contracts)
+ * 2. Prevents circular dependencies (self contract not registered as service)
+ *
+ * These validations prevent configuration errors that would cause runtime
+ * failures or infinite execution loops in orchestration workflows.
+ */
 export const servicesValidation = (
   contracts: {
     self: ArvoContract | VersionedArvoContract<any, any>;

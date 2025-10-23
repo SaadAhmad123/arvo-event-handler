@@ -1,15 +1,13 @@
-import {
-  type ArvoContract,
-  type ArvoEvent,
-  type ArvoOrchestratorContract,
-  type ArvoSemanticVersion,
-  EventDataschemaUtil,
-  type VersionedArvoContract,
-  isWildCardArvoSematicVersion,
-  logToSpan,
+import type { Span } from '@opentelemetry/api';
+import type {
+  ArvoContract,
+  ArvoEvent,
+  ArvoOrchestratorContract,
+  ArvoSemanticVersion,
+  VersionedArvoContract,
 } from 'arvo-core';
 import type { AnyActorLogic } from 'xstate';
-import type { z } from 'zod';
+import { type EventValidationResult, validateInputEvent } from '../ArvoOrchestrationUtils/inputValidation';
 
 /**
  * Represents an ArvoMachine object that can be consumed by an Arvo orchestrator.
@@ -49,110 +47,17 @@ export default class ArvoMachine<
   /**
    * Validates an event against the machine's contracts and data schemas.
    * Performs validation for both self-contract events and service contract events.
-   * 
+   *
    * @param event - The event to validate
-   * 
-   * @returns A validation result object:
-   *   - "VALID" - Event is valid and can be processed
-   *   - "CONTRACT_UNRESOLVED" - No matching contract found for the event
-   *   - "INVALID" - Event dataschema conflict with contract
-   *   - "INVALID_DATA" - Event data conflicts with contract
+   *
+   * See {@link validateInputEvent} for more infromation
    */
-  validateInput(event: ArvoEvent):
-    | {
-        type: 'VALID';
-      }
-    | {
-        type: 'CONTRACT_UNRESOLVED';
-      }
-    | {
-        type: 'INVALID';
-        error: Error;
-      }
-    | {
-        type: 'INVALID_DATA';
-        error: z.ZodError;
-      } {
-    let resovledContract: VersionedArvoContract<any, any> | null = null;
-    let contractType: 'self' | 'service';
-    if (event.type === this.contracts.self.accepts.type) {
-      resovledContract = this.contracts.self;
-      contractType = 'self';
-    } else {
-      resovledContract =
-        Object.fromEntries(
-          Object.values(this.contracts.services).reduce(
-            (acc, cur) => [
-              // biome-ignore lint/performance/noAccumulatingSpread: This is fine
-              ...acc,
-              ...[...cur.emitList, cur.systemError].map(
-                (item) => [item.type, cur] as [string, VersionedArvoContract<any, any>],
-              ),
-            ],
-            [] as [string, VersionedArvoContract<any, any>][],
-          ),
-        )[event.type] ?? null;
-      contractType = 'service';
-    }
-
-    if (!resovledContract) {
-      logToSpan({
-        level: 'WARNING',
-        message: `Contract resolution failed: No matching contract found for event (id='${event.id}', type='${event.type}')`,
-      });
-      return {
-        type: 'CONTRACT_UNRESOLVED',
-      };
-    }
-
-    logToSpan({
-      level: 'INFO',
-      message: `Contract resolved: Contract(uri='${resovledContract.uri}', version='${resovledContract.version}', type='${resovledContract.accepts.type}') for the event(id='${event.id}', type='${event.type}')`,
+  validateInput(event: ArvoEvent, span?: Span): EventValidationResult {
+    return validateInputEvent({
+      event,
+      selfContract: this.contracts.self,
+      serviceContracts: this.contracts.services,
+      span,
     });
-
-    const dataschema = EventDataschemaUtil.parse(event);
-
-    if (!dataschema) {
-      logToSpan({
-        level: 'WARNING',
-        message: `Dataschema resolution failed: Unable to parse dataschema='${event.dataschema}' for event(id='${event.id}', type='${event.type}')`,
-      });
-    } else {
-      logToSpan({
-        level: 'INFO',
-        message: `Dataschema resolved: ${event.dataschema} matches contract(uri='${resovledContract.uri}', version='${resovledContract.version}')`,
-      });
-      if (dataschema.uri !== resovledContract.uri) {
-        return {
-          type: 'INVALID',
-          error: new Error(
-            `Contract URI mismatch: ${contractType} Contract(uri='${resovledContract.uri}', type='${resovledContract.accepts.type}') does not match Event(dataschema='${event.dataschema}', type='${event.type}')`,
-          ),
-        };
-      }
-      if (!isWildCardArvoSematicVersion(dataschema.version) && dataschema.version !== resovledContract.version) {
-        return {
-          type: 'INVALID',
-          error: new Error(
-            `Contract version mismatch: ${contractType} Contract(version='${resovledContract.version}', type='${resovledContract.accepts.type}', uri=${resovledContract.uri}) does not match Event(dataschema='${event.dataschema}', type='${event.type}')`,
-          ),
-        };
-      }
-    }
-
-    const validationSchema: z.AnyZodObject =
-      contractType === 'self'
-        ? resovledContract.accepts.schema
-        : (resovledContract.emits[event.type] ?? resovledContract.systemError.schema);
-    const error = validationSchema.safeParse(event.data).error ?? null;
-    if (error) {
-      return {
-        type: 'INVALID_DATA',
-        error: error,
-      };
-    }
-    return {
-      type: 'VALID',
-    };
   }
 }

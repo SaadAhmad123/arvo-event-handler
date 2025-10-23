@@ -237,6 +237,8 @@ describe('ArvoOrchestrator', () => {
       inheritFrom: 'EVENT',
     });
 
+    // The resumable is expecting an emit event. The accept event is a faultyu event
+    // and is not recognized as a valid input. Hence it must throw a config violation
     const nextFaultyEvent = createArvoEventFactory(valueWriteContract.version('0.0.1')).accepts({
       subject: initEvent.subject,
       source: 'com.test.test',
@@ -246,10 +248,16 @@ describe('ArvoOrchestrator', () => {
       },
     });
 
-    await handlers.decrementAgent
-      .execute(nextFaultyEvent, {
+    let _error: Error | null = null;
+    try {
+      await handlers.decrementAgent.execute(nextFaultyEvent, {
         inheritFrom: 'EVENT',
-      })
-      .catch(console.error);
+      });
+    } catch (e) {
+      _error = e as Error;
+    }
+    expect(_error?.message).toBe(
+      'ViolationError<Config> Contract validation failed - Event does not match any registered contract schemas in the resumable',
+    );
   });
 });

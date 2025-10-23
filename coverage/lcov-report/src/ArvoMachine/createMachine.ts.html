@@ -458,7 +458,9 @@
 <a name='L393'></a><a href='#L393'>393</a>
 <a name='L394'></a><a href='#L394'>394</a>
 <a name='L395'></a><a href='#L395'>395</a>
-<a name='L396'></a><a href='#L396'>396</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">8x</span>
+<a name='L396'></a><a href='#L396'>396</a>
+<a name='L397'></a><a href='#L397'>397</a>
+<a name='L398'></a><a href='#L398'>398</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -479,15 +481,15 @@
 <span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-yes">8x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -796,6 +798,8 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">15x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -873,6 +877,7 @@ import {
 import type { z } from 'zod';
 import ArvoMachine from '.';
 import { servicesValidation } from '../ArvoOrchestrationUtils/servicesValidation';
+import { ConfigViolation } from '../errors';
 import { getAllPaths } from '../utils/object';
 import type {
   ArvoMachineContext,
@@ -883,14 +888,13 @@ import type {
   ToProvidedActor,
 } from './types';
 import { detectParallelStates } from './utils';
-import { ConfigViolation } from '../errors';
 &nbsp;
 /**
  * Establishes the foundation for creating Arvo-compatible state machines.
  *
  * Designed for synchronous state machine orchestrations in Arvo's event-driven architecture.
  * Builds upon XState with Arvo-specific constraints to enforce predictable state transitions.
- * 
+ *
  * @throws {ConfigViolation} When configuration violates Arvo constraints:
  * - Using `actors` or `delays` (async behavior not supported)
  * - Overriding reserved `enqueueArvoEvent` action name
@@ -921,7 +925,7 @@ export function setupArvoMachine&lt;
      * and the completion output structure when the machine finishes execution.
      */
     self: TSelfContract;
-    
+&nbsp;
     /**
      * Service contracts defining the event interfaces for external services.
      * Each service specifies the events it accepts and emits, enabling
@@ -955,9 +959,9 @@ export function setupArvoMachine&lt;
    * Actions perform side effects like data transformations, context updates,
    * and event emissions. Each action receives the current context and event,
    * along with any parameters defined in its type.
-   * 
+   *
    * For more information, see [xstate action docs](https://stately.ai/docs/actions)
-   * 
+   *
    * @example
    * ```typescript
    * actions: {
@@ -988,9 +992,9 @@ export function setupArvoMachine&lt;
    * Guards are boolean functions that determine whether a transition should occur
    * based on the current context and event. They enable dynamic flow control
    * without side effects.
-   * 
+   *
    * For more information, see [xstate guard docs](https://stately.ai/docs/guards)
-   * 
+   *
    * @example
    * ```typescript
    * guards: {
@@ -1187,7 +1191,9 @@ export function setupArvoMachine&lt;
         throw new ConfigViolation(createConfigErrorMessage('after', item.path) ?? <span class="branch-1 cbranch-no" title="branch not covered" >'After not allowed')</span>;
       }
       if (item.path.includes('enqueueArvoEvent')) {
-        throw new ConfigViolation(createConfigErrorMessage('enqueueArvoEvent', item.path) ?? <span class="branch-1 cbranch-no" title="branch not covered" >'EnqueueArvoEvent not allowed')</span>;
+        throw new ConfigViolation(
+          createConfigErrorMessage('enqueueArvoEvent', item.path) ?? <span class="branch-1 cbranch-no" title="branch not covered" >'EnqueueArvoEvent not allowed',</span>
+        );
       }
     }
 &nbsp;
@@ -1208,18 +1214,18 @@ export function setupArvoMachine&lt;
       requiresLocking,
     );
   };
-  return { 
+  return {
     /**
      * Creates an Arvo-compatible state machine with the specified configuration.
-     * 
+     *
      * Constructs a fully-typed state machine that orchestrates event-driven workflows
      * using the contracts and types defined in setup. The machine enforces synchronous
      * execution and validates configuration against Arvo constraints.
-     * 
+     *
      * For more information, see [xstate state machine docs](https://stately.ai/docs/states)
      * @returns {ArvoMachine} A configured Arvo machine ready for execution
      * @throws {ConfigViolation} When configuration violates Arvo constraints (see {@link setupArvoMachine} docs)
-     * 
+     *
      * @example
      * ```typescript
      * const machine = setup.createMachine({
@@ -1245,7 +1251,7 @@ export function setupArvoMachine&lt;
      * });
      * ```
      */
-    createMachine 
+    createMachine,
   };
 }
 &nbsp;</pre></td></tr></table></pre>
@@ -1255,7 +1261,7 @@ export function setupArvoMachine&lt;
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-10-22T14:50:06.939Z
+                at 2025-10-23T03:39:49.089Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

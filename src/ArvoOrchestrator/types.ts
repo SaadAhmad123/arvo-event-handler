@@ -22,7 +22,7 @@ export type TryFunctionOutput<TData, TError extends Error> =
 
 /**
  * State record persisted in machine memory for orchestration execution.
- * 
+ *
  * Extends the base orchestration execution record with machine-specific state
  * including XState snapshots, event history, and hierarchical orchestration context.
  */
@@ -32,7 +32,7 @@ export type MachineMemoryRecord = OrchestrationExecutionMemoryRecord<{
 
   /**
    * Parent orchestration subject for nested workflows.
-   * 
+   *
    * Enables hierarchical orchestration patterns where one orchestration spawns
    * sub-orchestrations. When the current orchestration completes, its completion
    * event routes back to this parent subject.
@@ -45,7 +45,7 @@ export type MachineMemoryRecord = OrchestrationExecutionMemoryRecord<{
 
   /**
    * ID of the event that initiated this orchestration workflow.
-   * 
+   *
    * Serves as the root identifier for tracing the complete execution chain.
    * Used as `parentid` for completion events to maintain lineage back to
    * the workflow's origin.
@@ -57,13 +57,13 @@ export type MachineMemoryRecord = OrchestrationExecutionMemoryRecord<{
 
   /**
    * Current machine execution status.
-   * 
+   *
    * Common values include:
    * - `'active'`: Machine is executing
    * - `'done'`: Machine completed successfully
    * - `'error'`: Machine encountered an error
    * - `'stopped'`: Machine was explicitly stopped
-   * 
+   *
    * Custom values can be defined in the state machine configuration.
    */
   status: string;
@@ -90,7 +90,7 @@ export type MachineMemoryRecord = OrchestrationExecutionMemoryRecord<{
 
 /**
  * Configuration parameters for ArvoOrchestrator constructor.
- * 
+ *
  * Defines all required components and settings for orchestrator initialization.
  * For simplified creation with default components, use {@link createArvoOrchestrator}.
  */
@@ -129,7 +129,7 @@ export type ArvoOrchestratorParam = {
 
 /**
  * Configuration parameters for creating an orchestrator via factory function.
- * 
+ *
  * Simplified interface for {@link createArvoOrchestrator} that automatically
  * constructs default registry and execution engine components.
  */
@@ -137,24 +137,24 @@ export type CreateArvoOrchestratorParam = Pick<
   ArvoOrchestratorParam,
   'memory' | 'executionunits' | 'spanOptions' | 'systemErrorDomain'
 > & {
-  /** 
+  /**
    * Optional override for resource locking requirement.
-   * 
+   *
    * When undefined, locking is automatically enabled if any machine requires it.
    * Explicitly set to control locking behavior regardless of machine requirements.
-   * 
+   *
    * Resource locking is needed when:
    * - Machines contain parallel states with simultaneous active states
    * - Preventing race conditions in concurrent event processing
    * - Maintaining state consistency across distributed executions
-   * 
+   *
    * @default undefined - auto-determined from machines
    */
   requiresResourceLocking?: ArvoOrchestratorParam['requiresResourceLocking'];
-  
+
   /**
    * State machines to register with the orchestrator.
-   * 
+   *
    * All machines must share the same source identifier and have unique versions.
    * At least one machine is required.
    */

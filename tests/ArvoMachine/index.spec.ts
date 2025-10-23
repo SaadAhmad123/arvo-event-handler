@@ -547,6 +547,21 @@ describe('ArvoXState', () => {
           },
         }),
       );
+      expect(validationResult.type).toBe('INVALID');
+
+      validationResult = machine.validateInput(
+        createArvoEvent({
+          type: testMachineContract.version('0.0.1').accepts.type,
+          dataschema: testMachineContract.version('0.0.1').dataschema,
+          source: 'test',
+          subject: 'test',
+          data: {
+            parentSubject$$: null,
+            delta: 1,
+            type: 'increment',
+          },
+        }),
+      );
       expect(validationResult.type).toBe('VALID');
 
       validationResult = machine.validateInput(
@@ -591,6 +606,7 @@ describe('ArvoXState', () => {
 
       validationResult = machine.validateInput(
         createArvoEvent({
+          dataschema: testMachineContract.version('0.0.1').dataschema,
           type: 'com.test.test',
           subject: 'test',
           source: 'test',
@@ -608,7 +624,7 @@ describe('ArvoXState', () => {
           dataschema: 'saad',
         }),
       );
-      expect(validationResult.type).toBe('CONTRACT_UNRESOLVED');
+      expect(validationResult.type).toBe('INVALID');
 
       // TODO: test valid increment success event
       validationResult = machine.validateInput(

@@ -4,7 +4,7 @@ import type { SyncEventResource } from '../../SyncEventResource';
 
 /**
  * Validates and parses an orchestration event's subject.
- * 
+ *
  * Ensures the event subject is valid and matches the expected orchestrator source.
  * Returns null if validation fails, allowing graceful handling of mismatched events.
  *

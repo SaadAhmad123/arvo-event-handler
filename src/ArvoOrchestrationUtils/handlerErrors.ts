@@ -51,7 +51,7 @@ export type CreateSystemErrorEventsParams = {
 
 /**
  * Creates standardized system error events for orchestration failures.
- * 
+ *
  * Generates error events that route back to the workflow initiator, preserving
  * tracing context and orchestration hierarchy. Supports multiple domains for
  * error distribution.
@@ -138,7 +138,7 @@ export const createSystemErrorEvents = ({
 
 /**
  * Handles errors during orchestration execution with proper state management.
- * 
+ *
  * Processes errors by determining if they are violations (retriable) or execution
  * errors (terminal). For execution errors, persists failure state and generates
  * system error events. For violations, returns the error to be thrown without

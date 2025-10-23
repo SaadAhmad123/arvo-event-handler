@@ -2,6 +2,7 @@ import type { Span } from '@opentelemetry/api';
 import type {
   ArvoContract,
   ArvoEvent,
+  ArvoOrchestratorContract,
   ArvoSemanticVersion,
   CreateArvoEvent,
   InferArvoEvent,
@@ -10,7 +11,12 @@ import type {
 } from 'arvo-core';
 import type { EnqueueArvoEventActionParam } from '../ArvoMachine/types';
 import type { OrchestrationExecutionMemoryRecord } from '../ArvoOrchestrationUtils/orchestrationExecutionState';
+import type { IMachineMemory } from '../MachineMemory/interface';
+import type { ArvoEventHandlerOtelSpanOptions } from '../types';
 
+/**
+ * Extracts all possible event types (including system errors) from service contracts.
+ */
 type ExtractServiceEventTypes<TServiceContract extends Record<string, VersionedArvoContract<any, any>>> = {
   [K in keyof TServiceContract]:
     | {
@@ -25,29 +31,74 @@ type ExtractServiceEventTypes<TServiceContract extends Record<string, VersionedA
       };
 }[keyof TServiceContract];
 
+/**
+ * Union of all service event type strings.
+ */
 type AllServiceEventTypes<TServiceContract extends Record<string, VersionedArvoContract<any, any>>> =
   ExtractServiceEventTypes<TServiceContract>['type'];
 
+/**
+ * Maps event type strings to their corresponding event schemas.
+ */
 type ServiceEventTypeMap<TServiceContract extends Record<string, VersionedArvoContract<any, any>>> = {
   [T in ExtractServiceEventTypes<TServiceContract> as T['type']]: T['event'];
 };
 
+/**
+ * Handler function signature for processing events in ArvoResumable workflows.
+ *
+ * Handlers are invoked for each incoming event (initialization or service response)
+ * and must be deterministic and idempotent to ensure reliable execution across retries.
+ */
 type Handler<
   TState extends ArvoResumableState<Record<string, any>>,
   TSelfContract extends VersionedArvoContract<any, any>,
   TServiceContract extends Record<string, VersionedArvoContract<any, any>>,
 > = (param: {
+  /** OpenTelemetry span for distributed tracing and observability */
   span: Span;
+
+  /**
+   * Complete workflow metadata including subject, parent info, and event history.
+   * Null for new workflow initialization.
+   */
   metadata: Omit<TState, 'state$$'> | null;
+
+  /**
+   * Map of collected service response events grouped by event type.
+   * Enables type-safe access to accumulated responses from external services.
+   * Events are collected based on matching parent IDs with emitted service calls.
+   */
   collectedEvents: Partial<{
     [K in AllServiceEventTypes<TServiceContract>]: ServiceEventTypeMap<TServiceContract>[K][];
   }>;
+
+  /** Domain information for routing events */
   domain: {
+    /** Domain from the triggering event */
     event: string | null;
+    /** Domain from the resumable's self contract */
     self: string | null;
   };
+
+  /**
+   * Current workflow state persisted from previous execution.
+   * Null for new workflows or when no state has been saved yet.
+   */
   context: TState['state$$'] | null;
+
+  /**
+   * Initialization event data for workflow start.
+   * Only present when handler is processing the initialization event that starts the workflow.
+   * Null for service response events.
+   */
   input: InferVersionedArvoContract<TSelfContract>['accepts'] | null;
+
+  /**
+   * Service response event data.
+   * Only present when handler is processing a response from an external service.
+   * Null for initialization events.
+   */
   service:
     | {
         [K in keyof TServiceContract]:
@@ -59,12 +110,23 @@ type Handler<
           | InferVersionedArvoContract<TServiceContract[K]>['systemError'];
       }[keyof TServiceContract]
     | null;
+
+  /** Contract definitions available to the handler */
   contracts: {
+    /** The resumable's self contract for validation */
     self: TSelfContract;
+    /** Service contracts for emitting compliant events to external systems */
     services: TServiceContract;
   };
 }) => Promise<{
+  /** Updated workflow state to persist for next invocation */
   context?: TState['state$$'];
+
+  /**
+   * Workflow completion data.
+   * Returning this signals workflow completion and emits the final output event.
+   * The workflow status becomes 'done' and no further events are processed.
+   */
   output?: {
     [L in keyof InferVersionedArvoContract<TSelfContract>['emits']]: EnqueueArvoEventActionParam<
       InferVersionedArvoContract<TSelfContract>['emits'][L]['data'],
@@ -73,6 +135,12 @@ type Handler<
   }[keyof InferVersionedArvoContract<TSelfContract>['emits']] & {
     __id?: CreateArvoEvent<Record<string, unknown>, string>['id'];
   };
+
+  /**
+   * Service call events to emit.
+   * Each event triggers an external service and awaits its response in future invocations.
+   * Responses are collected in `collectedEvents` based on parent ID matching.
+   */
   services?: Array<
     {
       [K in keyof TServiceContract]: EnqueueArvoEventActionParam<
@@ -85,41 +153,14 @@ type Handler<
 } | void>;
 
 /**
- * The versioned orchestration handlers in ArvoResumable workflows
+ * Versioned handler map for ArvoResumable workflows.
  *
- * It maps each version of an orchestrator contract to its corresponding handler function.
- * Each handler receives workflow context (state, events, contracts) and returns execution results
- * that can update state, complete the workflow, or invoke external services.
+ * Maps contract versions to their corresponding handler implementations.
+ * Each version can have different business logic while maintaining backward compatibility.
  *
- * The handler is called for each event that matches the orchestrator's contract, whether it's
- * an initialization event or a service response. The handler must be deterministic and
- * idempotent to ensure reliable workflow execution across potential retries.
- *
- * @param param - Handler execution context
- * @param param.span - OpenTelemetry span for distributed tracing
- * @param param.metadata - Complete workflow metadata (null for new workflows)
- * @param param.collectedEvents - Type-safe map of event types to their corresponding typed event arrays,
- *                                enabling strongly-typed access with full IntelliSense support.
- * @param param.context - Current workflow state (null for new workflows)
- * @param param.init - Initialization event data (only present for workflow start events)
- * @param param.service - Service response event data (only present for service callbacks)
- * @param param.contracts - Available contracts for type validation and event creation
- * @param param.contracts.self - The orchestrator's own versioned contract
- * @param param.contracts.services - External service contracts for invocation
- *
- * @returns Promise resolving to execution result or void
- * @returns result.context - Updated workflow state to persist
- * @returns result.complete - Workflow completion event to emit (ends the workflow)
- * @returns result.services - Array of service invocation events to emit
- *
- * @remarks
- * - Each version key must match a valid semantic version in the self contract
- * - Handlers should be pure functions without side effects beyond the returned actions
- * - State updates are atomic - either all changes persist or none do
- * - Only one of `init` or `service` will be non-null for any given invocation
- * - Returning void or an empty object indicates no state changes or events to emit
- * - Service events are supposed to queued for execution and may trigger callback events
- * - Completion events terminate the workflow and route to the parent orchestrator
+ * Handlers are invoked for initialization events and service responses matching the
+ * resumable's contract. They must be deterministic and idempotent to ensure reliable
+ * workflow execution across retries and failures.
  */
 export type ArvoResumableHandler<
   TState extends ArvoResumableState<Record<string, any>>,
@@ -133,72 +174,173 @@ export type ArvoResumableHandler<
   >;
 };
 
+/**
+ * State structure persisted in memory for ArvoResumable workflows.
+ *
+ * Extends base orchestration state with resumable-specific fields including
+ * event collection, workflow status tracking, and custom state management.
+ */
 export type ArvoResumableState<T extends Record<string, any>> = OrchestrationExecutionMemoryRecord<{
   /**
-   * Current execution status of the orchestration workflow
+   * Current workflow status.
    *
-   * This field tracks the lifecycle state of the workflow instance to determine
-   * whether it can accept new events and continue processing or has reached
-   * its terminal state.
-   *
-   * @remarks
-   * - **active**: The workflow is running and can accept events for processing.
-   *   It may be waiting for service responses, processing initialization events,
-   *   or handling intermediate workflow steps. The orchestrator will continue
-   *   to route events to active workflows.
-   *
-   * - **done**: The workflow has completed its execution lifecycle. This status
-   *   is set when the handler returns a `complete` event, indicating the workflow
-   *   has finished successfully. Done workflows will not process additional events
-   *   and their state is preserved for audit/debugging purposes.
+   * Determines whether the workflow can process additional events:
+   * - `'active'`: Workflow is running and accepts new events for processing
+   * - `'done'`: Workflow has completed (handler returned `output`). No further events are processed.
    */
   status: 'active' | 'done';
 
-  /** Unique identifier for the machine instance */
+  /**
+   * Unique identifier for the workflow instance.
+   * Serves as the key for state persistence in the memory store.
+   */
   subject: string;
 
   /**
-   * Reference to the parent orchestration's subject when orchestrations are nested or chained.
-   * This enables hierarchical orchestration patterns where one orchestration can spawn
-   * sub-orchestrations. When the current orchestration completes, its completion event
-   * is routed back to this parent subject rather than staying within the current context.
+   * Parent orchestration subject for nested workflows.
    *
-   * - For root orchestrations: null
-   * - For nested orchestrations: contains the subject of the parent orchestration
-   * - Extracted from the `parentSubject$$` field in initialization events
+   * Enables hierarchical orchestration where one workflow spawns sub-workflows.
+   * Completion events route back to this parent subject.
+   *
+   * - Root workflows: `null`
+   * - Nested workflows: parent's subject identifier
+   * - Source: `parentSubject$$` in initialization events
    */
   parentSubject: string | null;
 
   /**
-   * The unique identifier of the event that originally initiated this entire orchestration workflow.
-   * This serves as the root identifier for tracking the complete execution chain from start to finish.
+   * ID of the event that initiated this workflow.
    *
-   * - For new orchestrations: set to the current event's ID
-   * - For resumed orchestrations: retrieved from the stored state
-   * - Used as the `parentid` for completion events to create a direct lineage back to the workflow's origin
+   * Root identifier for tracing the complete execution chain.
+   * Used as `parentid` for completion events to maintain lineage.
    *
-   * This enables tracing the entire execution path and ensures completion events reference
-   * the original triggering event rather than just the immediate previous step.
+   * - New workflows: current event's ID
+   * - Resumed workflows: retrieved from stored state
    */
   initEventId: string;
 
+  /**
+   * Event history for the current invocation.
+   * Transient collection tracking events consumed, produced, and expected.
+   */
   events: {
-    /** The event consumed by the machine in the last session */
+    /** Event consumed in the last handler invocation */
     consumed: InferArvoEvent<ArvoEvent> | null;
 
-    /**
-     * The domained events produced by the machine in the last session
-     */
+    /** Events produced (with domain resolution) in the last invocation */
     produced: InferArvoEvent<ArvoEvent>[];
 
     /**
-     * The events expected by the resumable. These events are collected on each execution
-     * as long as the event parent id and the expected key matches. The expected key is the
-     * event.id of the produced event.
+     * Service response events awaiting collection.
+     *
+     * Keyed by the emitted event's ID (parent ID of responses).
+     * Responses are collected when their `parentid` matches a produced event's `id`.
+     * Collected events are passed to the handler via `collectedEvents` parameter.
      */
     expected: Record<string, InferArvoEvent<ArvoEvent>[]> | null;
   };
 
-  /** The state used by the resumable */
+  /**
+   * Custom workflow state managed by the handler.
+   * Accessible via the `context` parameter in handlers and persisted between invocations.
+   */
   state$$: T | null;
 }>;
+
+/**
+ * Configuration parameters for creating an ArvoResumable instance.
+ *
+ * Defines all required components for a resumable workflow orchestrator including
+ * contracts, handlers, memory, and execution settings.
+ */
+export type ArvoResumableParam<
+  TMemory extends Record<string, any>,
+  TSelfContract extends ArvoOrchestratorContract,
+  TServiceContract extends Record<string, VersionedArvoContract<any, any>>,
+> = {
+  /**
+   * Contract definitions for the resumable's event interface.
+   * Defines accepted events, emitted events, and service integrations.
+   */
+  contracts: {
+    /**
+     * Self contract defining initialization input and completion output structures.
+     */
+    self: TSelfContract;
+
+    /**
+     * Service contracts defining external service interfaces.
+     * Enables type-safe event emission and response handling for external systems.
+     */
+    services: TServiceContract;
+  };
+
+  /** Computational cost metric for workflow operations */
+  executionunits: number;
+
+  /** Memory interface for state persistence and retrieval */
+  memory: IMachineMemory<ArvoResumableState<TMemory>>;
+
+  /** Whether to enforce resource locking for concurrent execution safety */
+  requiresResourceLocking: boolean;
+
+  /**
+   * Versioned handler map for processing workflow events.
+   * Each contract version maps to its corresponding handler implementation.
+   */
+  handler: ArvoResumableHandler<ArvoResumableState<TMemory>, TSelfContract, TServiceContract>;
+
+  /** Optional domains for system error event routing */
+  systemErrorDomain?: (string | null)[];
+
+  /** OpenTelemetry span configuration for distributed tracing */
+  spanOptions?: ArvoEventHandlerOtelSpanOptions;
+};
+
+/**
+ * Configuration parameters for creating an ArvoResumable instance.
+ */
+export type CreateArvoResumableParam<
+  TMemory extends Record<string, any>,
+  TSelfContract extends ArvoOrchestratorContract,
+  TServiceContract extends Record<string, VersionedArvoContract<any, any>> = Record<
+    string,
+    VersionedArvoContract<any, any>
+  >,
+> = {
+  /** Optional type hints for TypeScript inference (not used at runtime) */
+  types?: {
+    context?: Partial<TMemory>;
+  };
+
+  /** Contract definitions for event interface validation */
+  contracts: {
+    /** Self contract defining initialization and completion events */
+    self: TSelfContract;
+    /** Service contracts for external system integrations */
+    services: TServiceContract;
+  };
+
+  /** Memory interface for state persistence */
+  memory: IMachineMemory<Record<string, any>>;
+
+  /** Versioned handler map for processing events */
+  handler: ArvoResumableHandler<ArvoResumableState<TMemory>, TSelfContract, TServiceContract>;
+
+  /**
+   * Computational cost metric for operations.
+   */
+  executionunits?: number;
+
+  /**
+   * Whether to enforce resource locking for concurrent safety.
+   * @default true if multiple service contracts, false otherwise
+   */
+  requiresResourceLocking?: boolean;
+
+  /** Optional domains for system error event routing */
+  systemErrorDomain?: (string | null)[];
+
+  /** OpenTelemetry span configuration for distributed tracing */
+  spanOptions?: ArvoEventHandlerOtelSpanOptions;
+};

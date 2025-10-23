@@ -18,6 +18,7 @@ import {
 import type { z } from 'zod';
 import ArvoMachine from '.';
 import { servicesValidation } from '../ArvoOrchestrationUtils/servicesValidation';
+import { ConfigViolation } from '../errors';
 import { getAllPaths } from '../utils/object';
 import type {
   ArvoMachineContext,
@@ -28,14 +29,13 @@ import type {
   ToProvidedActor,
 } from './types';
 import { detectParallelStates } from './utils';
-import { ConfigViolation } from '../errors';
 
 /**
  * Establishes the foundation for creating Arvo-compatible state machines.
  *
  * Designed for synchronous state machine orchestrations in Arvo's event-driven architecture.
  * Builds upon XState with Arvo-specific constraints to enforce predictable state transitions.
- * 
+ *
  * @throws {ConfigViolation} When configuration violates Arvo constraints:
  * - Using `actors` or `delays` (async behavior not supported)
  * - Overriding reserved `enqueueArvoEvent` action name
@@ -66,7 +66,7 @@ export function setupArvoMachine<
      * and the completion output structure when the machine finishes execution.
      */
     self: TSelfContract;
-    
+
     /**
      * Service contracts defining the event interfaces for external services.
      * Each service specifies the events it accepts and emits, enabling
@@ -100,9 +100,9 @@ export function setupArvoMachine<
    * Actions perform side effects like data transformations, context updates,
    * and event emissions. Each action receives the current context and event,
    * along with any parameters defined in its type.
-   * 
+   *
    * For more information, see [xstate action docs](https://stately.ai/docs/actions)
-   * 
+   *
    * @example
    * ```typescript
    * actions: {
@@ -133,9 +133,9 @@ export function setupArvoMachine<
    * Guards are boolean functions that determine whether a transition should occur
    * based on the current context and event. They enable dynamic flow control
    * without side effects.
-   * 
+   *
    * For more information, see [xstate guard docs](https://stately.ai/docs/guards)
-   * 
+   *
    * @example
    * ```typescript
    * guards: {
@@ -332,7 +332,9 @@ export function setupArvoMachine<
         throw new ConfigViolation(createConfigErrorMessage('after', item.path) ?? 'After not allowed');
       }
       if (item.path.includes('enqueueArvoEvent')) {
-        throw new ConfigViolation(createConfigErrorMessage('enqueueArvoEvent', item.path) ?? 'EnqueueArvoEvent not allowed');
+        throw new ConfigViolation(
+          createConfigErrorMessage('enqueueArvoEvent', item.path) ?? 'EnqueueArvoEvent not allowed',
+        );
       }
     }
 
@@ -353,18 +355,18 @@ export function setupArvoMachine<
       requiresLocking,
     );
   };
-  return { 
+  return {
     /**
      * Creates an Arvo-compatible state machine with the specified configuration.
-     * 
+     *
      * Constructs a fully-typed state machine that orchestrates event-driven workflows
      * using the contracts and types defined in setup. The machine enforces synchronous
      * execution and validates configuration against Arvo constraints.
-     * 
+     *
      * For more information, see [xstate state machine docs](https://stately.ai/docs/states)
      * @returns {ArvoMachine} A configured Arvo machine ready for execution
      * @throws {ConfigViolation} When configuration violates Arvo constraints (see {@link setupArvoMachine} docs)
-     * 
+     *
      * @example
      * ```typescript
      * const machine = setup.createMachine({
@@ -390,6 +392,6 @@ export function setupArvoMachine<
      * });
      * ```
      */
-    createMachine 
+    createMachine,
   };
 }

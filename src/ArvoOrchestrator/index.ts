@@ -1,6 +1,5 @@
 import { SpanKind } from '@opentelemetry/api';
 import {
-  type ArvoContractRecord,
   ArvoErrorSchema,
   type ArvoEvent,
   ArvoExecution,
@@ -24,7 +23,7 @@ import type { ArvoOrchestratorParam, MachineMemoryRecord } from './types';
 
 /**
  * Orchestrates state machine execution and lifecycle management.
- * 
+ *
  * Coordinates machine resolution, state persistence, event processing, and error handling
  * for Arvo's event-driven orchestration workflows. Manages the complete lifecycle from
  * event receipt through machine execution to emitting result events.
@@ -93,11 +92,11 @@ export class ArvoOrchestrator implements IArvoEventHandler {
 
   /**
    * Executes state machine orchestration for an incoming event.
-   * 
+   *
    * Performs the complete orchestration workflow: resolves the appropriate machine,
    * validates input, executes the machine logic, processes emitted events, and persists
    * the new state. Handles both new orchestrations and continuation of existing ones.
-   * 
+   *
    * For violation errors (transaction, execution, contract, config), the error is thrown
    * to enable retry mechanisms. For non-violation errors, system error events are emitted
    * to the workflow initiator, and the orchestration enters a terminal failure state.
@@ -107,9 +106,9 @@ export class ArvoOrchestrator implements IArvoEventHandler {
    * @returns Object containing emitted events from the orchestration or system errors
    *
    * @throws {TransactionViolation} When lock acquisition or state operations fail (retriable)
-   * @throws {ExecutionViolation} When event structure or execution flow is invalid (retriable)
    * @throws {ContractViolation} When event data doesn't match contract schema (retriable)
    * @throws {ConfigViolation} When machine resolution fails or version is missing (retriable)
+   * @throws {ExecutionViolation} When workflow execution encounters critical errors defined by the handler developer
    */
   async execute(
     event: ArvoEvent,
@@ -158,7 +157,7 @@ export class ArvoOrchestrator implements IArvoEventHandler {
           span,
         );
 
-        const inputValidation = machine.validateInput(event);
+        const inputValidation = machine.validateInput(event, span);
 
         if (inputValidation.type === 'CONTRACT_UNRESOLVED') {
           throw new ConfigViolation(
@@ -246,7 +245,7 @@ export class ArvoOrchestrator implements IArvoEventHandler {
     return {
       type: this.registry.machines[0].contracts.self.systemError.type,
       schema: ArvoErrorSchema,
-      domain: this.systemErrorDomain
+      domain: this.systemErrorDomain,
     };
   }
 }

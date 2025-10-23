@@ -20,7 +20,7 @@ export type TransactionViolationCauseType = (typeof TransactionViolationCause)[k
 
 /**
  * Error representing failures in orchestrator state transaction operations.
- * 
+ *
  * Indicates issues with lock acquisition, state persistence, or memory access
  * during orchestration execution. These errors typically trigger retries.
  */
@@ -46,7 +46,7 @@ export class TransactionViolation extends ViolationError<'OrchestratorTransactio
 
 /**
  * Type guard checking if an error is a TransactionViolation.
- * 
+ *
  * @param error - Error to check
  * @param cause - Optional specific cause to match
  * @returns True if error is TransactionViolation with optional matching cause

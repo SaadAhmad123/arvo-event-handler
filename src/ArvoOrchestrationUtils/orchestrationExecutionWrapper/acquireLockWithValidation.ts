@@ -6,7 +6,7 @@ import { TransactionViolation, TransactionViolationCause } from '../error';
 
 /**
  * Acquires an exclusive lock for event processing with validation.
- * 
+ *
  * Attempts to obtain a lock on the event's subject to ensure exclusive access during
  * processing. Throws if lock cannot be acquired, preventing concurrent modifications.
  * @throws {TransactionViolation} When lock cannot be acquired

@@ -19,7 +19,7 @@ import type { z } from 'zod';
  * to provide more flexibility and organization in storing machine-related data.
  *
  * The `$$` suffix in property names is used to indicate special storage objects within the context.
- * 
+ *
  * To avoid runtime errors, it is recommended not to use `arvo$$` object at all in the
  * machine context
  */

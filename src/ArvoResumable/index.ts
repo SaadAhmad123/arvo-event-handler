@@ -5,54 +5,31 @@ import {
   ArvoExecutionSpanKind,
   ArvoOrchestrationSubject,
   type ArvoOrchestratorContract,
-  EventDataschemaUtil,
   type InferArvoEvent,
   OpenInference,
   OpenInferenceSpanKind,
   type VersionedArvoContract,
-  isWildCardArvoSematicVersion,
   logToSpan,
 } from 'arvo-core';
-import type { z } from 'zod';
 import { processRawEventsIntoEmittables } from '../ArvoOrchestrationUtils/createEmitableEvent';
+import { type EventValidationResult, validateInputEvent } from '../ArvoOrchestrationUtils/inputValidation';
 import { executeWithOrchestrationWrapper } from '../ArvoOrchestrationUtils/orchestrationExecutionWrapper';
 import type IArvoEventHandler from '../IArvoEventHandler';
 import type { IMachineMemory } from '../MachineMemory/interface';
 import { SyncEventResource } from '../SyncEventResource/index';
-import { ConfigViolation, ExecutionViolation } from '../errors';
+import { ConfigViolation, ContractViolation } from '../errors';
 import type { ArvoEventHandlerOpenTelemetryOptions, ArvoEventHandlerOtelSpanOptions } from '../types';
-import type { ArvoResumableHandler, ArvoResumableState } from './types';
+import type { ArvoResumableHandler, ArvoResumableParam, ArvoResumableState } from './types';
 
 /**
- * ArvoResumable - A stateful orchestration handler for managing distributed workflows
+ * ArvoResumable complements {@link ArvoOrchestrator} by providing imperative
+ * handler functions for orchestration logic instead of declarative state machines.
+ * While ArvoOrchestrator excels at complex static workflows with deterministic
+ * branching, ArvoResumable handles dynamic orchestrations where branching logic
+ * depends on runtime context and event data.
  *
- * ArvoResumable provides a handler-based approach to workflow orchestration that prioritizes
- * explicit control and simplicity over declarative abstractions. It excels at straightforward
- * request-response patterns and linear workflows while maintaining full type safety and
- * contract validation throughout the execution lifecycle.
- *
- * This class addresses fundamental issues in event-driven architecture including:
- * - Contract management with runtime validation and type safety
- * - Graduated complexity allowing simple workflows to remain simple
- * - Unified event handling across initialization and service responses
- * - Explicit state management without hidden abstractions
- *
- * Key capabilities:
- * - Handler-based workflow orchestration with explicit state control
- * - Contract-driven event validation with runtime schema enforcement
- * - Distributed resource locking for transaction safety
- * - Comprehensive OpenTelemetry integration for observability
- * - Automatic error handling with system error event generation
- * - Support for orchestrator chaining and nested workflow patterns
- * - Domain-based event routing and organization
- *
- * Unlike state machine approaches, ArvoResumable uses imperative handler functions
- * that provide direct control over workflow logic. This makes debugging easier and
- * reduces the learning curve for teams familiar with traditional programming patterns.
- *
- * @see {@link createArvoResumable} Factory function for creating instances
- * @see {@link ArvoResumableHandler} Handler interface documentation
- * @see {@link ArvoResumableState} State structure documentation
+ * Use this for dynamic orchestrations with context-dependent branching
+ * or when preferring imperative programming patterns over state machines.
  */
 export class ArvoResumable<
   TMemory extends Record<string, any> = Record<string, any>,
@@ -63,42 +40,50 @@ export class ArvoResumable<
   >,
 > implements IArvoEventHandler
 {
+  /** Computational cost metric for workflow operations */
   readonly executionunits: number;
+  /** Resource manager for state synchronization and memory access */
   readonly syncEventResource: SyncEventResource<ArvoResumableState<TMemory>>;
-  readonly source: string;
+  /** Versioned handler map for processing workflow events. */
   readonly handler: ArvoResumableHandler<ArvoResumableState<TMemory>, TSelfContract, TServiceContract>;
-  readonly systemErrorDomain?: (string | null)[] = [];
-  private readonly spanOptions: ArvoEventHandlerOtelSpanOptions;
+  /** Optional domains for routing system error events */
+  readonly systemErrorDomain?: (string | null)[] = undefined;
+  /** OpenTelemetry span configuration for observability */
+  readonly spanOptions: ArvoEventHandlerOtelSpanOptions;
+  /** Source identifier from the first registered machine */
+  readonly source: string;
 
+  /**
+   * Contract definitions for the resumable's event interface.
+   * Defines accepted events, emitted events, and service integrations.
+   */
   readonly contracts: {
+    /**
+     * Self contract defining initialization input and completion output structures.
+     */
     self: TSelfContract;
+    /**
+     * Service contracts defining external service interfaces.
+     */
     services: TServiceContract;
   };
 
+  /** Whether this resumable requires resource locking for concurrent safety */
   get requiresResourceLocking(): boolean {
     return this.syncEventResource.requiresResourceLocking;
   }
 
+  /** Memory interface for state persistence and retrieval */
   get memory(): IMachineMemory<ArvoResumableState<TMemory>> {
     return this.syncEventResource.memory;
   }
 
+  /** The contract-defined domain for the handler */
   get domain(): string | null {
     return this.contracts.self.domain;
   }
 
-  constructor(param: {
-    contracts: {
-      self: TSelfContract;
-      services: TServiceContract;
-    };
-    executionunits: number;
-    memory: IMachineMemory<ArvoResumableState<TMemory>>;
-    requiresResourceLocking?: boolean;
-    handler: ArvoResumableHandler<ArvoResumableState<TMemory>, TSelfContract, TServiceContract>;
-    systemErrorDomain?: (string | null)[];
-    spanOptions?: ArvoEventHandlerOtelSpanOptions;
-  }) {
+  constructor(param: ArvoResumableParam<TMemory, TSelfContract, TServiceContract>) {
     this.executionunits = param.executionunits;
     this.source = param.contracts.self.type;
     this.syncEventResource = new SyncEventResource(param.memory, param.requiresResourceLocking ?? true);
@@ -119,87 +104,42 @@ export class ArvoResumable<
     };
   }
 
-  protected validateInput(
-    event: ArvoEvent,
-    span: Span,
-  ): {
-    contractType: 'self' | 'service';
-  } {
-    let resolvedContract: VersionedArvoContract<any, any> | null = null;
-    let contractType: 'self' | 'service';
-
-    const parsedEventDataSchema = EventDataschemaUtil.parse(event);
-    if (!parsedEventDataSchema) {
-      throw new ExecutionViolation(
-        `Event dataschema resolution failed: Unable to parse dataschema='${event.dataschema}' for event(id='${event.id}', type='${event.type}'). This makes the event opaque and does not allow contract resolution`,
-      );
-    }
-
-    if (event.type === this.contracts.self.type) {
-      contractType = 'self';
-      resolvedContract = this.contracts.self.version(parsedEventDataSchema.version);
-    } else {
-      contractType = 'service';
-      for (const contract of Object.values(this.contracts.services)) {
-        if (resolvedContract) break;
-        for (const emitType of [...contract.emitList, contract.systemError]) {
-          if (resolvedContract) break;
-          if (event.type === emitType.type) {
-            resolvedContract = contract;
-          }
-        }
-      }
-    }
-
-    if (!resolvedContract) {
-      throw new ConfigViolation(
-        `Contract resolution failed: No matching contract found for event (id='${event.id}', type='${event.type}')`,
-      );
-    }
-
-    logToSpan(
-      {
-        level: 'INFO',
-        message: `Dataschema resolved: ${event.dataschema} matches contract(uri='${resolvedContract.uri}', version='${resolvedContract.version}')`,
-      },
+  /**
+   * Validates incoming event against self or service contracts.
+   *
+   * Resolves the appropriate contract (self for initialization, service for responses),
+   * validates schema compatibility, and ensures event data matches contract requirements.
+   *
+   * See {@link validateInputEvent} for more infromation
+   */
+  protected validateInput(event: ArvoEvent, span?: Span): EventValidationResult {
+    return validateInputEvent({
+      event,
+      selfContract: this.contracts.self,
+      serviceContracts: this.contracts.services,
       span,
-    );
-
-    if (parsedEventDataSchema.uri !== resolvedContract.uri) {
-      throw new Error(
-        `Contract URI mismatch: ${contractType} Contract(uri='${resolvedContract.uri}', type='${resolvedContract.accepts.type}') does not match Event(dataschema='${event.dataschema}', type='${event.type}')`,
-      );
-    }
-    if (
-      !isWildCardArvoSematicVersion(parsedEventDataSchema.version) &&
-      parsedEventDataSchema.version !== resolvedContract.version
-    ) {
-      throw new Error(
-        `Contract version mismatch: ${contractType} Contract(version='${resolvedContract.version}', type='${resolvedContract.accepts.type}', uri=${resolvedContract.uri}) does not match Event(dataschema='${event.dataschema}', type='${event.type}')`,
-      );
-    }
-
-    const validationSchema: z.AnyZodObject =
-      contractType === 'self'
-        ? resolvedContract.accepts.schema
-        : (resolvedContract.emits[event.type] ?? resolvedContract.systemError.schema);
-
-    validationSchema.parse(event.data);
-    return { contractType };
+    });
   }
 
   /**
-   * Executes the orchestration workflow for an incoming event
+   * Executes the workflow handler for an incoming event.
    *
-   * @param event - The triggering event to process
-   * @param opentelemetry - OpenTelemetry configuration for trace inheritance
+   * Processes initialization events or service responses through the versioned handler,
+   * manages state persistence, tracks expected events, and generates output events.
+   * Workflows in 'done' status ignore subsequent events without processing.
    *
-   * @returns Object containing domained events
+   * For violation errors (transaction, config, contract), the error is thrown to enable
+   * retry mechanisms. For non-violation errors, system error events are emitted to the
+   * workflow initiator, and the workflow enters a terminal failure state.
+   *
+   * @param event - The incoming event triggering handler execution
+   * @param opentelemetry - Optional OpenTelemetry configuration for tracing
+   * @returns Object containing emitted events from the handler or system errors
    *
    * @throws {TransactionViolation} When distributed lock acquisition fails
    * @throws {ConfigViolation} When handler resolution or contract validation fails
    * @throws {ContractViolation} When event schema validation fails
-   * @throws {ExecutionViolation} When workflow execution encounters critical errors
+   * @throws {ExecutionViolation} When workflow execution encounters critical errors defined by the handler developer
    */
   async execute(
     event: ArvoEvent,
@@ -243,7 +183,21 @@ export class ArvoResumable<
           message: `Input validation started for event ${event.type}`,
         });
 
-        const { contractType } = this.validateInput(event, span);
+        const inputValidation = this.validateInput(event, span);
+
+        if (inputValidation.type === 'CONTRACT_UNRESOLVED') {
+          throw new ConfigViolation(
+            'Contract validation failed - Event does not match any registered contract schemas in the resumable',
+          );
+        }
+
+        if (inputValidation.type === 'INVALID_DATA' || inputValidation.type === 'INVALID') {
+          throw new ContractViolation(
+            `Input validation failed - Event data does not meet contract requirements: ${inputValidation.error.message}`,
+          );
+        }
+
+        const { contractType } = inputValidation;
 
         if (state?.status === 'done') {
           logToSpan({
@@ -357,6 +311,9 @@ export class ArvoResumable<
   }
 
   get systemErrorSchema() {
-    return this.contracts.self.systemError;
+    return {
+      ...this.contracts.self.systemError,
+      domain: this.systemErrorDomain,
+    };
   }
 }

@@ -21,7 +21,7 @@ export default interface IArvoEventHandler {
    * Processes the event according to the handler's business logic and returns
    * resulting events to be emitted. The handler may emit multiple events as
    * outcomes of processing a single input event.
-   * 
+   *
    * For violation errors (transaction, execution, contract, config), implementations
    * typically throw the error to enable retry mechanisms. For non-violation errors,
    * implementations typically emit system error events to the workflow initiator.

@@ -7,14 +7,14 @@ import type { CreateArvoOrchestratorParam } from './types';
 
 /**
  * Creates a new Arvo orchestrator instance with default components.
- * 
+ *
  * Factory function that constructs an orchestrator with standard execution engine
  * and registry implementations. Validates that all machines share the same source
  * identifier and have unique versions.
- * 
+ *
  * @param params - Configuration parameters for the orchestrator
  * @returns Configured ArvoOrchestrator instance ready for event handling
- * 
+ *
  * @throws {Error} When no machines are provided
  * @throws {ConfigViolation} When machines have different source identifiers
  * @throws {ConfigViolation} When machines have duplicate versions
@@ -26,11 +26,11 @@ import type { CreateArvoOrchestratorParam } from './types';
  *   executionunits: 1,
  *   machines: [userOnboardingMachine, paymentMachine]
  * });
- * 
+ *
  * // Process events
  * const result = await orchestrator.execute(event);
  * ```
- * 
+ *
  * @see {@link setupArvoMachine} for creating machine definitions
  * @see {@link ArvoOrchestrator} for direct instantiation with custom components
  */

@@ -44,13 +44,13 @@ export type CreateEmittableEventParams = {
 
 /**
  * Creates a fully-formed emittable event from raw event parameters.
- * 
+ *
  * Transforms machine-emitted event data into valid Arvo events by:
  * - Validating against appropriate contracts (self or service)
  * - Resolving domains for routing
  * - Generating proper subjects for orchestration events
  * - Adding tracing context and metadata
- * 
+ *
  * Handles three event types differently:
  * 1. Completion events - routed to workflow initiator with parent subject
  * 2. Service orchestrator events - creates/extends orchestration subjects

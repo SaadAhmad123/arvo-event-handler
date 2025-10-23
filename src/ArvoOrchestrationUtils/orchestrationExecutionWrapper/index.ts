@@ -96,7 +96,7 @@ export const returnEventsWithLogging = (
 
 /**
  * Wraps orchestration execution with infrastructure concerns.
- * 
+ *
  * Provides a complete execution wrapper that handles:
  * - OpenTelemetry span creation and management
  * - Event subject validation and parsing
@@ -104,7 +104,7 @@ export const returnEventsWithLogging = (
  * - State retrieval and persistence
  * - Error handling with system error event generation
  * - Lock release in all scenarios
- * 
+ *
  * This wrapper ensures consistent behavior across all orchestration handlers
  * while allowing custom core logic via the execution function parameter.
  * @returns Emitted events from successful execution or error handling

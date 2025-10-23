@@ -86,7 +86,7 @@ export default class ArvoEventHandler<TContract extends ArvoContract> implements
    * Processes an incoming event according to the handler's contract specifications. This method
    * handles the complete lifecycle of event processing including validation, execution, error
    * handling, and multi-domain event broadcasting, while maintaining detailed telemetry through OpenTelemetry.
-   * 
+   *
    * @throws {ContractViolation} when input or output event data violates the contract schema,
    *                             or when event emission fails due to invalid data
    * @throws {ConfigViolation} when event type doesn't match contract type, when the
@@ -292,7 +292,7 @@ export default class ArvoEventHandler<TContract extends ArvoContract> implements
   get systemErrorSchema() {
     return {
       ...this.contract.systemError,
-      domain: this.systemErrorDomain
+      domain: this.systemErrorDomain,
     };
   }
 }
