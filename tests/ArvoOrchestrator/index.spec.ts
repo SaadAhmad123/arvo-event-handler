@@ -511,7 +511,7 @@ describe('ArvoOrchestrator', () => {
     expect((brokerError! as ExecutionViolation).name).toBe('ViolationError<Execution>');
     // biome-ignore  lint/style/noNonNullAssertion: non issue
     expect((brokerError! as ExecutionViolation).message).toBe(
-      'ViolationError<Execution> Invalid parentSubject$$ for the ' +
+      'ViolationError<Execution> [Emittable Event Creation] Invalid parentSubject$$ for the ' +
         "event(type='arvo.orc.dec', uri='#/test/orchestrator/decrement/0.0.2'). It must be follow " +
         'the ArvoOrchestrationSubject schema. The easiest way is to use the current orchestration ' +
         'subject by storing the subject via the context block in the machine definition.',
