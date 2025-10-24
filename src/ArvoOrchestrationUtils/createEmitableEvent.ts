@@ -145,7 +145,7 @@ export const createEmittableEvent = (
           ArvoOrchestrationSubject.parse(event.data.parentSubject$$);
         } catch {
           throw new ExecutionViolation(
-            `Invalid parentSubject$$ for the event(type='${event.type}', uri='${event.dataschema ?? EventDataschemaUtil.create(contract)}'). It must be follow the ArvoOrchestrationSubject schema. The easiest way is to use the current orchestration subject by storing the subject via the context block in the machine definition.`,
+            `[Emittable Event Creation] Invalid parentSubject$$ for the event(type='${event.type}', uri='${event.dataschema ?? EventDataschemaUtil.create(contract)}'). It must be follow the ArvoOrchestrationSubject schema. The easiest way is to use the current orchestration subject by storing the subject via the context block in the machine definition.`,
           );
         }
       }
@@ -174,7 +174,7 @@ export const createEmittableEvent = (
         }
       } catch (error) {
         throw new ExecutionViolation(
-          `Orchestration subject creation failed due to invalid parameters - Event: ${event.type} - ${(error as Error)?.message}`,
+          `[Emittable Event Creation] Orchestration subject creation failed due to invalid parameters - Event: ${event.type} - ${(error as Error)?.message}`,
         );
       }
     }
@@ -189,7 +189,7 @@ export const createEmittableEvent = (
       finalDataschema = EventDataschemaUtil.create(contract);
     } catch (error) {
       throw new ContractViolation(
-        `Invalid event data: Schema validation failed.\nEvent type: ${event.type}\nDetails: ${(error as Error).message}`,
+        `[Emittable Event Creation] Invalid event data: Schema validation failed.\nEvent type: ${event.type}\nDetails: ${(error as Error).message}`,
       );
     }
   }
