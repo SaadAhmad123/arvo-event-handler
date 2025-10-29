@@ -60,7 +60,7 @@ export type EventValidationConfig = {
  */
 export function validateInputEvent({
   event,
-  selfContract: _selfContract,
+  selfContract,
   serviceContracts,
   span,
 }: EventValidationConfig): EventValidationResult {
@@ -83,29 +83,10 @@ export function validateInputEvent({
     };
   }
 
-  let selfContract: VersionedArvoContract<any, any>;
-  if (_selfContract instanceof VersionedArvoContract) {
-    selfContract = _selfContract;
-  } else {
-    if (!_selfContract.versions[parsedEventDataSchema.version]) {
-      const errorMessage = `Contract resolution failed: No matching contract found for event (id='${event.id}', type='${event.type}', dataschema='${event.dataschema}')`;
-      logToSpan(
-        {
-          level: 'WARNING',
-          message: errorMessage,
-        },
-        span,
-      );
-      return {
-        type: 'CONTRACT_UNRESOLVED',
-      };
-    }
-    selfContract = _selfContract.version(parsedEventDataSchema.version);
-  }
-
-  if (event.type === selfContract.accepts.type) {
+  const selfType = selfContract instanceof VersionedArvoContract ? selfContract.accepts.type : selfContract.type
+  if (event.type === selfType) {
     contractType = 'self';
-    resolvedContract = selfContract;
+    resolvedContract = selfContract instanceof VersionedArvoContract ? selfContract : selfContract.version(parsedEventDataSchema.version);
   } else {
     contractType = 'service';
     // Search through service contracts for matching event type
