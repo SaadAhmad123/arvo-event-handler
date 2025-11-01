@@ -72,3 +72,7 @@ All event handlers now return an object instead of an array:
 
 - Updated the tsdocs in the code
 
+## [3.0.18] - 2025-11-02
+
+- Finally added a test suite runner for Arvo Event Handlers. I tried to make it a general as possible
+

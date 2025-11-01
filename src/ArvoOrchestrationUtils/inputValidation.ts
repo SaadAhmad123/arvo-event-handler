@@ -83,10 +83,13 @@ export function validateInputEvent({
     };
   }
 
-  const selfType = selfContract instanceof VersionedArvoContract ? selfContract.accepts.type : selfContract.type
+  const selfType = selfContract instanceof VersionedArvoContract ? selfContract.accepts.type : selfContract.type;
   if (event.type === selfType) {
     contractType = 'self';
-    resolvedContract = selfContract instanceof VersionedArvoContract ? selfContract : selfContract.version(parsedEventDataSchema.version);
+    resolvedContract =
+      selfContract instanceof VersionedArvoContract
+        ? selfContract
+        : selfContract.version(parsedEventDataSchema.version);
   } else {
     contractType = 'service';
     // Search through service contracts for matching event type

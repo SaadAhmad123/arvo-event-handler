@@ -41,6 +41,15 @@ import {
 import { coalesce, coalesceOrDefault, getValueOrDefault, isNullOrUndefined } from './utils';
 import { SimpleEventBroker } from './utils/SimpleEventBroker';
 import { createSimpleEventBroker } from './utils/SimpleEventBroker/helper';
+import { runArvoTestSuites } from './runArvoTestSuites';
+import {
+  ArvoTestStep,
+  ArvoTestCase,
+  ArvoTestConfig,
+  ArvoTestSuite,
+  ArvoTestResult,
+  IArvoTestFramework,
+} from './runArvoTestSuites/types';
 
 const xstate = {
   emit,
@@ -95,4 +104,11 @@ export {
   isTransactionViolationError,
   OrchestrationExecutionStatus,
   ArvoEventHandlerOtelSpanOptions,
+  runArvoTestSuites,
+  ArvoTestStep,
+  ArvoTestCase,
+  ArvoTestConfig,
+  ArvoTestSuite,
+  ArvoTestResult,
+  IArvoTestFramework,
 };

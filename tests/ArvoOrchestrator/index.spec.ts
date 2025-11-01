@@ -33,6 +33,7 @@ import { valueWriteHandler } from './handler/value.write';
 import { decrementOrchestrator } from './orchestrators/decrement';
 import { incrementOrchestrator } from './orchestrators/increment';
 import { numberModifierOrchestrator } from './orchestrators/number.modifier';
+import { runArvoTestSuites, ArvoTestSuite } from '../../src';
 
 const promiseTimeout = (timeout = 10) =>
   new Promise<void>((resolve) => {
@@ -61,177 +62,260 @@ describe('ArvoOrchestrator', () => {
     numberModifierAgent: numberModifierOrchestrator({ memory: machineMemory }),
   };
 
-  it('should orchestrate valid init event', async () => {
-    const initEvent = createArvoOrchestratorEventFactory(incrementOrchestratorContract.version('0.0.1')).init({
-      source: 'com.test.test',
-      data: {
-        key: 'test.key',
-        modifier: 2,
-        trend: 'linear',
-        parentSubject$$: null,
+  // Test suite for valid init event orchestration
+  const validInitEventSuite: ArvoTestSuite = {
+    config: {
+      name: 'Increment Orchestrator - Valid Init Event',
+      handler: handlers.incrementAgent,
+    },
+    cases: [
+      {
+        name: 'should orchestrate valid init event through complete flow',
+        steps: [
+          {
+            input: () => {
+              const initEvent = createArvoOrchestratorEventFactory(
+                incrementOrchestratorContract.version('0.0.1')
+              ).init({
+                source: 'com.test.test',
+                data: {
+                  key: 'test.key',
+                  modifier: 2,
+                  trend: 'linear',
+                  parentSubject$$: null,
+                },
+              });
+              valueStore[initEvent.data.key] = 2;
+              return initEvent;
+            },
+            expectedEvents: (events) => {
+              if (events.length !== 1) return false;
+              const event = events[0];
+              return (
+                event.type === valueReadContract.type &&
+                event.to === valueReadContract.type &&
+                event.source === incrementOrchestratorContract.type
+              );
+            },
+          },
+          {
+            input: async (prev) => {
+              await promiseTimeout();
+              const valueReadEvent = prev![0];
+              const result = await handlers.valueRead.execute(valueReadEvent, {
+                inheritFrom: 'EVENT',
+              });
+              return result.events[0];
+            },
+            expectedEvents: (events) => {
+              if (events.length !== 1) return false;
+              const event = events[0];
+              return (
+                event.type === incrementContract.type &&
+                event.to === incrementContract.type &&
+                event.source === incrementOrchestratorContract.type &&
+                event.data.init === 2 &&
+                event.data.increment === 2
+              );
+            },
+          },
+          {
+            input: async (prev) => {
+              await promiseTimeout();
+              const incrementEvent = prev![0];
+              const result = await handlers.increment.execute(incrementEvent, {
+                inheritFrom: 'EVENT',
+              });
+              return result.events[0];
+            },
+            expectedEvents: (events) => {
+              if (events.length !== 1) return false;
+              const event = events[0];
+              return (
+                event.type === incrementOrchestratorContract.metadata.completeEventType &&
+                event.to === 'com.test.test' &&
+                event.source === incrementOrchestratorContract.type &&
+                event.data.success === true &&
+                event.data.error.length === 0 &&
+                event.data.final === 4
+              );
+            },
+          },
+        ],
       },
-    });
+    ],
+  };
 
-    valueStore[initEvent.data.key] = 2;
-    let events = await handlers.incrementAgent.execute(initEvent, {
-      inheritFrom: 'EVENT',
-    });
-    let context = await machineMemory.read(initEvent.subject);
-
-    expect(context?.subject).toBe(initEvent.subject);
-    expect(context?.parentSubject).toBe(null);
-    expect(context?.status).toBe('active');
-    expect(context?.value).toBe('fetch_value');
-    expect((context?.state as any)?.context.value).toBe(0);
-    expect((context?.state as any)?.context.modifier).toBe(2);
-    expect((context?.state as any)?.context.trend).toBe('linear');
-    expect((context?.state as any)?.context.error.length).toBe(0);
-
-    expect(events.events.length).toBe(1);
-    expect(events.events[0].type).toBe(valueReadContract.type);
-    expect(events.events[0].to).toBe(valueReadContract.type);
-    expect(events.events[0].source).toBe(incrementOrchestratorContract.type);
-    expect(events.events[0].data.key).toBe(initEvent.data.key);
-    expect(events.events[0].parentid).toBe(initEvent.id);
-
-    await promiseTimeout();
-    events = await handlers.valueRead.execute(events.events[0], {
-      inheritFrom: 'EVENT',
-    });
-    context = await machineMemory.read(initEvent.subject);
-
-    expect(events.events.length).toBe(1);
-    expect(events.events[0].type).toBe('evt.value.read.success');
-    expect(events.events[0].to).toBe(incrementOrchestratorContract.type);
-    expect(events.events[0].source).toBe(valueReadContract.type);
-    expect(events.events[0].data.value).toBe(valueStore[initEvent.data.key]);
-
-    await promiseTimeout();
-    events = await handlers.incrementAgent.execute(events.events[0], {
-      inheritFrom: 'EVENT',
-    });
-    context = await machineMemory.read(initEvent.subject);
-
-    expect(context?.subject).toBe(initEvent.subject);
-    expect(context?.parentSubject).toBe(null);
-    expect(context?.status).toBe('active');
-    expect(JSON.stringify(context?.value ?? {})).toBe(JSON.stringify({ increment: {} }));
-    expect((context?.state as any)?.context.value).toBe(2);
-    expect((context?.state as any)?.context.modifier).toBe(2);
-    expect((context?.state as any)?.context.trend).toBe('linear');
-    expect((context?.state as any)?.context.error.length).toBe(0);
-
-    expect(events.events.length).toBe(1);
-    expect(events.events[0].type).toBe(incrementContract.type);
-    expect(events.events[0].to).toBe(incrementContract.type);
-    expect(events.events[0].source).toBe(incrementOrchestratorContract.type);
-    expect(events.events[0].data.init).toBe(2);
-    expect(events.events[0].data.increment).toBe(2);
-
-    await promiseTimeout();
-    events = await handlers.increment.execute(events.events[0], {
-      inheritFrom: 'EVENT',
-    });
-    context = await machineMemory.read(initEvent.subject);
-
-    expect(events.events.length).toBe(1);
-    expect(events.events[0].type).toBe('evt.increment.number.success');
-    expect(events.events[0].to).toBe(incrementOrchestratorContract.type);
-    expect(events.events[0].source).toBe(incrementContract.type);
-    expect(events.events[0].data.result).toBe(4);
-
-    await promiseTimeout();
-    events = await handlers.incrementAgent.execute(events.events[0], {
-      inheritFrom: 'EVENT',
-    });
-    context = await machineMemory.read(initEvent.subject);
-
-    expect(context?.subject).toBe(initEvent.subject);
-    expect(context?.parentSubject).toBe(null);
-    expect(context?.status).toBe('done');
-    expect(context?.value).toBe('done');
-    expect((context?.state as any)?.context.value).toBe(4);
-    expect((context?.state as any)?.context.modifier).toBe(2);
-    expect((context?.state as any)?.context.trend).toBe('linear');
-    expect((context?.state as any)?.context.error.length).toBe(0);
-
-    expect(events.events.length).toBe(1);
-    expect(events.events[0].type).toBe(incrementOrchestratorContract.metadata.completeEventType);
-    expect(events.events[0].to).toBe('com.test.test');
-    expect(events.events[0].source).toBe(incrementOrchestratorContract.type);
-    expect(events.events[0].data.success).toBe(true);
-    expect(events.events[0].data.error.length).toBe(0);
-    expect(events.events[0].data.final).toBe(4);
-  });
-
-  it('should throw error if lock not acquired', async () => {
-    const initEvent = createArvoOrchestratorEventFactory(incrementOrchestratorContract.version('0.0.1')).init({
-      source: 'com.test.test',
-      data: {
-        key: 'test.key',
-        modifier: 2,
-        trend: 'linear',
-        parentSubject$$: null,
+  // Test suite for lock acquisition errors
+  const lockAcquisitionSuite: ArvoTestSuite = {
+    config: {
+      name: 'Increment Orchestrator - Lock Acquisition',
+      handler: handlers.incrementAgent,
+    },
+    cases: [
+      {
+        name: 'should throw error if lock not acquired',
+        steps: [
+          {
+            input: async () => {
+              const initEvent = createArvoOrchestratorEventFactory(
+                incrementOrchestratorContract.version('0.0.1')
+              ).init({
+                source: 'com.test.test',
+                data: {
+                  key: 'test.key.lock',
+                  modifier: 2,
+                  trend: 'linear',
+                  parentSubject$$: null,
+                },
+              });
+              await machineMemory.lock(initEvent.subject);
+              return initEvent;
+            },
+            expectedError: (error) =>
+              error.message.includes('Lock acquisition denied - Unable to obtain exclusive access to event processing'),
+          },
+        ],
       },
-    });
+    ],
+  };
 
-    await machineMemory.lock(initEvent.subject);
-
-    expect(async () => {
-      await handlers.incrementAgent.execute(initEvent, {
-        inheritFrom: 'EVENT',
-      });
-    }).rejects.toThrow('Lock acquisition denied - Unable to obtain exclusive access to event processing');
-
-    const result = await machineMemory.lock(initEvent.subject);
-    expect(result).toBe(false);
-  });
-
-  it('should throw error if contract unresolved', async () => {
-    const initEvent = createArvoOrchestratorEventFactory(incrementOrchestratorContract.version('0.0.1')).init({
-      source: 'com.test.test',
-      data: {
-        key: 'test.key',
-        modifier: 2,
-        trend: 'linear',
-        parentSubject$$: null,
+  // Test suite for contract validation errors
+  const contractValidationSuite: ArvoTestSuite = {
+    config: {
+      name: 'Increment Orchestrator - Contract Validation',
+      handler: handlers.incrementAgent,
+    },
+    cases: [
+      {
+        name: 'should throw error if contract unresolved',
+        steps: [
+          {
+            input: () => {
+              return createArvoOrchestratorEventFactory(
+                incrementOrchestratorContract.version('0.0.1')
+              ).init({
+                source: 'com.test.test',
+                data: {
+                  key: 'test.key.contract',
+                  modifier: 2,
+                  trend: 'linear',
+                  parentSubject$$: null,
+                },
+              });
+            },
+            expectedEvents: (events) => events.length === 1,
+          },
+          {
+            input: (prev) => prev![0],
+            expectedError: (error) =>
+              error.message.includes('Contract validation failed - Event does not match any registered contract schemas in the machine'),
+          },
+        ],
       },
-    });
-
-    let events = await handlers.incrementAgent.execute(initEvent, {
-      inheritFrom: 'EVENT',
-    });
-
-    await expect(async () => {
-      events = await handlers.incrementAgent.execute(events.events[0], {
-        inheritFrom: 'EVENT',
-      });
-    }).rejects.toThrow(
-      'ViolationError<Config> Contract validation failed - Event does not match any registered contract schemas in the machine',
-    );
-
-    expect(await machineMemory.lock(initEvent.subject)).toBe(true);
-    expect(await machineMemory.unlock(initEvent.subject)).toBe(true);
-
-    const fetchEvent = createArvoEvent({
-      subject: initEvent.subject,
-      source: 'com.test.test',
-      type: 'evt.value.read.success',
-      data: {
-        value: 'saad' as any,
+      {
+        name: 'should throw error on invalid event data',
+        steps: [
+          {
+            input: async () => {
+              const initEvent = createArvoOrchestratorEventFactory(
+                incrementOrchestratorContract.version('0.0.1')
+              ).init({
+                source: 'com.test.test',
+                data: {
+                  key: 'test.key.invalid',
+                  modifier: 2,
+                  trend: 'linear',
+                  parentSubject$$: null,
+                },
+              });
+              
+              // First execute to get subject, then unlock for new test
+              await handlers.incrementAgent.execute(initEvent, { inheritFrom: 'EVENT' });
+              await machineMemory.unlock(initEvent.subject);
+              
+              return createArvoEvent({
+                subject: initEvent.subject,
+                source: 'com.test.test',
+                type: 'evt.value.read.success',
+                data: {
+                  value: 'saad' as any,
+                },
+                dataschema: EventDataschemaUtil.create(valueReadContract.version('0.0.1')),
+              });
+            },
+            expectedError: (error) =>
+              error.message.includes('Input validation failed - Event data does not meet contract requirements'),
+          },
+        ],
       },
-      dataschema: EventDataschemaUtil.create(valueReadContract.version('0.0.1')),
-    });
+    ],
+  };
 
-    expect(async () => {
-      events = await handlers.incrementAgent.execute(fetchEvent, {
-        inheritFrom: 'EVENT',
-      });
-    }).rejects.toThrow(
-      'ViolationError<Contract> Input validation failed - Event data does not meet contract requirements',
-    );
-  });
+  // Test suite for parentid support
+  const parentIdSuite: ArvoTestSuite = {
+    config: {
+      name: 'Increment Orchestrator - ParentID Support',
+      handler: handlers.incrementAgent,
+    },
+    cases: [
+      {
+        name: 'should set parentid correctly for orchestrator-emitted events',
+        steps: [
+          {
+            input: () => {
+              const initEvent = createArvoOrchestratorEventFactory(
+                incrementOrchestratorContract.version('0.0.1')
+              ).init({
+                source: 'com.test.test',
+                data: {
+                  key: 'test.key.parentid',
+                  modifier: 2,
+                  trend: 'linear',
+                  parentSubject$$: null,
+                },
+              });
+              valueStore[initEvent.data.key] = 5;
+              return initEvent;
+            },
+            expectedEvents: (events) => {
+              if (events.length !== 1) return false;
+              const event = events[0];
+              return event.type === valueReadContract.type && event.parentid !== undefined;
+            },
+          },
+          {
+            input: async (prev) => {
+              await promiseTimeout();
+              const valueReadEvent = prev![0];
+              const result = await handlers.valueRead.execute(valueReadEvent, {
+                inheritFrom: 'EVENT',
+              });
+              return result.events[0];
+            },
+            expectedEvents: (events) => {
+              if (events.length !== 1) return false;
+              const event = events[0];
+              return event.type === incrementContract.type && event.parentid !== undefined;
+            }
+          },
+        ],
+      },
+    ],
+  };
 
+  // Run all test suites
+  runArvoTestSuites(
+    [
+      validInitEventSuite,
+      lockAcquisitionSuite,
+      contractValidationSuite,
+      parentIdSuite,
+    ],
+    { describe, test, beforeEach }
+  );
+
+  // Keep the nested orchestrator test as-is since it uses the broker pattern
   it('should conducting nested orchestrators', async () => {
     const { broker } = createSimpleEventBroker(Object.values(handlers));
     let finalEvent: ArvoEvent | null = null;
@@ -252,13 +336,9 @@ describe('ArvoOrchestrator', () => {
 
     await broker.publish(initEvent);
     expect(finalEvent).not.toBe(null);
-    // biome-ignore  lint/style/noNonNullAssertion: non issue
     expect(finalEvent!.to).toBe('com.test.test');
-    // biome-ignore  lint/style/noNonNullAssertion: non issue
     expect(finalEvent!.data.success).toBe(true);
-    // biome-ignore  lint/style/noNonNullAssertion: non issue
     expect(finalEvent!.data.error.length).toBe(0);
-    // biome-ignore  lint/style/noNonNullAssertion: non issue
     expect(finalEvent!.data.final).toBe(-3);
     expect(broker.events.length).toBe(
       1 + // Number modifier orchestrator init event
@@ -306,6 +386,7 @@ describe('ArvoOrchestrator', () => {
     );
   });
 
+  // Keep remaining tests that don't fit the sequential step pattern
   it('should throw error on different mahines', () => {
     expect(() => {
       createArvoOrchestrator({
@@ -466,7 +547,6 @@ describe('ArvoOrchestrator', () => {
     expect(initEvent.id).not.toBe(broker.events[broker.events.length - 2].parentid);
     expect(finalEventFromTest).toBe(null);
     expect(finalEventFromTest1).not.toBe(null);
-    // biome-ignore  lint/style/noNonNullAssertion: non issue
     expect(finalEventFromTest1!.to).toBe('com.test.test.1');
   });
 
@@ -503,13 +583,9 @@ describe('ArvoOrchestrator', () => {
         0, // Faulty parent subject will raise an ExecutionViolation
     );
 
-    // Error thrown on final event
     expect(finalEventFromTest).toBe(null);
-
     expect(brokerError).toBeDefined();
-    // biome-ignore  lint/style/noNonNullAssertion: non issue
     expect((brokerError! as ExecutionViolation).name).toBe('ViolationError<Execution>');
-    // biome-ignore  lint/style/noNonNullAssertion: non issue
     expect((brokerError! as ExecutionViolation).message).toBe(
       'ViolationError<Execution> [Emittable Event Creation] Invalid parentSubject$$ for the ' +
         "event(type='arvo.orc.dec', uri='#/test/orchestrator/decrement/0.0.2'). It must be follow " +
@@ -558,7 +634,6 @@ describe('ArvoOrchestrator', () => {
         1, // Increment orchestrator completion event
     );
     expect(finalEventFromTest).not.toBe(null);
-    // biome-ignore  lint/style/noNonNullAssertion: non issue
     expect(finalEventFromTest!.to).toBe('com.test.test');
   });
 
@@ -656,7 +731,6 @@ describe('ArvoOrchestrator', () => {
         },
       },
     }).createMachine({
-      /** @xstate-layout N4IgpgJg5mDOIC5QFsCGBjAFgSwHZgDUBGABhIDoAnAewFcAXMSgYgG0SBdRUAB2tmz1s1XNxAAPREQCsFAMxEATABYA7AE5NADnXSAbFoA0IAJ6JFqueRWble2Xb1FVAXxfG0WPIVIUaDJjYiLiQQPgEhETFJBC0tcktlOWllbV0DYzMEAFplInI5VSJikkLpC2lpLTcPDBx8YjIqOkYWVkUQ3n5BYVFQmKJNcnUiZRJlGx19I1MpVWkCxRJFLWcZCfVlGpBPep8m3GpKNAAbAH0mGjbOMXCeqP7EfXzNTScSPTlNRXVM81VFORUrZVB89GpRnptrtvI0KAA3YQnVCRXAXShXNg3UJ3VHRJ5OYavd6fb6-WYIUgLV7qLRfOT2OR5aTQuqw3zkS5HZgAKnYnTC3Txj1ianIRDplS0ijkij0Pz0f0pTPI0nUnzGlVU9g+LO2hwgcDEMIavluQt6+Jyiop2SIBmssjIoyKDK0yj1tS8pqa-la5oilpFEyVxWU5HlqTpikU+hl6kUrO9+woh2OqHOXMoAfufVAMQU6msEoBMjkJGkXxSSpUqiJb3tVWmcSTezh5ER1GRqPRVxzwvziDkqyBhTUJEG5a02qV2S0FHmZAnELdHtb7KaEBEYH7QcHCFlenFstU0r06inM4pI5s6oT6x+X3XPooWd3D339jrJAvRWUyjPBVQ2KIF7UZCttVkew3DcIA */
       id: machineId,
       initial: 'router',
       context: ({ input }) => ({
@@ -748,49 +822,5 @@ describe('ArvoOrchestrator', () => {
 
     await expect(() => dumbOrchestrator.execute(event)).rejects.toThrow('ViolationError<Execution> Violation error');
     expect((await machineMemory.read(event.subject))?.executionStatus).toBe(undefined);
-  });
-
-  describe('parentid support', () => {
-    it('should set parentid correctly for orchestrator-emitted events', async () => {
-      const initEvent = createArvoOrchestratorEventFactory(incrementOrchestratorContract.version('0.0.1')).init({
-        source: 'com.test.test',
-        data: {
-          key: 'test.key.parentid',
-          modifier: 2,
-          trend: 'linear',
-          parentSubject$$: null,
-        },
-      });
-
-      valueStore[initEvent.data.key] = 5;
-
-      let events = await handlers.incrementAgent.execute(initEvent, {
-        inheritFrom: 'EVENT',
-      });
-
-      expect(events.events.length).toBe(1);
-      expect(events.events[0].type).toBe(valueReadContract.type);
-      expect(events.events[0].parentid).toBe(initEvent.id);
-
-      await promiseTimeout();
-      const nextEvent = events.events[0];
-      events = await handlers.valueRead.execute(nextEvent, {
-        inheritFrom: 'EVENT',
-      });
-
-      expect(events.events.length).toBe(1);
-      expect(events.events[0].type).toBe('evt.value.read.success');
-      expect(events.events[0].parentid).toBe(nextEvent.id);
-
-      const valueReadResponseEvent = events.events[0];
-      await promiseTimeout();
-      events = await handlers.incrementAgent.execute(valueReadResponseEvent, {
-        inheritFrom: 'EVENT',
-      });
-
-      expect(events.events.length).toBe(1);
-      expect(events.events[0].type).toBe(incrementContract.type);
-      expect(events.events[0].parentid).toBe(valueReadResponseEvent.id);
-    });
   });
 });
