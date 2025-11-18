@@ -4,371 +4,308 @@ This technical documentation provides a comprehensive overview of the ArvoOrches
 
 The documentation maps out the complete lifecycle of event processing, from initial validation through lock management, state handling, and eventual event emission, with particular attention to error scenarios and their propagation paths. Engineers working with this orchestrator can use these diagrams to understand the extensive validation checks, state management procedures, and error handling mechanisms that ensure reliable event processing.
 
-### Key Components
-
-#### ArvoOrchestrator
-Main orchestration class that coordinates event processing through multiple subsystems. Manages the complete event lifecycle including validation, execution, and state persistence.
-
-#### IMachineRegistry
-Registry system that maintains collections of versioned state machines. Resolves appropriate machine instances based on orchestrator name and version extracted from event subjects.
-
-#### IMachineExecutionEngine
-Pluggable execution engine that manages XState machine lifecycle. Handles snapshot restoration, event sending, and collection of emitted events and final outputs.
-
-#### ArvoMachine
-Encapsulates XState logic with Arvo contracts. Provides input validation against configured contracts and metadata for event creation.
-
-#### SyncEventResource
-Resource management layer that handles distributed locking and state persistence. Ensures atomic operations across concurrent event processing.
-
-## Execution Flow
 
 The state diagram below illustrates the core execution flow and decision points:
 
 ```mermaid
-stateDiagram-v2
-    [*] --> StartExecution : Event received
-    StartExecution --> ValidateSubject : Create OpenTelemetry span
-    
-    ValidateSubject --> SubjectMismatch : Wrong orchestrator name
-    ValidateSubject --> ResolveMachine : Subject valid
-    
-    SubjectMismatch --> ReturnEmpty : Log warning
-    ReturnEmpty --> [*]
-    
-    ResolveMachine --> MachineNotFound : No machine for version
-    ResolveMachine --> ValidateInput : Machine resolved
-    
-    MachineNotFound --> ThrowConfigViolation
-    ThrowConfigViolation --> ErrorHandling
-    
-    ValidateInput --> ContractUnresolved : No matching contract
-    ValidateInput --> InvalidData : Schema/data validation fails
-    ValidateInput --> AcquireLock : Input valid
-    
-    ContractUnresolved --> ThrowConfigViolation
-    InvalidData --> ThrowContractViolation
-    ThrowContractViolation --> ErrorHandling
-    
-    AcquireLock --> LockNotAcquired : Lock unavailable
-    AcquireLock --> AcquireState : Lock acquired/not required
-    
-    LockNotAcquired --> ThrowTransactionViolation
-    ThrowTransactionViolation --> ErrorHandling
-    
-    AcquireState --> CheckInitialization : State loaded/initialized
-    
-    CheckInitialization --> InvalidInitEvent : No state but wrong event type
-    CheckInitialization --> ExecuteMachine : Valid init or resume
-    
-    InvalidInitEvent --> ReturnEmpty : Log invalid initialization
-    
-    ExecuteMachine --> ProcessResults : Machine execution complete
-    ExecuteMachine --> MachineError : Machine throws error
-    
-    MachineError --> ErrorHandling
-    
-    ProcessResults --> CreateEvents : Process machine events + final output
-    CreateEvents --> EventCreationFailed : Schema validation fails
-    CreateEvents --> PersistState : Events created successfully
-    
-    EventCreationFailed --> ErrorHandling
-    
-    PersistState --> ReleaseLock : State persisted
-    ReleaseLock --> ReturnEvents : Lock released
-    ReturnEvents --> [*] : Return domained events
-    
-    ErrorHandling --> ViolationError : Check error type
-    ErrorHandling --> SystemError : Runtime/workflow error
-    
-    ViolationError --> RethrowError : ConfigViolation, etc.
-    RethrowError --> [*]
-    
-    SystemError --> CreateSystemError : Create error event
-    CreateSystemError --> ReleaseLock : System error created
-
-    state ValidateInput {
-        [*] --> CallMachineValidation : machine.validateInput(event)
-        CallMachineValidation --> CheckValidationResult
-        
-        CheckValidationResult --> Valid : type === 'VALID'
-        CheckValidationResult --> ContractUnresolved : type === 'CONTRACT_UNRESOLVED'
-        CheckValidationResult --> InvalidContract : type === 'INVALID'
-        CheckValidationResult --> InvalidData : type === 'INVALID_DATA'
-        
-        Valid --> [*]
-        ContractUnresolved --> [*]
-        InvalidContract --> [*]
-        InvalidData --> [*]
-    }
-
-    state ResolveMachine {
-        [*] --> ParseSubject : ArvoOrchestrationSubject.parse()
-        ParseSubject --> CallRegistryResolve : registry.resolve(event)
-        CallRegistryResolve --> CheckMachineResult
-        
-        CheckMachineResult --> MachineFound : Machine returned
-        CheckMachineResult --> NoMachine : null returned
-        
-        MachineFound --> [*]
-        NoMachine --> [*]
-    }
-
-    state ExecuteMachine {
-        [*] --> PrepareExecution : Extract parentSubject from init event
-        PrepareExecution --> CallExecutionEngine : executionEngine.execute()
-        CallExecutionEngine --> ProcessMachineResult
-        
-        ProcessMachineResult --> CheckFinalOutput : Execution complete
-        CheckFinalOutput --> AddFinalOutput : finalOutput exists
-        CheckFinalOutput --> ProcessRawEvents : No final output
-        
-        AddFinalOutput --> CreateCompleteEvent : Add complete event to raw events
-        CreateCompleteEvent --> ProcessRawEvents
-        ProcessRawEvents --> [*] : Raw events ready
-    }
-
-    state CreateEvents {
-        [*] --> InitializeEventMaps : Create domains, emittables, eventIdMap
-        InitializeEventMaps --> ProcessRawEvents : For each raw machine event
-        
-        ProcessRawEvents --> CreateEmittableEvent : Process event
-        CreateEmittableEvent --> ValidateEventContract : Resolve contract for event
-        ValidateEventContract --> CheckEventType : Contract found
-        ValidateEventContract --> EventValidationFailed : No contract
-        
-        CheckEventType --> HandleCompleteEvent : Complete event type
-        CheckEventType --> HandleServiceEvent : Service event type
-        
-        HandleCompleteEvent --> SetCompleteSubject : Use parent or current subject
-        SetCompleteSubject --> SetCompleteParentId : Use initEventId
-        SetCompleteParentId --> FinalizeEvent
-        
-        HandleServiceEvent --> CheckOrchestratorType : Check if orchestrator contract
-        CheckOrchestratorType --> HandleOrchestratorChaining : ArvoOrchestratorContract
-        CheckOrchestratorType --> HandleRegularService : Regular service
-        
-        HandleOrchestratorChaining --> ValidateParentSubject : Check parentSubject$$
-        ValidateParentSubject --> CreateOrchestratorSubject : Valid/missing parent
-        ValidateParentSubject --> ParentSubjectError : Invalid parent
-        
-        CreateOrchestratorSubject --> CreateFromParent : parentSubject$$ exists
-        CreateOrchestratorSubject --> CreateNew : No parentSubject$$
-        CreateFromParent --> FinalizeEvent
-        CreateNew --> FinalizeEvent
-        
-        HandleRegularService --> FinalizeEvent
-        
-        FinalizeEvent --> ValidateEventData : Schema validation
-        ValidateEventData --> CreateArvoEvent : Data valid
-        ValidateEventData --> SchemaValidationFailed : Invalid data
-        
-        CreateArvoEvent --> AddToEmittables : Event created
-        AddToEmittables --> OrganizeByDomains : Add to domain buckets
-        OrganizeByDomains --> CheckMoreEvents : More events to process
-        CheckMoreEvents --> ProcessRawEvents : Has more
-        CheckMoreEvents --> AddOtelAttributes : All processed
-        
-        AddOtelAttributes --> [*] : Events ready
-        
-        EventValidationFailed --> [*]
-        ParentSubjectError --> [*]
-        SchemaValidationFailed --> [*]
-    }
-
-    state CheckInitialization {
-        [*] --> CheckStateExists : state loaded?
-        CheckStateExists --> NewWorkflow : state === null
-        CheckStateExists --> ExistingWorkflow : state exists
-        
-        NewWorkflow --> ValidateInitEventType : event.type === this.source?
-        ValidateInitEventType --> ValidInit : Types match
-        ValidateInitEventType --> InvalidInit : Types don't match
-        
-        ValidInit --> ExtractParentSubject : Get parentSubject$$ from event.data
-        ExtractParentSubject --> [*]
-        
-        InvalidInit --> [*]
-        ExistingWorkflow --> [*]
-    }
-
-    state PersistState {
-        [*] --> BuildEventTracking : Create event tracking object
-        BuildEventTracking --> SetConsumedEvent : Set consumed event
-        SetConsumedEvent --> CreateProducedMap : Build produced events map
-        CreateProducedMap --> BuildNewState : Combine all state data
-        BuildNewState --> WriteToMemory : syncEventResource.persistState()
-        WriteToMemory --> [*] : State persisted
-    }
-
-    state CreateSystemError {
-        [*] --> ParseSubjectForError : Try to parse event subject
-        ParseSubjectForError --> CreateErrorEvent : Subject parsed/failed
-        CreateErrorEvent --> SetErrorTarget : Route to initiator/source
-        SetErrorTarget --> SetErrorSubject : Use parent or current subject
-        SetErrorSubject --> SetErrorParentId : Use initEventId or event.id
-        SetErrorParentId --> AddErrorOtelAttributes : Set telemetry attributes
-        AddErrorOtelAttributes --> [*] : System error ready
-    }
-```
-
-## Component Interactions
-
-The sequence diagram below shows the detailed interactions between components during event processing:
-
-```mermaid
 sequenceDiagram
     participant Client
-    participant ArvoOrchestrator as ArvoOrchestrator
-    participant OTel as OpenTelemetry
-    participant SyncResource as SyncEventResource
-    participant Memory as IMachineMemory
-    participant Registry as IMachineRegistry
-    participant Machine as ArvoMachine
-    participant ExecutionEngine as IMachineExecutionEngine
-    participant EventFactory as EventFactory
+    participant ArvoOrchestrator
+    participant executeWithOrchestrationWrapper
+    participant ArvoOpenTelemetry
+    participant Span
+    participant validateAndParseSubject
+    participant acquireLockWithValidation
+    participant SyncEventResource
+    participant MachineRegistry
+    participant MachineExecutionEngine
+    participant processRawEventsIntoEmittables
+    participant createEmittableEvent
+    participant handleOrchestrationErrors
+    participant createSystemErrorEvents
 
-    Client->>ArvoOrchestrator: execute(event, opentelemetry)
+    Client->>ArvoOrchestrator: execute(event, opentelemetry?)
+    ArvoOrchestrator->>executeWithOrchestrationWrapper: executeWithOrchestrationWrapper(context, coreExecutionFn)
     
-    ArvoOrchestrator->>OTel: startActiveSpan()
-    OTel-->>ArvoOrchestrator: span created
+    Note over executeWithOrchestrationWrapper: Create OTel config
+    executeWithOrchestrationWrapper->>ArvoOpenTelemetry: getInstance().startActiveSpan(config)
+    ArvoOpenTelemetry->>Span: create span
+    Span-->>executeWithOrchestrationWrapper: span
     
-    Note over ArvoOrchestrator: Subject & Machine Resolution
-    ArvoOrchestrator->>SyncResource: validateEventSubject(event, span)
-    ArvoOrchestrator->>ArvoOrchestrator: ArvoOrchestrationSubject.parse()
+    Note over Span: Set initial span attributes
+    executeWithOrchestrationWrapper->>Span: setStatus(OK)
+    executeWithOrchestrationWrapper->>Span: setAttribute('arvo.handler.execution.type', 'orchestrator')
+    executeWithOrchestrationWrapper->>Span: setAttribute('arvo.handler.execution.status', 'normal')
+    executeWithOrchestrationWrapper->>Span: Set consumable event attributes
+    executeWithOrchestrationWrapper->>Span: logToSpan('Starting execution...')
     
-    alt Wrong orchestrator name
-        ArvoOrchestrator->>OTel: logToSpan(WARNING)
-        ArvoOrchestrator-->>Client: return empty events
-    end
+    executeWithOrchestrationWrapper->>executeWithOrchestrationWrapper: currentOpenTelemetryHeaders()
+    executeWithOrchestrationWrapper-->>executeWithOrchestrationWrapper: otelHeaders
     
-    ArvoOrchestrator->>Registry: resolve(event, {inheritFrom: 'CONTEXT'})
-    Registry->>Registry: match version from subject
-    Registry-->>ArvoOrchestrator: machine or null
-    
-    alt Machine not found
-        ArvoOrchestrator->>ArvoOrchestrator: throw ConfigViolation
-    end
-    
-    Note over ArvoOrchestrator: Input Validation
-    ArvoOrchestrator->>Machine: validateInput(event)
-    
-    Machine->>Machine: resolve contract (self/service)
-    Machine->>Machine: validate dataschema & URI
-    Machine->>Machine: schema.parse(event.data)
-    Machine-->>ArvoOrchestrator: validation result
-    
-    alt Contract unresolved
-        ArvoOrchestrator->>ArvoOrchestrator: throw ConfigViolation
-    end
-    
-    alt Invalid data or contract
-        ArvoOrchestrator->>ArvoOrchestrator: throw ContractViolation
-    end
-    
-    Note over ArvoOrchestrator: Resource Locking
-    ArvoOrchestrator->>SyncResource: acquireLock(event, span)
-    SyncResource->>Memory: attempt lock acquisition
-    Memory-->>SyncResource: lock status
-    SyncResource-->>ArvoOrchestrator: ACQUIRED/NOT_ACQUIRED/NOT_REQUIRED
-    
-    alt Lock not acquired
-        ArvoOrchestrator->>ArvoOrchestrator: throw TransactionViolation
-    end
-    
-    Note over ArvoOrchestrator: State Management
-    ArvoOrchestrator->>SyncResource: acquireState(event, span)
-    SyncResource->>Memory: read(event.subject)
-    Memory-->>SyncResource: existing state or null
-    SyncResource-->>ArvoOrchestrator: machine memory record
-    
-    alt New workflow with wrong event type
-        ArvoOrchestrator->>OTel: logToSpan(WARNING - invalid init)
-        ArvoOrchestrator->>SyncResource: releaseLock()
-        ArvoOrchestrator-->>Client: return empty events
-    end
-    
-    Note over ArvoOrchestrator: Machine Execution
-    ArvoOrchestrator->>ArvoOrchestrator: extract parentSubject from init event
-    
-    ArvoOrchestrator->>ExecutionEngine: execute({state, event, machine}, {inheritFrom: 'CONTEXT'})
-    ExecutionEngine->>ExecutionEngine: restore XState snapshot
-    ExecutionEngine->>ExecutionEngine: send event to machine
-    ExecutionEngine->>ExecutionEngine: collect emitted events
-    ExecutionEngine->>ExecutionEngine: get final output if done
-    ExecutionEngine-->>ArvoOrchestrator: {state, events, finalOutput?}
-    
-    ArvoOrchestrator->>OTel: setAttribute('arvo.orchestration.status', status)
-    
-    Note over ArvoOrchestrator: Event Processing
-    ArvoOrchestrator->>ArvoOrchestrator: collect raw machine events
-    
-    alt Has final output
-        ArvoOrchestrator->>ArvoOrchestrator: add complete event to raw events
-        ArvoOrchestrator->>ArvoOrchestrator: set target = redirectto ?? initiator
-    end
-    
-    loop For each raw machine event
-        ArvoOrchestrator->>ArvoOrchestrator: createEmittableEvent()
+    rect rgb(200, 220, 240)
+        Note over executeWithOrchestrationWrapper,validateAndParseSubject: Subject Validation Phase
+        executeWithOrchestrationWrapper->>validateAndParseSubject: validateAndParseSubject(event, source, syncEventResource, span, 'orchestrator')
+        validateAndParseSubject->>SyncEventResource: validateEventSubject(event, span)
+        SyncEventResource-->>validateAndParseSubject: validation result
+        validateAndParseSubject->>validateAndParseSubject: ArvoOrchestrationSubject.parse(event.subject)
+        validateAndParseSubject->>Span: setAttributes(parsed subject data)
         
-        alt Complete Event
-            ArvoOrchestrator->>ArvoOrchestrator: resolve self contract
-            ArvoOrchestrator->>ArvoOrchestrator: set subject = parentSubject ?? current
-            ArvoOrchestrator->>ArvoOrchestrator: set parentId = initEventId
-        else Service Event
-            ArvoOrchestrator->>ArvoOrchestrator: resolve service contract
+        alt Subject orchestrator.name ≠ expectedSource
+            validateAndParseSubject->>Span: logToSpan(WARNING, 'Event subject mismatch...')
+            validateAndParseSubject-->>executeWithOrchestrationWrapper: null
+            executeWithOrchestrationWrapper->>Span: logToSpan('Execution completed with issues...')
+            executeWithOrchestrationWrapper->>Span: end()
+            executeWithOrchestrationWrapper-->>ArvoOrchestrator: { events: [] }
+            ArvoOrchestrator-->>Client: { events: [] }
+        else Subject valid
+            validateAndParseSubject-->>executeWithOrchestrationWrapper: parsedEventSubject
+        end
+    end
+    
+    rect rgb(240, 220, 200)
+        Note over executeWithOrchestrationWrapper,acquireLockWithValidation: Lock Acquisition Phase
+        executeWithOrchestrationWrapper->>acquireLockWithValidation: acquireLockWithValidation(syncEventResource, event, span)
+        acquireLockWithValidation->>SyncEventResource: acquireLock(event, span)
+        SyncEventResource-->>acquireLockWithValidation: acquiredLock status
+        
+        alt acquiredLock === 'NOT_ACQUIRED'
+            acquireLockWithValidation-->>executeWithOrchestrationWrapper: throw TransactionViolation(LOCK_UNACQUIRED)
+            executeWithOrchestrationWrapper->>handleOrchestrationErrors: Handle error
+            Note over handleOrchestrationErrors: Error is violation - throw
+            handleOrchestrationErrors-->>executeWithOrchestrationWrapper: { errorToThrow: error, events: null }
+            executeWithOrchestrationWrapper->>SyncEventResource: releaseLock(event, acquiredLock, span)
+            executeWithOrchestrationWrapper->>Span: end()
+            executeWithOrchestrationWrapper-->>ArvoOrchestrator: throw TransactionViolation
+            ArvoOrchestrator-->>Client: throw TransactionViolation
+        else acquiredLock === 'ACQUIRED'
+            acquireLockWithValidation->>Span: logToSpan(INFO, 'This execution acquired lock...')
+            acquireLockWithValidation-->>executeWithOrchestrationWrapper: 'ACQUIRED'
+        else acquiredLock === 'NOT_REQUIRED'
+            acquireLockWithValidation-->>executeWithOrchestrationWrapper: 'NOT_REQUIRED'
+        end
+    end
+    
+    rect rgb(220, 240, 220)
+        Note over executeWithOrchestrationWrapper,SyncEventResource: State Acquisition Phase
+        executeWithOrchestrationWrapper->>SyncEventResource: acquireState(event, span)
+        SyncEventResource-->>executeWithOrchestrationWrapper: state | null
+        
+        alt state?.executionStatus === 'failure'
+            executeWithOrchestrationWrapper->>Span: setAttribute('arvo.handler.execution.status', 'failure')
+            executeWithOrchestrationWrapper->>Span: logToSpan(WARNING, 'Orchestration has failed...')
+            executeWithOrchestrationWrapper->>Span: setStatus(ERROR)
+            executeWithOrchestrationWrapper->>SyncEventResource: releaseLock(event, acquiredLock, span)
+            executeWithOrchestrationWrapper->>Span: end()
+            executeWithOrchestrationWrapper-->>ArvoOrchestrator: { events: [] }
+            ArvoOrchestrator-->>Client: { events: [] }
+        end
+        
+        executeWithOrchestrationWrapper->>executeWithOrchestrationWrapper: orchestrationParentSubject = state?.parentSubject ?? null
+        executeWithOrchestrationWrapper->>executeWithOrchestrationWrapper: initEventId = state?.initEventId ?? null
+        
+        alt state === null (New orchestration)
+            executeWithOrchestrationWrapper->>Span: logToSpan(INFO, 'Initializing new execution state...')
             
-            alt Orchestrator Contract
-                ArvoOrchestrator->>ArvoOrchestrator: validate parentSubject$$
-                ArvoOrchestrator->>ArvoOrchestrator: ArvoOrchestrationSubject.from/new()
+            alt event.type ≠ source
+                executeWithOrchestrationWrapper->>Span: logToSpan(WARNING, 'Invalid initialization event...')
+                executeWithOrchestrationWrapper->>SyncEventResource: releaseLock(event, acquiredLock, span)
+                executeWithOrchestrationWrapper->>Span: end()
+                executeWithOrchestrationWrapper-->>ArvoOrchestrator: { events: [] }
+                ArvoOrchestrator-->>Client: { events: [] }
             end
-            
-            ArvoOrchestrator->>ArvoOrchestrator: validate event data against schema
+        else state exists
+            executeWithOrchestrationWrapper->>Span: logToSpan(INFO, 'Resuming execution with existing state...')
         end
         
-        ArvoOrchestrator->>EventFactory: createArvoEvent(eventParams)
-        EventFactory-->>ArvoOrchestrator: created event
-        
-        ArvoOrchestrator->>ArvoOrchestrator: organize by domains
-        ArvoOrchestrator->>OTel: setAttribute(event telemetry)
-    end
-    
-    Note over ArvoOrchestrator: State Persistence
-    ArvoOrchestrator->>ArvoOrchestrator: build event tracking state
-    ArvoOrchestrator->>ArvoOrchestrator: prepare machine memory record
-    
-    ArvoOrchestrator->>SyncResource: persistState(event, newState, oldState, span)
-    SyncResource->>Memory: write(subject, machineMemoryRecord)
-    Memory-->>SyncResource: write success
-    SyncResource-->>ArvoOrchestrator: persistence complete
-    
-    ArvoOrchestrator->>OTel: logToSpan(INFO - execution complete)
-    
-    Note over ArvoOrchestrator: Cleanup & Return
-    ArvoOrchestrator->>SyncResource: releaseLock(event, acquiredLock, span)
-    SyncResource->>Memory: release lock if acquired
-    ArvoOrchestrator->>OTel: span.end()
-    
-    ArvoOrchestrator-->>Client: {events, allEventDomains, domainedEvents}
-
-    Note over ArvoOrchestrator: Error Handling Path
-    rect rgb(255, 200, 200)
-        alt ViolationError (Config/Contract/Execution)
-            ArvoOrchestrator->>OTel: logToSpan(CRITICAL)
-            ArvoOrchestrator->>OTel: exceptionToSpan(error)
-            ArvoOrchestrator->>SyncResource: releaseLock()
-            ArvoOrchestrator->>ArvoOrchestrator: throw error (rethrow)
-        else Runtime/Workflow Error
-            ArvoOrchestrator->>OTel: logToSpan(ERROR)
-            ArvoOrchestrator->>OTel: exceptionToSpan(error)
-            
-            ArvoOrchestrator->>ArvoOrchestrator: parse event subject for routing
-            ArvoOrchestrator->>EventFactory: createSystemError({source, subject, to, error, ...})
-            EventFactory-->>ArvoOrchestrator: system error event
-            
-            ArvoOrchestrator->>OTel: setAttribute(error event telemetry)
-            ArvoOrchestrator->>SyncResource: releaseLock()
-            ArvoOrchestrator-->>Client: {events: [errorEvent], domains: ['default']}
+        alt event.type === source
+            executeWithOrchestrationWrapper->>executeWithOrchestrationWrapper: orchestrationParentSubject = event.data.parentSubject$$ ?? null
         end
     end
+    
+    rect rgb(240, 240, 200)
+        Note over executeWithOrchestrationWrapper,MachineRegistry: Core Execution (coreExecutionFn)
+        
+        executeWithOrchestrationWrapper->>Span: logToSpan(INFO, 'Resolving machine...')
+        executeWithOrchestrationWrapper->>MachineRegistry: resolve(event, {inheritFrom: 'CONTEXT'})
+        MachineRegistry-->>executeWithOrchestrationWrapper: machine | null
+        
+        alt machine === null
+            executeWithOrchestrationWrapper-->>executeWithOrchestrationWrapper: throw ConfigViolation('Machine resolution failed...')
+            executeWithOrchestrationWrapper->>handleOrchestrationErrors: Handle error
+            Note over handleOrchestrationErrors: Error is violation - throw
+            handleOrchestrationErrors-->>executeWithOrchestrationWrapper: { errorToThrow: error, events: null }
+            executeWithOrchestrationWrapper->>SyncEventResource: releaseLock(event, acquiredLock, span)
+            executeWithOrchestrationWrapper->>Span: end()
+            executeWithOrchestrationWrapper-->>ArvoOrchestrator: throw ConfigViolation
+            ArvoOrchestrator-->>Client: throw ConfigViolation
+        end
+        
+        executeWithOrchestrationWrapper->>Span: logToSpan(INFO, 'Input validation started...')
+        executeWithOrchestrationWrapper->>MachineRegistry: machine.validateInput(event, span)
+        MachineRegistry-->>executeWithOrchestrationWrapper: inputValidation result
+        
+        alt inputValidation.type === 'CONTRACT_UNRESOLVED'
+            executeWithOrchestrationWrapper-->>executeWithOrchestrationWrapper: throw ConfigViolation('Contract validation failed...')
+            executeWithOrchestrationWrapper->>handleOrchestrationErrors: Handle error
+            handleOrchestrationErrors-->>executeWithOrchestrationWrapper: { errorToThrow: error, events: null }
+            executeWithOrchestrationWrapper->>SyncEventResource: releaseLock(event, acquiredLock, span)
+            executeWithOrchestrationWrapper->>Span: end()
+            executeWithOrchestrationWrapper-->>ArvoOrchestrator: throw ConfigViolation
+            ArvoOrchestrator-->>Client: throw ConfigViolation
+        else inputValidation.type === 'INVALID_DATA' || 'INVALID'
+            executeWithOrchestrationWrapper-->>executeWithOrchestrationWrapper: throw ContractViolation('Input validation failed...')
+            executeWithOrchestrationWrapper->>handleOrchestrationErrors: Handle error
+            handleOrchestrationErrors-->>executeWithOrchestrationWrapper: { errorToThrow: error, events: null }
+            executeWithOrchestrationWrapper->>SyncEventResource: releaseLock(event, acquiredLock, span)
+            executeWithOrchestrationWrapper->>Span: end()
+            executeWithOrchestrationWrapper-->>ArvoOrchestrator: throw ContractViolation
+            ArvoOrchestrator-->>Client: throw ContractViolation
+        end
+        
+        executeWithOrchestrationWrapper->>MachineExecutionEngine: execute({state: state?.state ?? null, event, machine}, {inheritFrom: 'CONTEXT'})
+        MachineExecutionEngine-->>executeWithOrchestrationWrapper: executionResult
+        
+        executeWithOrchestrationWrapper->>Span: setAttribute('arvo.orchestration.status', executionResult.state.status)
+        
+        executeWithOrchestrationWrapper->>executeWithOrchestrationWrapper: rawMachineEmittedEvents = executionResult.events
+        
+        alt executionResult.finalOutput exists
+            executeWithOrchestrationWrapper->>executeWithOrchestrationWrapper: Push complete event to rawMachineEmittedEvents
+            Note over executeWithOrchestrationWrapper: type: completeEventType<br/>to: redirectto ?? initiator<br/>domain: parent domain or [null]
+        end
+    end
+    
+    rect rgb(220, 220, 240)
+        Note over executeWithOrchestrationWrapper,processRawEventsIntoEmittables: Event Processing Phase
+        executeWithOrchestrationWrapper->>processRawEventsIntoEmittables: processRawEventsIntoEmittables(params, span)
+        
+        loop For each rawEvent in rawMachineEmittedEvents
+            loop For each domain in event.domain ?? [null]
+                processRawEventsIntoEmittables->>createEmittableEvent: createEmittableEvent(params, span)
+                
+                createEmittableEvent->>Span: logToSpan(INFO, 'Creating emittable event...')
+                
+                createEmittableEvent->>createEmittableEvent: Build serviceContractMap
+                createEmittableEvent->>createEmittableEvent: Initialize schema, contract, subject, parentId, domain
+                
+                alt event.type === selfContract.completeEventType
+                    createEmittableEvent->>Span: logToSpan(INFO, 'Creating event for workflow completion...')
+                    createEmittableEvent->>createEmittableEvent: Set contract = selfContract
+                    createEmittableEvent->>createEmittableEvent: Set schema = selfContract.emits[completeEventType]
+                    createEmittableEvent->>createEmittableEvent: Set subject = orchestrationParentSubject ?? sourceEvent.subject
+                    createEmittableEvent->>createEmittableEvent: Set parentId = initEventId
+                    createEmittableEvent->>createEmittableEvent: Resolve domain
+                else serviceContractMap[event.type] exists
+                    createEmittableEvent->>Span: logToSpan(INFO, 'Creating service event...')
+                    createEmittableEvent->>createEmittableEvent: Set contract = serviceContractMap[event.type]
+                    createEmittableEvent->>createEmittableEvent: Set schema = contract.accepts.schema
+                    createEmittableEvent->>createEmittableEvent: Resolve domain
+                    
+                    alt contract is ArvoOrchestratorContract
+                        alt event.data.parentSubject$$ exists
+                            createEmittableEvent->>createEmittableEvent: ArvoOrchestrationSubject.parse(parentSubject$$)
+                            Note over createEmittableEvent: Validates parentSubject$$
+                            
+                            alt Parse fails
+                                createEmittableEvent-->>processRawEventsIntoEmittables: throw ExecutionViolation('Invalid parentSubject$$...')
+                                processRawEventsIntoEmittables-->>executeWithOrchestrationWrapper: throw error
+                                executeWithOrchestrationWrapper->>handleOrchestrationErrors: Handle error
+                                Note over handleOrchestrationErrors: Non-violation error
+                                handleOrchestrationErrors->>SyncEventResource: persistState(failure state)
+                                handleOrchestrationErrors->>createSystemErrorEvents: createSystemErrorEvents(params)
+                                
+                                loop For each domain in systemErrorDomain
+                                    createSystemErrorEvents->>createSystemErrorEvents: Create system error event
+                                    createSystemErrorEvents->>createSystemErrorEvents: Route to initiator with parent subject
+                                end
+                                
+                                createSystemErrorEvents-->>handleOrchestrationErrors: errorEvents[]
+                                handleOrchestrationErrors->>Span: Add error event attributes
+                                handleOrchestrationErrors-->>executeWithOrchestrationWrapper: { errorToThrow: null, events: errorEvents }
+                                executeWithOrchestrationWrapper->>SyncEventResource: releaseLock(event, acquiredLock, span)
+                                executeWithOrchestrationWrapper->>Span: end()
+                                executeWithOrchestrationWrapper-->>ArvoOrchestrator: { events: errorEvents }
+                                ArvoOrchestrator-->>Client: { events: errorEvents }
+                            end
+                        end
+                        
+                        alt event.data.parentSubject$$ exists
+                            createEmittableEvent->>createEmittableEvent: subject = ArvoOrchestrationSubject.from({...})
+                        else parentSubject$$ not provided
+                            createEmittableEvent->>createEmittableEvent: subject = ArvoOrchestrationSubject.new({...})
+                        end
+                        
+                        Note over createEmittableEvent: If subject creation fails,<br/>throw ExecutionViolation
+                    end
+                end
+                
+                createEmittableEvent->>createEmittableEvent: finalDataschema = event.dataschema
+                createEmittableEvent->>createEmittableEvent: finalData = event.data
+                
+                alt contract and schema exist
+                    createEmittableEvent->>createEmittableEvent: finalData = schema.parse(event.data)
+                    
+                    alt Parse fails
+                        createEmittableEvent-->>processRawEventsIntoEmittables: throw ContractViolation('Invalid event data...')
+                        processRawEventsIntoEmittables-->>executeWithOrchestrationWrapper: throw error
+                        executeWithOrchestrationWrapper->>handleOrchestrationErrors: Handle error
+                        Note over handleOrchestrationErrors: Error is violation - throw
+                        handleOrchestrationErrors-->>executeWithOrchestrationWrapper: { errorToThrow: error, events: null }
+                        executeWithOrchestrationWrapper->>SyncEventResource: releaseLock(event, acquiredLock, span)
+                        executeWithOrchestrationWrapper->>Span: end()
+                        executeWithOrchestrationWrapper-->>ArvoOrchestrator: throw ContractViolation
+                        ArvoOrchestrator-->>Client: throw ContractViolation
+                    end
+                    
+                    createEmittableEvent->>createEmittableEvent: finalDataschema = EventDataschemaUtil.create(contract)
+                end
+                
+                createEmittableEvent->>createEmittableEvent: createArvoEvent({...all properties...})
+                createEmittableEvent->>Span: logToSpan(INFO, 'Event created successfully...')
+                createEmittableEvent-->>processRawEventsIntoEmittables: emittableEvent
+                
+                processRawEventsIntoEmittables->>processRawEventsIntoEmittables: Add to emittables array
+                processRawEventsIntoEmittables->>Span: setAttribute(emittable attributes)
+            end
+        end
+        
+        processRawEventsIntoEmittables-->>executeWithOrchestrationWrapper: emittables[]
+        
+        executeWithOrchestrationWrapper->>Span: logToSpan(INFO, 'Machine execution completed...')
+    end
+    
+    rect rgb(200, 240, 240)
+        Note over executeWithOrchestrationWrapper,SyncEventResource: State Persistence Phase
+        executeWithOrchestrationWrapper->>executeWithOrchestrationWrapper: Build newState object
+        Note over executeWithOrchestrationWrapper: newState = {<br/>  executionStatus: 'normal',<br/>  initEventId,<br/>  subject,<br/>  parentSubject,<br/>  status,<br/>  value,<br/>  state,<br/>  events: {consumed, produced},<br/>  machineDefinition<br/>}
+        
+        loop For each emittable in emittables
+            executeWithOrchestrationWrapper->>Span: setAttribute(emittable otel attributes)
+        end
+        
+        executeWithOrchestrationWrapper->>SyncEventResource: persistState(event, newState, state, span)
+        SyncEventResource-->>executeWithOrchestrationWrapper: success
+        
+        alt Persist fails
+            executeWithOrchestrationWrapper-->>executeWithOrchestrationWrapper: throw (caught by try/catch)
+            executeWithOrchestrationWrapper->>handleOrchestrationErrors: Handle error
+            Note over handleOrchestrationErrors: Process as appropriate
+            handleOrchestrationErrors->>SyncEventResource: releaseLock(event, acquiredLock, span)
+            handleOrchestrationErrors->>Span: end()
+            Note over handleOrchestrationErrors: Return error or throw
+        end
+        
+        executeWithOrchestrationWrapper->>Span: logToSpan(INFO, 'State update persisted...')
+        executeWithOrchestrationWrapper->>Span: logToSpan(INFO, 'Execution successfully completed...')
+    end
+    
+    rect rgb(240, 200, 240)
+        Note over executeWithOrchestrationWrapper,SyncEventResource: Cleanup Phase
+        executeWithOrchestrationWrapper->>SyncEventResource: releaseLock(event, acquiredLock, span)
+        SyncEventResource-->>executeWithOrchestrationWrapper: lock released
+        executeWithOrchestrationWrapper->>Span: end()
+    end
+    
+    executeWithOrchestrationWrapper-->>ArvoOrchestrator: { events: emittables }
+    ArvoOrchestrator-->>Client: { events: emittables }
 ```

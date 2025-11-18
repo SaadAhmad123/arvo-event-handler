@@ -81,60 +81,194 @@ The system comprises four main components that interact during execution:
 
 ```mermaid
 sequenceDiagram
-    participant C as Client
-    participant OT as OpenTelemetry
-    participant ME as MachineExecution
-    participant A as Actor
+    participant Client
+    participant MachineExecutionEngine
+    participant ArvoOpenTelemetry
+    participant Span
+    participant XStateActor
+    participant MachineLo as Machine Logic<br/>(XState)
+    participant EventQueue
+    participant ErrorSubscriber
 
-    C->>OT: execute(machine, state, event, opentelemetry)
-    OT->>OT: startActiveSpan("Execute Machine")
-    OT->>ME: Begin execution with span context
-
-    ME->>ME: Initialize eventQueue[] & errors[]
-
-    alt No existing state
-        ME->>OT: Log "Starting new orchestration"
-        ME->>ME: Validate event.type === machine.source
-        alt Invalid event type
-            ME-->>C: Throw Error (Invalid initialization event)
+    Client->>MachineExecutionEngine: execute({machine, state, event}, opentelemetry?)
+    
+    Note over MachineExecutionEngine: Prepare OTel Configuration
+    MachineExecutionEngine->>MachineExecutionEngine: Determine OTel context inheritance
+    
+    alt opentelemetry.inheritFrom === 'EVENT'
+        MachineExecutionEngine->>MachineExecutionEngine: Extract trace headers from event
+        Note over MachineExecutionEngine: context = {<br/>  inheritFrom: 'TRACE_HEADERS',<br/>  traceHeaders: {<br/>    traceparent: event.traceparent,<br/>    tracestate: event.tracestate<br/>  }<br/>}
+    else opentelemetry.inheritFrom === 'CONTEXT'
+        MachineExecutionEngine->>MachineExecutionEngine: Use active context
+        Note over MachineExecutionEngine: context = {<br/>  inheritFrom: 'CONTEXT',<br/>  context: context.active()<br/>}
+    end
+    
+    MachineExecutionEngine->>ArvoOpenTelemetry: getInstance().startActiveSpan({name, spanOptions, context, fn})
+    Note over ArvoOpenTelemetry: Span configuration:<br/>- name: 'Execute Machine'<br/>- kind: INTERNAL<br/>- attributes: machine.type, machine.version, event attributes
+    
+    ArvoOpenTelemetry->>Span: create span
+    Span-->>MachineExecutionEngine: span
+    
+    rect rgb(220, 240, 220)
+        Note over MachineExecutionEngine: Initialization Phase
+        
+        MachineExecutionEngine->>MachineExecutionEngine: eventQueue = []
+        MachineExecutionEngine->>MachineExecutionEngine: errors = []
+        
+        alt state === null (New Orchestration)
+            MachineExecutionEngine->>Span: logToSpan(INFO, 'Starting new orchestration...')
+            
+            alt event.type ≠ machine.source
+                MachineExecutionEngine-->>MachineExecutionEngine: throw Error('Invalid initialization event...')
+                Note over MachineExecutionEngine: Error message:<br/>"Machine requires source event<br/>'${machine.source}' to start,<br/>but received '${event.type}'"
+                MachineExecutionEngine->>Span: Record exception
+                MachineExecutionEngine->>Span: end()
+                MachineExecutionEngine-->>Client: throw Error
+            end
+            
+            Note over MachineExecutionEngine,XStateActor: Create New Actor
+            MachineExecutionEngine->>XStateActor: createActor(machine.logic, {input: event.toJSON()})
+            XStateActor-->>MachineExecutionEngine: actor
+            
+        else state exists (Resume Orchestration)
+            MachineExecutionEngine->>Span: logToSpan(INFO, 'Resuming orchestration from existing state...')
+            
+            Note over MachineExecutionEngine,XStateActor: Create Actor from Snapshot
+            MachineExecutionEngine->>XStateActor: createActor(machine.logic, {snapshot: state})
+            XStateActor-->>MachineExecutionEngine: actor
         end
-        ME->>A: createActor(machine.logic, {input: event.toJSON()})
-    else Has existing state
-        ME->>OT: Log "Resuming orchestration"
-        ME->>A: createActor(machine.logic, {snapshot: state})
     end
-
-    ME->>A: Subscribe to all events (*.on)
-    ME->>A: Subscribe to errors
-    ME->>A: start()
-
-    alt Has existing state
-        ME->>A: send(event.toJSON())
+    
+    rect rgb(240, 220, 200)
+        Note over MachineExecutionEngine,EventQueue: Event & Error Listener Setup
+        
+        MachineExecutionEngine->>XStateActor: actor.on('*', eventHandler)
+        Note over XStateActor: Event handler:<br/>(event) => eventQueue.push(event)
+        XStateActor-->>MachineExecutionEngine: listener registered
+        
+        MachineExecutionEngine->>XStateActor: actor.subscribe({error: errorHandler})
+        Note over XStateActor: Error handler:<br/>(err) => errors.push(err)
+        XStateActor-->>MachineExecutionEngine: subscriber registered
     end
-
-    ME->>OT: Log "Execution completed"
-    ME->>OT: Log "Extracting final state"
-    ME->>A: getPersistedSnapshot()
-    A-->>ME: Return snapshot
-
-    alt Has volatile context
-        ME->>ME: Process volatile.eventQueue
-        ME->>ME: Remove volatile context
+    
+    rect rgb(200, 220, 240)
+        Note over MachineExecutionEngine,MachineLo: Machine Execution Phase
+        
+        alt New Orchestration (state === null)
+            MachineExecutionEngine->>XStateActor: actor.start()
+            XStateActor->>MachineLo: Initialize with input event
+            
+            Note over MachineLo: Machine processes initial event<br/>Executes entry actions<br/>Transitions to initial state
+            
+            loop Machine emits events
+                MachineLo->>XStateActor: Emit event via enqueueArvoEvent action
+                XStateActor->>EventQueue: Trigger '*' listener
+                EventQueue->>EventQueue: eventQueue.push(event)
+            end
+            
+            alt Machine encounters error
+                MachineLo->>XStateActor: Throw error
+                XStateActor->>ErrorSubscriber: Trigger error subscriber
+                ErrorSubscriber->>ErrorSubscriber: errors.push(err)
+            end
+            
+            MachineLo-->>XStateActor: Machine reaches stable state
+            
+        else Resume Orchestration (state exists)
+            MachineExecutionEngine->>XStateActor: actor.start()
+            XStateActor->>MachineLo: Restore from snapshot
+            
+            Note over MachineLo: Machine restores:<br/>- Previous state<br/>- Context<br/>- Event history
+            
+            MachineLo-->>XStateActor: Machine restored
+            
+            MachineExecutionEngine->>XStateActor: actor.send(event.toJSON())
+            XStateActor->>MachineLo: Process incoming event
+            
+            Note over MachineLo: Machine processes event<br/>Executes transitions<br/>Updates context<br/>Emits events
+            
+            loop Machine emits events
+                MachineLo->>XStateActor: Emit event via enqueueArvoEvent action
+                XStateActor->>EventQueue: Trigger '*' listener
+                EventQueue->>EventQueue: eventQueue.push(event)
+            end
+            
+            alt Machine encounters error
+                MachineLo->>XStateActor: Throw error
+                XStateActor->>ErrorSubscriber: Trigger error subscriber
+                ErrorSubscriber->>ErrorSubscriber: errors.push(err)
+            end
+            
+            MachineLo-->>XStateActor: Machine reaches stable state
+        end
+        
+        MachineExecutionEngine->>Span: logToSpan(INFO, 'Machine execution completed successfully...')
+        Note over Span: Logs event queue length
     end
-
-    alt Has errors
-        ME-->>C: Throw first error
+    
+    rect rgb(240, 240, 200)
+        Note over MachineExecutionEngine: Snapshot Extraction Phase
+        
+        MachineExecutionEngine->>Span: logToSpan(INFO, 'Extracting final state snapshot...')
+        
+        MachineExecutionEngine->>XStateActor: actor.getPersistedSnapshot()
+        XStateActor-->>MachineExecutionEngine: extractedSnapshot
+        
+        Note over MachineExecutionEngine: extractedSnapshot structure:<br/>- status: 'active' | 'done' | 'error' | 'stopped'<br/>- value: current state value<br/>- context: machine context<br/>- output: final output (if terminal)<br/>- error: error object (if error state)
     end
-
-    ME->>ME: Extract finalOutput from extracted snapshot
-    ME->>ME: Extract existingOutput from existing state
-    alt finalOutput equals existingOutput
-        ME->>ME: Set finalOutput to null
+    
+    rect rgb(220, 220, 240)
+        Note over MachineExecutionEngine: Volatile Context Processing
+        
+        alt extractedSnapshot has volatile context
+            Note over MachineExecutionEngine: Check for:<br/>extractedSnapshot.context.arvo$$.volatile$$
+            
+            alt volatile$$.eventQueue$$ exists
+                MachineExecutionEngine->>MachineExecutionEngine: Extract volatile event queue
+                
+                loop For each event in volatile$$.eventQueue$$
+                    MachineExecutionEngine->>EventQueue: eventQueue.push(volatileEvent)
+                end
+                
+                Note over MachineExecutionEngine: Volatile events merged into main queue
+            end
+            
+            MachineExecutionEngine->>MachineExecutionEngine: Clear volatile context
+            Note over MachineExecutionEngine: extractedSnapshot.context.arvo$$.volatile$$ = undefined
+        end
     end
-
-    ME->>ME: Prepare return object
-    ME-->>OT: Return {state, events, finalOutput}
-    OT-->>C: Return execution result
+    
+    rect rgb(200, 240, 240)
+        Note over MachineExecutionEngine: Error Handling Phase
+        
+        alt errors.length > 0
+            MachineExecutionEngine->>Span: Record error
+            MachineExecutionEngine->>Span: end()
+            MachineExecutionEngine-->>Client: throw errors[0]
+        end
+    end
+    
+    rect rgb(240, 200, 240)
+        Note over MachineExecutionEngine: Output Resolution Phase
+        
+        MachineExecutionEngine->>MachineExecutionEngine: finalOutput = extractedSnapshot?.output ?? null
+        MachineExecutionEngine->>MachineExecutionEngine: existingOutput = state?.output ?? null
+        
+        alt JSON.stringify(finalOutput) === JSON.stringify(existingOutput)
+            MachineExecutionEngine->>MachineExecutionEngine: finalOutput = null
+            Note over MachineExecutionEngine: Output unchanged from previous state<br/>Set to null to avoid duplicate emissions
+        end
+    end
+    
+    rect rgb(200, 240, 200)
+        Note over MachineExecutionEngine: Success Response Phase
+        
+        MachineExecutionEngine->>Span: end()
+        
+        MachineExecutionEngine-->>Client: return {<br/>  state: extractedSnapshot,<br/>  events: eventQueue,<br/>  finalOutput: finalOutput<br/>}
+        
+        Note over Client: Return value:<br/>- state: Persisted XState snapshot<br/>- events: All emitted events<br/>- finalOutput: Machine output or null
+    end
 ```
 
 ## Error Handling
