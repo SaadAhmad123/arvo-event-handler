@@ -159,6 +159,7 @@ describe('ArvoOrchestrator', () => {
     expect(events.events[1].data.final).toBe(0);
     expect(events.events[1].parentid).toBe(initEvent.id);
     expect(events.events[1].parentid).toBe('custom-id');
+    expect(events.events[1].executionunits).toBe(10);
   });
 
   it('should orchestrate valid init events for dynamic branch resumable', async () => {

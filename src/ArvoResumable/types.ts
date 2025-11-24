@@ -134,6 +134,7 @@ type Handler<
     >['data'];
   }[keyof InferVersionedArvoContract<TSelfContract>['emits']] & {
     __id?: CreateArvoEvent<Record<string, unknown>, string>['id'];
+    __executionunits?: CreateArvoEvent<Record<string, unknown>, string>['executionunits'];
   };
 
   /**

@@ -379,6 +379,7 @@ describe('ArvoXState', () => {
               deduplication: 'ARVO_MANAGED',
               value: 'custom-orch-1',
             },
+            __executionunits: 23,
           };
         },
       });
@@ -481,6 +482,7 @@ describe('ArvoXState', () => {
       expect(output.events[2].to).toBe('com.test.service');
       expect(output.events[2].dataschema).toBe(`${testMachineContract.uri}/0.0.1`);
       expect(output.events[2].domain).toBe(null);
+      expect(output.events[2].executionunits).toBe(23);
 
       const parsedId = parseArvoEventId(output.events[2].id);
       expect(parsedId[1]).toBe(null);

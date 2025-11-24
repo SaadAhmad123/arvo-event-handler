@@ -262,6 +262,7 @@ export class ArvoResumable<
             domain: orchestrationParentSubject
               ? [ArvoOrchestrationSubject.parse(orchestrationParentSubject).execution.domain]
               : [null],
+            executionunits: executionResult.output.__executionunits,
           });
         }
 

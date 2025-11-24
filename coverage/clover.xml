@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<coverage generated="1762004584378" clover="3.2.0">
-  <project timestamp="1762004584378" name="All files">
+<coverage generated="1763961103246" clover="3.2.0">
+  <project timestamp="1763961103246" name="All files">
     <metrics statements="1019" coveredstatements="954" conditionals="926" coveredconditionals="741" methods="192" coveredmethods="159" elements="2137" coveredelements="1854" complexity="0" loc="1019" ncloc="1019" packages="15" files="34" classes="34"/>
     <package name="src">
       <metrics statements="73" coveredstatements="73" conditionals="20" coveredconditionals="15" methods="33" coveredmethods="19"/>
@@ -88,7 +88,7 @@
       </file>
     </package>
     <package name="src.ArvoEventHandler">
-      <metrics statements="84" coveredstatements="84" conditionals="82" coveredconditionals="73" methods="10" coveredmethods="10"/>
+      <metrics statements="84" coveredstatements="84" conditionals="82" coveredconditionals="74" methods="10" coveredmethods="10"/>
       <file name="helpers.ts" path="/Users/saadahmad/Documents/Projects/arvo-event-handler/src/ArvoEventHandler/helpers.ts">
         <metrics statements="3" coveredstatements="3" conditionals="0" coveredconditionals="0" methods="1" coveredmethods="1"/>
         <line num="2" count="8" type="stmt"/>
@@ -96,7 +96,7 @@
         <line num="48" count="38" type="stmt"/>
       </file>
       <file name="index.ts" path="/Users/saadahmad/Documents/Projects/arvo-event-handler/src/ArvoEventHandler/index.ts">
-        <metrics statements="81" coveredstatements="81" conditionals="82" coveredconditionals="73" methods="9" coveredmethods="9"/>
+        <metrics statements="81" coveredstatements="81" conditionals="82" coveredconditionals="74" methods="9" coveredmethods="9"/>
         <line num="1" count="8" type="stmt"/>
         <line num="2" count="8" type="stmt"/>
         <line num="19" count="8" type="stmt"/>
@@ -205,31 +205,31 @@
         <line num="206" count="4" type="stmt"/>
         <line num="219" count="13" type="stmt"/>
         <line num="248" count="13" type="stmt"/>
-        <line num="279" count="19" type="cond" truecount="4" falsecount="0"/>
-        <line num="281" count="19" type="cond" truecount="1" falsecount="0"/>
-        <line num="282" count="1" type="stmt"/>
-        <line num="287" count="18" type="stmt"/>
-        <line num="288" count="3" type="stmt"/>
-        <line num="290" count="3" type="cond" truecount="1" falsecount="0"/>
-        <line num="291" count="1" type="stmt"/>
-        <line num="302" count="2" type="cond" truecount="1" falsecount="0"/>
-        <line num="303" count="1" type="stmt"/>
-        <line num="314" count="1" type="cond" truecount="1" falsecount="0"/>
-        <line num="315" count="1" type="stmt"/>
-        <line num="327" count="181" type="cond" truecount="3" falsecount="1"/>
-        <line num="328" count="181" type="cond" truecount="1" falsecount="0"/>
-        <line num="329" count="1" type="cond" truecount="3" falsecount="1"/>
-        <line num="331" count="180" type="cond" truecount="1" falsecount="0"/>
-        <line num="332" count="1" type="cond" truecount="3" falsecount="1"/>
-        <line num="334" count="179" type="cond" truecount="1" falsecount="0"/>
-        <line num="335" count="1" type="stmt"/>
-        <line num="341" count="15" type="stmt"/>
-        <line num="345" count="15" type="stmt"/>
+        <line num="280" count="19" type="cond" truecount="4" falsecount="0"/>
+        <line num="282" count="19" type="cond" truecount="1" falsecount="0"/>
+        <line num="283" count="1" type="stmt"/>
+        <line num="288" count="18" type="stmt"/>
+        <line num="289" count="3" type="stmt"/>
+        <line num="291" count="3" type="cond" truecount="1" falsecount="0"/>
+        <line num="292" count="1" type="stmt"/>
+        <line num="303" count="2" type="cond" truecount="1" falsecount="0"/>
+        <line num="304" count="1" type="stmt"/>
+        <line num="315" count="1" type="cond" truecount="1" falsecount="0"/>
+        <line num="316" count="1" type="stmt"/>
+        <line num="328" count="181" type="cond" truecount="3" falsecount="1"/>
+        <line num="329" count="181" type="cond" truecount="1" falsecount="0"/>
+        <line num="330" count="1" type="cond" truecount="3" falsecount="1"/>
+        <line num="332" count="180" type="cond" truecount="1" falsecount="0"/>
+        <line num="333" count="1" type="cond" truecount="3" falsecount="1"/>
+        <line num="335" count="179" type="cond" truecount="1" falsecount="0"/>
+        <line num="336" count="1" type="stmt"/>
+        <line num="342" count="15" type="stmt"/>
         <line num="346" count="15" type="stmt"/>
-        <line num="347" count="32" type="stmt"/>
-        <line num="349" count="15" type="cond" truecount="2" falsecount="0"/>
-        <line num="350" count="15" type="stmt"/>
-        <line num="358" count="13" type="stmt"/>
+        <line num="347" count="15" type="stmt"/>
+        <line num="348" count="32" type="stmt"/>
+        <line num="350" count="15" type="cond" truecount="2" falsecount="0"/>
+        <line num="351" count="15" type="stmt"/>
+        <line num="359" count="13" type="stmt"/>
       </file>
       <file name="index.ts" path="/Users/saadahmad/Documents/Projects/arvo-event-handler/src/ArvoMachine/index.ts">
         <metrics statements="12" coveredstatements="12" conditionals="1" coveredconditionals="0" methods="4" coveredmethods="4"/>
@@ -262,7 +262,7 @@
       </file>
     </package>
     <package name="src.ArvoOrchestrationUtils">
-      <metrics statements="176" coveredstatements="170" conditionals="164" coveredconditionals="125" methods="14" coveredmethods="11"/>
+      <metrics statements="176" coveredstatements="170" conditionals="164" coveredconditionals="124" methods="14" coveredmethods="11"/>
       <file name="createEmitableEvent.ts" path="/Users/saadahmad/Documents/Projects/arvo-event-handler/src/ArvoOrchestrationUtils/createEmitableEvent.ts">
         <metrics statements="63" coveredstatements="61" conditionals="82" coveredconditionals="62" methods="3" coveredmethods="3"/>
         <line num="2" count="8" type="stmt"/>
@@ -341,7 +341,7 @@
         <line num="55" count="0" type="stmt"/>
       </file>
       <file name="handlerErrors.ts" path="/Users/saadahmad/Documents/Projects/arvo-event-handler/src/ArvoOrchestrationUtils/handlerErrors.ts">
-        <metrics statements="49" coveredstatements="46" conditionals="50" coveredconditionals="38" methods="5" coveredmethods="3"/>
+        <metrics statements="49" coveredstatements="46" conditionals="50" coveredconditionals="37" methods="5" coveredmethods="3"/>
         <line num="1" count="8" type="stmt"/>
         <line num="2" count="8" type="stmt"/>
         <line num="17" count="8" type="stmt"/>
@@ -638,14 +638,14 @@
         <line num="182" count="35" type="stmt"/>
         <line num="184" count="35" type="cond" truecount="1" falsecount="0"/>
         <line num="185" count="9" type="stmt"/>
-        <line num="197" count="35" type="stmt"/>
-        <line num="212" count="34" type="stmt"/>
-        <line num="221" count="34" type="stmt"/>
-        <line num="231" count="38" type="stmt"/>
-        <line num="236" count="34" type="stmt"/>
-        <line num="244" count="8" type="stmt"/>
-        <line num="245" count="1" type="stmt"/>
-        <line num="251" count="8" type="stmt"/>
+        <line num="198" count="35" type="stmt"/>
+        <line num="213" count="34" type="stmt"/>
+        <line num="222" count="34" type="stmt"/>
+        <line num="232" count="38" type="stmt"/>
+        <line num="237" count="34" type="stmt"/>
+        <line num="245" count="8" type="stmt"/>
+        <line num="246" count="1" type="stmt"/>
+        <line num="252" count="8" type="stmt"/>
       </file>
     </package>
     <package name="src.ArvoResumable">
@@ -715,16 +715,16 @@
         <line num="255" count="9" type="cond" truecount="8" falsecount="0"/>
         <line num="256" count="9" type="cond" truecount="5" falsecount="0"/>
         <line num="257" count="2" type="stmt"/>
-        <line num="268" count="9" type="stmt"/>
-        <line num="283" count="9" type="stmt"/>
-        <line num="289" count="9" type="stmt"/>
-        <line num="292" count="18" type="stmt"/>
-        <line num="294" count="18" type="stmt"/>
-        <line num="298" count="9" type="stmt"/>
-        <line num="308" count="9" type="stmt"/>
-        <line num="313" count="8" type="stmt"/>
-        <line num="314" count="0" type="stmt"/>
-        <line num="319" count="8" type="stmt"/>
+        <line num="269" count="9" type="stmt"/>
+        <line num="284" count="9" type="stmt"/>
+        <line num="290" count="9" type="stmt"/>
+        <line num="293" count="18" type="stmt"/>
+        <line num="295" count="18" type="stmt"/>
+        <line num="299" count="9" type="stmt"/>
+        <line num="309" count="9" type="stmt"/>
+        <line num="314" count="8" type="stmt"/>
+        <line num="315" count="0" type="stmt"/>
+        <line num="320" count="8" type="stmt"/>
       </file>
     </package>
     <package name="src.MachineExecutionEngine">

@@ -87,6 +87,7 @@ export const decrementResumable: EventHandlerFactory<{
               success: true,
               error: [],
               final: service.data.result,
+              __executionunits: 10,
             },
             services: [
               {

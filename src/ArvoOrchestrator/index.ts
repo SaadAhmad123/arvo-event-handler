@@ -190,6 +190,7 @@ export class ArvoOrchestrator implements IArvoEventHandler {
             domain: orchestrationParentSubject
               ? [ArvoOrchestrationSubject.parse(orchestrationParentSubject).execution.domain]
               : [null],
+            executionunits: executionResult.finalOutput.__executionunits,
           });
         }
 

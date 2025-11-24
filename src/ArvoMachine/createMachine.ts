@@ -266,6 +266,7 @@ export function setupArvoMachine<
         >]
       > & {
         __id?: CreateArvoEvent<Record<string, unknown>, string>['id'];
+        __executionunits?: CreateArvoEvent<Record<string, unknown>, string>['executionunits'];
       },
       InferServiceContract<TServiceContracts>['emitted'],
       TMeta
