@@ -1,6 +1,6 @@
 {
   "name": "arvo-event-handler",
-  "version": "3.0.20",
+  "version": "3.0.22",
   "description": "A complete set of orthogonal event handler and orchestration primitives for Arvo based applications, featuring declarative state machines (XState), imperative resumables for agentic workflows, contract-based routing, OpenTelemetry observability, and in-memory event broker for building composable event-driven architectures.",
   "main": "dist/index.js",
   "repository": {
