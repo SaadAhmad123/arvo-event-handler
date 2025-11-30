@@ -20,6 +20,7 @@ import { SyncEventResource } from '../SyncEventResource/index';
 import { ConfigViolation, ContractViolation } from '../errors';
 import type { ArvoEventHandlerOpenTelemetryOptions, ArvoEventHandlerOtelSpanOptions } from '../types';
 import type { ArvoResumableHandler, ArvoResumableParam, ArvoResumableState } from './types';
+import { ArvoDomain } from '../ArvoDomain';
 
 /**
  * ArvoResumable complements {@link ArvoOrchestrator} by providing imperative
@@ -261,7 +262,7 @@ export class ArvoResumable<
             to: parsedEventSubject.meta?.redirectto ?? parsedEventSubject.execution.initiator,
             domain: orchestrationParentSubject
               ? [ArvoOrchestrationSubject.parse(orchestrationParentSubject).execution.domain]
-              : [null],
+              : [ArvoDomain.LOCAL],
             executionunits: executionResult.output.__executionunits,
           });
         }

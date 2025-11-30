@@ -113,7 +113,7 @@ describe('ArvoEventHandler', () => {
           ],
         },
         {
-          name: 'should execute handler successfully with event domain to null by default',
+          name: 'should execute handler successfully with event domain to the same as the triggering event by default',
           steps: [
             {
               input: () =>
@@ -128,7 +128,7 @@ describe('ArvoEventHandler', () => {
                   },
                 }),
               expectedEvents: (events) => {
-                expect(events[0].domain).toBe(null);
+                expect(events[0].domain).toBe('test.test');
                 return true;
               },
             },

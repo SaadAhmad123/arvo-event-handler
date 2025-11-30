@@ -20,6 +20,7 @@ import { SyncEventResource } from '../SyncEventResource';
 import { ConfigViolation, ContractViolation } from '../errors';
 import type { ArvoEventHandlerOpenTelemetryOptions, ArvoEventHandlerOtelSpanOptions } from '../types';
 import type { ArvoOrchestratorParam, MachineMemoryRecord } from './types';
+import { ArvoDomain } from '../ArvoDomain';
 
 /**
  * Orchestrates state machine execution and lifecycle management.
@@ -189,7 +190,7 @@ export class ArvoOrchestrator implements IArvoEventHandler {
             to: parsedEventSubject.meta?.redirectto ?? parsedEventSubject.execution.initiator,
             domain: orchestrationParentSubject
               ? [ArvoOrchestrationSubject.parse(orchestrationParentSubject).execution.domain]
-              : [null],
+              : [ArvoDomain.LOCAL],
             executionunits: executionResult.finalOutput.__executionunits,
           });
         }

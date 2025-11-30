@@ -34,6 +34,14 @@ export const ArvoDomain = {
    * and carry it forward through event emissions.
    */
   FROM_TRIGGERING_EVENT: 'domain.event.inherit',
+
+  /**
+   * Keep the event in the current execution context (null domain).
+   *
+   * Use this when the event should remain local to the current domain without
+   * crossing execution boundaries through the exchange layer.
+   */
+  LOCAL: null
 } as const;
 
 /**

@@ -22,6 +22,7 @@
       "src/MachineExecutionEngine/README.md",
       "src/MachineMemory/README.md",
       "src/ArvoResumable/README.md",
+      "src/ArvoDomain.md",
       "CHANGELOG.md",
       "LICENSE.md"
     ],

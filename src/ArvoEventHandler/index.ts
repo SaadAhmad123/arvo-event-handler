@@ -211,7 +211,8 @@ export default class ArvoEventHandler<TContract extends ArvoContract> implements
                   eventContract: handlerContract,
                   triggeringEvent: event,
                 }),
-              ) ?? [null];
+              // By default respond in the same domain as source event
+              ) ?? [event.domain];
               for (const _dom of Array.from(new Set(domains))) {
                 result.push(
                   createArvoEventFactory(handlerContract).emits(

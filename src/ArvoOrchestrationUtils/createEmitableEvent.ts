@@ -12,7 +12,7 @@ import {
   logToSpan,
 } from 'arvo-core';
 import type z from 'zod';
-import { resolveEventDomain } from '../ArvoDomain';
+import { ArvoDomain, resolveEventDomain } from '../ArvoDomain';
 import type { EnqueueArvoEventActionParam } from '../ArvoMachine/types';
 import { ContractViolation, ExecutionViolation } from '../errors';
 
@@ -244,7 +244,7 @@ export const processRawEventsIntoEmittables = (
 ): ArvoEvent[] => {
   const emittables: ArvoEvent[] = [];
   for (const item of params.rawEvents) {
-    for (const _dom of Array.from(new Set(item.domain ?? [null]))) {
+    for (const _dom of Array.from(new Set(item.domain ?? [ArvoDomain.LOCAL]))) {
       const evt = createEmittableEvent(
         {
           event: item,

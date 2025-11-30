@@ -1,6 +1,6 @@
 {
   "name": "arvo-event-handler",
-  "version": "3.0.22",
+  "version": "3.0.23",
   "description": "A complete set of orthogonal event handler and orchestration primitives for Arvo based applications, featuring declarative state machines (XState), imperative resumables for agentic workflows, contract-based routing, OpenTelemetry observability, and in-memory event broker for building composable event-driven architectures.",
   "main": "dist/index.js",
   "repository": {
@@ -65,7 +65,7 @@
   "dependencies": {
     "@opentelemetry/api": "1.9.0",
     "@opentelemetry/core": "1.30.1",
-    "arvo-core": "3.0.22",
+    "arvo-core": "3.0.23",
     "uuid": "11.1.0",
     "xstate": "5.24.0",
     "zod": "3.25.74",
