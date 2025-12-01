@@ -74,17 +74,17 @@ describe('ArvoOrchestrator', () => {
         steps: [
           {
             input: () => {
-              const initEvent = createArvoOrchestratorEventFactory(
-                incrementOrchestratorContract.version('0.0.1')
-              ).init({
-                source: 'com.test.test',
-                data: {
-                  key: 'test.key',
-                  modifier: 2,
-                  trend: 'linear',
-                  parentSubject$$: null,
+              const initEvent = createArvoOrchestratorEventFactory(incrementOrchestratorContract.version('0.0.1')).init(
+                {
+                  source: 'com.test.test',
+                  data: {
+                    key: 'test.key',
+                    modifier: 2,
+                    trend: 'linear',
+                    parentSubject$$: null,
+                  },
                 },
-              });
+              );
               valueStore[initEvent.data.key] = 2;
               return initEvent;
             },
@@ -158,17 +158,17 @@ describe('ArvoOrchestrator', () => {
         steps: [
           {
             input: async () => {
-              const initEvent = createArvoOrchestratorEventFactory(
-                incrementOrchestratorContract.version('0.0.1')
-              ).init({
-                source: 'com.test.test',
-                data: {
-                  key: 'test.key.lock',
-                  modifier: 2,
-                  trend: 'linear',
-                  parentSubject$$: null,
+              const initEvent = createArvoOrchestratorEventFactory(incrementOrchestratorContract.version('0.0.1')).init(
+                {
+                  source: 'com.test.test',
+                  data: {
+                    key: 'test.key.lock',
+                    modifier: 2,
+                    trend: 'linear',
+                    parentSubject$$: null,
+                  },
                 },
-              });
+              );
               await machineMemory.lock(initEvent.subject);
               return initEvent;
             },
@@ -192,9 +192,7 @@ describe('ArvoOrchestrator', () => {
         steps: [
           {
             input: () => {
-              return createArvoOrchestratorEventFactory(
-                incrementOrchestratorContract.version('0.0.1')
-              ).init({
+              return createArvoOrchestratorEventFactory(incrementOrchestratorContract.version('0.0.1')).init({
                 source: 'com.test.test',
                 data: {
                   key: 'test.key.contract',
@@ -209,7 +207,9 @@ describe('ArvoOrchestrator', () => {
           {
             input: (prev) => prev![0],
             expectedError: (error) =>
-              error.message.includes('Contract validation failed - Event does not match any registered contract schemas in the machine'),
+              error.message.includes(
+                'Contract validation failed - Event does not match any registered contract schemas in the machine',
+              ),
           },
         ],
       },
@@ -218,22 +218,22 @@ describe('ArvoOrchestrator', () => {
         steps: [
           {
             input: async () => {
-              const initEvent = createArvoOrchestratorEventFactory(
-                incrementOrchestratorContract.version('0.0.1')
-              ).init({
-                source: 'com.test.test',
-                data: {
-                  key: 'test.key.invalid',
-                  modifier: 2,
-                  trend: 'linear',
-                  parentSubject$$: null,
+              const initEvent = createArvoOrchestratorEventFactory(incrementOrchestratorContract.version('0.0.1')).init(
+                {
+                  source: 'com.test.test',
+                  data: {
+                    key: 'test.key.invalid',
+                    modifier: 2,
+                    trend: 'linear',
+                    parentSubject$$: null,
+                  },
                 },
-              });
-              
+              );
+
               // First execute to get subject, then unlock for new test
               await handlers.incrementAgent.execute(initEvent, { inheritFrom: 'EVENT' });
               await machineMemory.unlock(initEvent.subject);
-              
+
               return createArvoEvent({
                 subject: initEvent.subject,
                 source: 'com.test.test',
@@ -264,17 +264,17 @@ describe('ArvoOrchestrator', () => {
         steps: [
           {
             input: () => {
-              const initEvent = createArvoOrchestratorEventFactory(
-                incrementOrchestratorContract.version('0.0.1')
-              ).init({
-                source: 'com.test.test',
-                data: {
-                  key: 'test.key.parentid',
-                  modifier: 2,
-                  trend: 'linear',
-                  parentSubject$$: null,
+              const initEvent = createArvoOrchestratorEventFactory(incrementOrchestratorContract.version('0.0.1')).init(
+                {
+                  source: 'com.test.test',
+                  data: {
+                    key: 'test.key.parentid',
+                    modifier: 2,
+                    trend: 'linear',
+                    parentSubject$$: null,
+                  },
                 },
-              });
+              );
               valueStore[initEvent.data.key] = 5;
               return initEvent;
             },
@@ -297,7 +297,7 @@ describe('ArvoOrchestrator', () => {
               if (events.length !== 1) return false;
               const event = events[0];
               return event.type === incrementContract.type && event.parentid !== undefined;
-            }
+            },
           },
         ],
       },
@@ -305,15 +305,11 @@ describe('ArvoOrchestrator', () => {
   };
 
   // Run all test suites
-  runArvoTestSuites(
-    [
-      validInitEventSuite,
-      lockAcquisitionSuite,
-      contractValidationSuite,
-      parentIdSuite,
-    ],
-    { describe, test, beforeEach }
-  );
+  runArvoTestSuites([validInitEventSuite, lockAcquisitionSuite, contractValidationSuite, parentIdSuite], {
+    describe,
+    test,
+    beforeEach,
+  });
 
   // Keep the nested orchestrator test as-is since it uses the broker pattern
   it('should conducting nested orchestrators', async () => {

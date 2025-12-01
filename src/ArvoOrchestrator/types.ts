@@ -5,7 +5,7 @@ import type { OrchestrationExecutionMemoryRecord } from '../ArvoOrchestrationUti
 import type { IMachineExectionEngine } from '../MachineExecutionEngine/interface';
 import type { IMachineMemory } from '../MachineMemory/interface';
 import type { IMachineRegistry } from '../MachineRegistry/interface';
-import type { ArvoEventHandlerOtelSpanOptions } from '../types';
+import type { ArvoEventHandlerOtelSpanOptions, NonEmptyArray } from '../types';
 
 /**
  * Discriminated union representing the result of a try operation.
@@ -113,15 +113,12 @@ export type ArvoOrchestratorParam = {
   /**
    * Optional domains for system error event routing.
    *
-   * Overrides the default fallback sequence of:
-   * `[event.domain, self.contract.domain, null]`
-   *
    * Controls where structured `sys.*.error` events are emitted when
    * uncaught exceptions occur. Supports symbolic constants from {@link ArvoDomain}.
    *
-   * @default undefined - uses standard fallback broadcast domains
+   * @default [ArvoDomain.FROM_PARENT_SUBJECT]
    */
-  systemErrorDomain?: (string | null)[];
+  systemErrorDomain?: NonEmptyArray<string | null>;
 
   /** OpenTelemetry span configuration for distributed tracing */
   spanOptions?: ArvoEventHandlerOtelSpanOptions;

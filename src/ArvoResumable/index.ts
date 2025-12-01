@@ -18,7 +18,7 @@ import type IArvoEventHandler from '../IArvoEventHandler';
 import type { IMachineMemory } from '../MachineMemory/interface';
 import { SyncEventResource } from '../SyncEventResource/index';
 import { ConfigViolation, ContractViolation } from '../errors';
-import type { ArvoEventHandlerOpenTelemetryOptions, ArvoEventHandlerOtelSpanOptions } from '../types';
+import type { ArvoEventHandlerOpenTelemetryOptions, ArvoEventHandlerOtelSpanOptions, NonEmptyArray } from '../types';
 import type { ArvoResumableHandler, ArvoResumableParam, ArvoResumableState } from './types';
 import { ArvoDomain } from '../ArvoDomain';
 
@@ -48,7 +48,7 @@ export class ArvoResumable<
   /** Versioned handler map for processing workflow events. */
   readonly handler: ArvoResumableHandler<ArvoResumableState<TMemory>, TSelfContract, TServiceContract>;
   /** Optional domains for routing system error events */
-  readonly systemErrorDomain?: (string | null)[] = undefined;
+  readonly systemErrorDomain: NonEmptyArray<string | null>;
   /** OpenTelemetry span configuration for observability */
   readonly spanOptions: ArvoEventHandlerOtelSpanOptions;
   /** Source identifier from the first registered machine */
@@ -90,7 +90,7 @@ export class ArvoResumable<
     this.syncEventResource = new SyncEventResource(param.memory, param.requiresResourceLocking ?? true);
     this.contracts = param.contracts;
     this.handler = param.handler;
-    this.systemErrorDomain = param.systemErrorDomain;
+    this.systemErrorDomain = param.systemErrorDomain ?? [ArvoDomain.FROM_CURRENT_SUBJECT];
 
     this.spanOptions = {
       kind: SpanKind.PRODUCER,
@@ -254,15 +254,18 @@ export class ArvoResumable<
         });
 
         const rawEvents = executionResult?.services ?? [];
+
+        for (let i = 0; i < rawEvents.length; i++) {
+          rawEvents[i].domain = rawEvents[i].domain ?? [ArvoDomain.LOCAL];
+        }
+
         if (executionResult?.output) {
           rawEvents.push({
             id: executionResult.output.__id,
             data: executionResult.output,
             type: this.contracts.self.metadata.completeEventType,
             to: parsedEventSubject.meta?.redirectto ?? parsedEventSubject.execution.initiator,
-            domain: orchestrationParentSubject
-              ? [ArvoOrchestrationSubject.parse(orchestrationParentSubject).execution.domain]
-              : [ArvoDomain.LOCAL],
+            domain: executionResult.output?.__domain ?? [ArvoDomain.FROM_CURRENT_SUBJECT],
             executionunits: executionResult.output.__executionunits,
           });
         }

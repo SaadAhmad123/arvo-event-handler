@@ -16,12 +16,12 @@ import {
   isViolationError,
   logToSpan,
 } from 'arvo-core';
-import { resolveEventDomain } from '../ArvoDomain';
+import { ArvoDomain, resolveEventDomain } from '../ArvoDomain';
 import { createSystemErrorEvents } from '../ArvoOrchestrationUtils/handlerErrors';
 import { returnEventsWithLogging } from '../ArvoOrchestrationUtils/orchestrationExecutionWrapper';
 import type IArvoEventHandler from '../IArvoEventHandler';
 import { ConfigViolation, ContractViolation } from '../errors';
-import type { ArvoEventHandlerOpenTelemetryOptions, ArvoEventHandlerOtelSpanOptions } from '../types';
+import type { ArvoEventHandlerOpenTelemetryOptions, ArvoEventHandlerOtelSpanOptions, NonEmptyArray } from '../types';
 import { coalesce, coalesceOrDefault, createEventHandlerTelemetryConfig } from '../utils';
 import type { ArvoEventHandlerFunction, ArvoEventHandlerFunctionOutput, ArvoEventHandlerParam } from './types';
 
@@ -48,7 +48,7 @@ export default class ArvoEventHandler<TContract extends ArvoContract> implements
   }
 
   /** Optional domains for routing system error events */
-  readonly systemErrorDomain?: (string | null)[] = undefined;
+  readonly systemErrorDomain: NonEmptyArray<string | null>;
 
   /** The contract-defined domain for the handler */
   get domain(): string | null {
@@ -59,7 +59,7 @@ export default class ArvoEventHandler<TContract extends ArvoContract> implements
     this.contract = param.contract;
     this.executionunits = param.executionunits;
     this.handler = param.handler;
-    this.systemErrorDomain = param.systemErrorDomain;
+    this.systemErrorDomain = param.systemErrorDomain ?? [ArvoDomain.FROM_TRIGGERING_EVENT];
 
     for (const contractVersions of Object.keys(this.contract.versions)) {
       if (!this.handler[contractVersions as ArvoSemanticVersion]) {
@@ -204,15 +204,15 @@ export default class ArvoEventHandler<TContract extends ArvoContract> implements
           for (const item of outputs) {
             try {
               const { __extensions, ...handlerResult } = item;
-              const domains = handlerResult.domain?.map((item) =>
+              const domains = (handlerResult.domain ?? [ArvoDomain.FROM_TRIGGERING_EVENT]).map((item) =>
                 resolveEventDomain({
+                  currentSubject: event.subject,
                   domainToResolve: item,
                   handlerSelfContract: handlerContract,
                   eventContract: handlerContract,
                   triggeringEvent: event,
                 }),
-              // By default respond in the same domain as source event
-              ) ?? [event.domain];
+              );
               for (const _dom of Array.from(new Set(domains))) {
                 result.push(
                   createArvoEventFactory(handlerContract).emits(

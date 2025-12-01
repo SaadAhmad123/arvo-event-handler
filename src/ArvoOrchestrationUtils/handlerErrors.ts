@@ -14,12 +14,13 @@ import {
   isViolationError,
   logToSpan,
 } from 'arvo-core';
-import { resolveEventDomain } from '../ArvoDomain';
+import { ArvoDomain, resolveEventDomain } from '../ArvoDomain';
 import type { SyncEventResource } from '../SyncEventResource';
 import { ExecutionViolation } from '../errors';
 import { isError } from '../utils';
 import type { OrchestrationExecutionMemoryRecord } from './orchestrationExecutionState';
 import { ArvoOrchestrationHandlerMap, type ArvoOrchestrationHandlerType } from './types';
+import { NonEmptyArray } from '../types';
 
 /**
  * Parameters for creating system error events during orchestration failures.
@@ -38,7 +39,7 @@ export type CreateSystemErrorEventsParams = {
   /** Self contract defining error schema */
   selfContract: VersionedArvoContract<ArvoContract, ArvoSemanticVersion>;
   /** Optional domains for error event routing */
-  systemErrorDomain?: (string | null)[];
+  systemErrorDomain: NonEmptyArray<string | null>;
   /** Execution units for error events */
   executionunits: number;
   /** Source identifier */
@@ -92,21 +93,19 @@ export const createSystemErrorEvents = ({
     }
   }
 
-  const domainSets = new Set(
-    systemErrorDomain?.length
-      ? systemErrorDomain.map((item) =>
-          resolveEventDomain({
-            domainToResolve: item,
-            handlerSelfContract: selfContract,
-            eventContract: selfContract,
-            triggeringEvent: event,
-          }),
-        )
-      : [event.domain, domain, null],
+  const domainSets = Array.from(new Set(systemErrorDomain ?? [ArvoDomain.FROM_CURRENT_SUBJECT])).map((item) =>
+    resolveEventDomain({
+      currentSubject: event.subject,
+      domainToResolve: item,
+      handlerSelfContract: selfContract,
+      eventContract: selfContract,
+      triggeringEvent: event,
+    }),
   );
+
   const result: ArvoEvent[] = [];
 
-  for (const _dom of Array.from(domainSets)) {
+  for (const _dom of domainSets) {
     const factoryBuilder = handlerType === 'handler' ? createArvoEventFactory : createArvoOrchestratorEventFactory;
     result.push(
       factoryBuilder(selfContract).systemError({
@@ -163,7 +162,7 @@ export const handleOrchestrationErrors = async (
     }
 > => {
   const handlerType = ArvoOrchestrationHandlerMap[_handlerType];
-  // If this is not an error this is not exected and must be addressed
+  // If this is not an error this is not expected and must be addressed
   // This is a fundmental unexpected scenario and must be handled as such
   // What this show is the there is a non-error object being throw in the
   // implementation or execution of the machine which is a major NodeJS

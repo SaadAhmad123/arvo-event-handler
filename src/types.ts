@@ -2,6 +2,8 @@ import type { SpanOptions } from '@opentelemetry/api';
 import type { ArvoEvent } from 'arvo-core';
 import type IArvoEventHandler from './IArvoEventHandler';
 
+export type NonEmptyArray<T> = [T, ...T[]];
+
 /**
  * Makes properties optional except specified keys
  *

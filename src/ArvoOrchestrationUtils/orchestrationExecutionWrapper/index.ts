@@ -13,7 +13,7 @@ import {
 import type IArvoEventHandler from '../../IArvoEventHandler';
 import type { SyncEventResource } from '../../SyncEventResource';
 import type { AcquiredLockStatusType } from '../../SyncEventResource/types';
-import type { ArvoEventHandlerOpenTelemetryOptions, ArvoEventHandlerOtelSpanOptions } from '../../types';
+import type { ArvoEventHandlerOpenTelemetryOptions, ArvoEventHandlerOtelSpanOptions, NonEmptyArray } from '../../types';
 import { createEventHandlerTelemetryConfig } from '../../utils';
 import { handleOrchestrationErrors } from '../handlerErrors';
 import type { OrchestrationExecutionMemoryRecord } from '../orchestrationExecutionState';
@@ -37,7 +37,7 @@ export type OrchestrationExecutionContext<TState extends OrchestrationExecutionM
   /** Maximum execution units per cycle */
   executionunits: number;
   /** Optional domains for system error routing */
-  systemErrorDomain?: (string | null)[];
+  systemErrorDomain: NonEmptyArray<string | null>;
   /** Self contract defining orchestrator interface */
   selfContract: VersionedArvoContract<ArvoOrchestratorContract, ArvoSemanticVersion>;
   /** Domain for event routing */

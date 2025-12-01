@@ -1,4 +1,4 @@
-import type { ArvoEvent, VersionedArvoContract } from 'arvo-core';
+import { ArvoOrchestrationSubject, exceptionToSpan, type ArvoEvent, type VersionedArvoContract } from 'arvo-core';
 
 /**
  * Symbolic constants for domain resolution in Arvo event emission.
@@ -36,12 +36,20 @@ export const ArvoDomain = {
   FROM_TRIGGERING_EVENT: 'domain.event.inherit',
 
   /**
+   * Inherit the domain encoded in the event subject
+   *
+   * If in any situtation the subject under consideration is not Arvo compliant then the ArvoDomain.LOCAL
+   * is used as fallback
+   */
+  FROM_CURRENT_SUBJECT: 'domain.event.current.subject',
+
+  /**
    * Keep the event in the current execution context (null domain).
    *
    * Use this when the event should remain local to the current domain without
    * crossing execution boundaries through the exchange layer.
    */
-  LOCAL: null
+  LOCAL: null,
 } as const;
 
 /**
@@ -55,6 +63,7 @@ export const ArvoDomain = {
  *
  * @param param - Parameters for resolving the domain.
  * @param param.domainToResolve - Either a static domain string, symbolic value, or null.
+ * @param param.currentSubject - The current execution context key (subject)
  * @param param.handlerSelfContract - The contract of the handler currently emitting the event.
  * @param param.eventContract - The contract of the event being emitted (optional).
  * @param param.triggeringEvent - The triggering event that caused this emission.
@@ -63,26 +72,44 @@ export const ArvoDomain = {
  */
 export const resolveEventDomain = (param: {
   domainToResolve: string | null;
+  currentSubject: string;
   handlerSelfContract: VersionedArvoContract<any, any>;
   eventContract: VersionedArvoContract<any, any> | null;
   triggeringEvent: ArvoEvent;
 }): string | null => {
-  const ArvoDomainValues = Object.values(ArvoDomain);
+  if (!param.domainToResolve) {
+    return null;
+  }
 
-  if (param.domainToResolve && ArvoDomainValues.includes(param.domainToResolve as (typeof ArvoDomainValues)[number])) {
-    const domainToResolve = param.domainToResolve as (typeof ArvoDomainValues)[number];
+  if (param.domainToResolve === ArvoDomain.LOCAL) {
+    return null;
+  }
 
-    if (domainToResolve === ArvoDomain.FROM_EVENT_CONTRACT) {
-      return param.eventContract?.domain ?? null;
+  if (param.domainToResolve === ArvoDomain.FROM_EVENT_CONTRACT) {
+    return param.eventContract?.domain ?? null;
+  }
+
+  if (param.domainToResolve === ArvoDomain.FROM_SELF_CONTRACT) {
+    return param.handlerSelfContract.domain;
+  }
+
+  if (param.domainToResolve === ArvoDomain.FROM_TRIGGERING_EVENT) {
+    return param.triggeringEvent.domain;
+  }
+
+  if (param.domainToResolve === ArvoDomain.FROM_CURRENT_SUBJECT) {
+    let resolvedDomain: string | null = null;
+    try {
+      const parsedSubject = ArvoOrchestrationSubject.parse(param.currentSubject);
+      resolvedDomain = parsedSubject.execution.domain;
+    } catch (e) {
+      exceptionToSpan(
+        new Error(
+          `Unable to parse the provided parent subject. Falling back to ArvoDomain.LOCAL. Error: ${(e as Error).message}`,
+        ),
+      );
     }
-
-    if (domainToResolve === ArvoDomain.FROM_SELF_CONTRACT) {
-      return param.handlerSelfContract.domain;
-    }
-
-    if (domainToResolve === ArvoDomain.FROM_TRIGGERING_EVENT) {
-      return param.triggeringEvent.domain;
-    }
+    return resolvedDomain;
   }
 
   return param.domainToResolve;

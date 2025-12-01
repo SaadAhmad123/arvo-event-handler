@@ -20,7 +20,7 @@ const promiseTimeout = (timeout = 10) =>
     setTimeout(resolve, timeout);
   });
 
-describe('ArvoOrchestrator', () => {
+describe('ArvoResumable', () => {
   beforeAll(() => {
     telemetrySdkStart();
   });
@@ -58,6 +58,7 @@ describe('ArvoOrchestrator', () => {
         trend: 'linear',
         parentSubject$$: null,
       },
+      domain: 'test.domain.test'
     });
 
     valueStore[initEvent.data.key] = 2;
@@ -93,6 +94,7 @@ describe('ArvoOrchestrator', () => {
     expect(events.events[0].source).toBe(valueReadContract.type);
     expect(events.events[0].data.value).toBe(valueStore[initEvent.data.key]);
     expect(events.events[0].parentid).toBe(eventToUse.id);
+    expect(events.events[0].domain).toBe(null)
 
     await promiseTimeout();
     eventToUse = events.events[0];

@@ -9,7 +9,7 @@ import type {
   VersionedArvoContract,
 } from 'arvo-core';
 import type { z } from 'zod';
-import type { ArvoEventHandlerOtelSpanOptions } from '../types';
+import type { ArvoEventHandlerOtelSpanOptions, NonEmptyArray } from '../types';
 
 /**
  * Represents the input for an ArvoEvent handler function.
@@ -59,29 +59,18 @@ export type ArvoEventHandlerFunctionOutput<TContract extends VersionedArvoContra
     __extensions?: Record<string, string | number | boolean>;
 
     /**
-     * The domain configuration for multi-domain event broadcasting.
+     * Specifies which execution contexts should receive this event. Each domain value creates a separate routed event.
+     * Defaults to the domain encoded in the triggering event's subject with fallback to ArvoDomain.LOCAL (null) to
+     * maintain execution context continuity.
      *
-     * When an event is emitted with a `domain` array, Arvo generates a separate ArvoEvent
-     * for each resolved domain value. This enables parallel routing to multiple contexts
-     * such as analytics, auditing, human-in-the-loop systems, or external integrations.
-     *
-     * **Accepted Values:**
-     * - A concrete domain string (e.g. `'audit.orders'`)
-     * - `null` for standard internal routing (no domain)
-     * - A symbolic value from {@link ArvoDomain}.
-     *
-     * **Broadcasting Rules:**
-     * - Each resolved domain in the array creates a separate ArvoEvent instance
-     * - Duplicate resolved domains are automatically removed
-     * - If the field is omitted, Arvo defaults to `[null]`
+     * @default [ArvoDomain.FROM_PARENT_SUBJECT]
      *
      * **Examples:**
-     * - `['analytics.orders', 'audit.orders']` → Creates two routed events
-     * - `[ArvoDomain.FROM_TRIGGERING_EVENT, 'human.review', null]` → Mirrors source domain, routes to review, and standard consumer
-     * - `[null]` → Emits a single event with no domain routing
-     * - _Omitted_ → Same as `[null]`
+     * - `['human.interaction', 'audit.reporting']` → Creates two routed events
+     * - `[ArvoDomain.FROM_TRIGGERING_EVENT, 'human.review']` → Mirrors source domain and routes to review
+     * - `[ArvoDomain.LOCAL]` → Stays in current execution context
      */
-    domain?: (string | null)[];
+    domain?: NonEmptyArray<string | null>;
   };
 }[keyof TContract['emits']];
 
@@ -130,7 +119,7 @@ export type ArvoEventHandlerParam<TContract extends ArvoContract> = {
    * Optional configuration to customize where system error events are emitted.
    *
    * This overrides the default system error domain fallback of:
-   * `[event.domain, handler.contract.domain, null]`
+   * `[ArvoDomain.FROM_PARENT_SUBJECT]`
    *
    * Use this to precisely control the set of domains that should receive structured
    * `sys.*.error` events when uncaught exceptions occur in the handler.
@@ -139,5 +128,5 @@ export type ArvoEventHandlerParam<TContract extends ArvoContract> = {
    *
    * @default undefined — uses standard fallback broadcast domains
    */
-  systemErrorDomain?: (string | null)[];
+  systemErrorDomain?: NonEmptyArray<string | null>;
 };

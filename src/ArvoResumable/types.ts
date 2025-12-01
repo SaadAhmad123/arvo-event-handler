@@ -12,7 +12,7 @@ import type {
 import type { EnqueueArvoEventActionParam } from '../ArvoMachine/types';
 import type { OrchestrationExecutionMemoryRecord } from '../ArvoOrchestrationUtils/orchestrationExecutionState';
 import type { IMachineMemory } from '../MachineMemory/interface';
-import type { ArvoEventHandlerOtelSpanOptions } from '../types';
+import type { ArvoEventHandlerOtelSpanOptions, NonEmptyArray } from '../types';
 
 /**
  * Extracts all possible event types (including system errors) from service contracts.
@@ -135,6 +135,7 @@ type Handler<
   }[keyof InferVersionedArvoContract<TSelfContract>['emits']] & {
     __id?: CreateArvoEvent<Record<string, unknown>, string>['id'];
     __executionunits?: CreateArvoEvent<Record<string, unknown>, string>['executionunits'];
+    __domain?: NonEmptyArray<string | null>;
   };
 
   /**
@@ -291,8 +292,12 @@ export type ArvoResumableParam<
    */
   handler: ArvoResumableHandler<ArvoResumableState<TMemory>, TSelfContract, TServiceContract>;
 
-  /** Optional domains for system error event routing */
-  systemErrorDomain?: (string | null)[];
+  /**
+   * Optional domains for system error event routing
+   *
+   * @default [ArvoDomain.FROM_PARENT_SUBJECT]
+   */
+  systemErrorDomain?: NonEmptyArray<string | null>;
 
   /** OpenTelemetry span configuration for distributed tracing */
   spanOptions?: ArvoEventHandlerOtelSpanOptions;
@@ -340,7 +345,7 @@ export type CreateArvoResumableParam<
   requiresResourceLocking?: boolean;
 
   /** Optional domains for system error event routing */
-  systemErrorDomain?: (string | null)[];
+  systemErrorDomain?: NonEmptyArray<string | null>;
 
   /** OpenTelemetry span configuration for distributed tracing */
   spanOptions?: ArvoEventHandlerOtelSpanOptions;

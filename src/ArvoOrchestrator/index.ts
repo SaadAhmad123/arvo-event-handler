@@ -18,7 +18,7 @@ import type { IMachineMemory } from '../MachineMemory/interface';
 import type { IMachineRegistry } from '../MachineRegistry/interface';
 import { SyncEventResource } from '../SyncEventResource';
 import { ConfigViolation, ContractViolation } from '../errors';
-import type { ArvoEventHandlerOpenTelemetryOptions, ArvoEventHandlerOtelSpanOptions } from '../types';
+import type { ArvoEventHandlerOpenTelemetryOptions, ArvoEventHandlerOtelSpanOptions, NonEmptyArray } from '../types';
 import type { ArvoOrchestratorParam, MachineMemoryRecord } from './types';
 import { ArvoDomain } from '../ArvoDomain';
 
@@ -38,8 +38,8 @@ export class ArvoOrchestrator implements IArvoEventHandler {
   readonly executionEngine: IMachineExectionEngine;
   /** Resource manager for state synchronization and memory access */
   readonly syncEventResource: SyncEventResource<MachineMemoryRecord>;
-  /** Optional domains for routing system error events */
-  readonly systemErrorDomain?: (string | null)[] = undefined;
+  /** Domains for routing system error events */
+  readonly systemErrorDomain: NonEmptyArray<string | null>;
   /** OpenTelemetry span configuration for observability */
   readonly spanOptions: ArvoEventHandlerOtelSpanOptions;
 
@@ -76,7 +76,7 @@ export class ArvoOrchestrator implements IArvoEventHandler {
     this.registry = registry;
     this.executionEngine = executionEngine;
     this.syncEventResource = new SyncEventResource(memory, requiresResourceLocking);
-    this.systemErrorDomain = systemErrorDomain;
+    this.systemErrorDomain = systemErrorDomain ?? [ArvoDomain.FROM_CURRENT_SUBJECT];
 
     this.spanOptions = {
       kind: SpanKind.PRODUCER,
@@ -182,15 +182,22 @@ export class ArvoOrchestrator implements IArvoEventHandler {
 
         const rawMachineEmittedEvents = executionResult.events;
 
+        // For all the service events (non final output) make sure
+        // that the default domain is [ArvoDomain.LOCAL]. This is
+        // because the assumption is that all the normal services
+        // the orchestrator usually talks to are in the same local
+        // domain.
+        for (let i = 0; i < rawMachineEmittedEvents.length; i++) {
+          rawMachineEmittedEvents[i].domain = rawMachineEmittedEvents[i].domain ?? [ArvoDomain.LOCAL];
+        }
+
         if (executionResult.finalOutput) {
           rawMachineEmittedEvents.push({
             type: machine.contracts.self.metadata.completeEventType,
             id: executionResult.finalOutput.__id,
             data: executionResult.finalOutput,
             to: parsedEventSubject.meta?.redirectto ?? parsedEventSubject.execution.initiator,
-            domain: orchestrationParentSubject
-              ? [ArvoOrchestrationSubject.parse(orchestrationParentSubject).execution.domain]
-              : [ArvoDomain.LOCAL],
+            domain: executionResult.finalOutput.__domain ?? [ArvoDomain.FROM_CURRENT_SUBJECT],
             executionunits: executionResult.finalOutput.__executionunits,
           });
         }

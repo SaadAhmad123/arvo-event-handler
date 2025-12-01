@@ -18,7 +18,7 @@ import {
   runArvoTestSuites,
 } from '../../src';
 import { telemetrySdkStart, telemetrySdkStop } from '../utils';
-runArvoTestSuites
+runArvoTestSuites;
 
 const jestAdapter: IArvoTestFramework = {
   describe,
@@ -404,7 +404,7 @@ describe('ArvoEventHandler', () => {
       },
       cases: [
         {
-          name: 'should handle error domains for contract, event and null',
+          name: 'should handle error domains for triggering event',
           steps: [
             {
               input: () =>
@@ -419,10 +419,8 @@ describe('ArvoEventHandler', () => {
                   },
                 }),
               expectedEvents: (events) => {
-                expect(events.length).toBe(3);
+                expect(events.length).toBe(1);
                 expect(events[0].domain).toBe('test.1');
-                expect(events[1].domain).toBe('test.3333');
-                expect(events[2].domain).toBe(null);
                 return events.every((e) => e.parentid);
               },
             },
@@ -460,9 +458,8 @@ describe('ArvoEventHandler', () => {
                   },
                 }),
               expectedEvents: (events) => {
-                expect(events.length).toBe(2);
+                expect(events.length).toBe(1);
                 expect(events[0].domain).toBe('test.1');
-                expect(events[1].domain).toBe(null);
                 return true;
               },
             },

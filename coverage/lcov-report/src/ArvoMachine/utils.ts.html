@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">11.76% </span>
+                <span class="strong">94.11% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>2/17</span>
+                <span class='fraction'>16/17</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">72.72% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/11</span>
+                <span class='fraction'>8/11</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/1</span>
+                <span class='fraction'>1/1</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">9.09% </span>
+                <span class="strong">90.9% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>1/11</span>
+                <span class='fraction'>10/11</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -94,20 +94,20 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">15x</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">15x</span>
+<span class="cline-any cline-yes">15x</span>
+<span class="cline-any cline-yes">65x</span>
+<span class="cline-any cline-yes">65x</span>
+<span class="cline-any cline-yes">16x</span>
+<span class="cline-any cline-yes">51x</span>
+<span class="cline-any cline-yes">51x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">14x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import type { MachineConfig } from 'xstate';
 &nbsp;
@@ -117,20 +117,20 @@
  * @param config - XState machine configuration
  * @returns True if the machine contains at least one parallel state, false otherwise
  */
-export const detectParallelStates = <span class="fstat-no" title="function not covered" >(c</span>onfig?: MachineConfig&lt;any, any, any, any, any, any, any, any, any, any, any&gt;) =&gt; {
-<span class="cstat-no" title="statement not covered" >  <span class="missing-if-branch" title="if path not taken" >I</span>if (!config?.states) {</span>
+export const detectParallelStates = (config?: MachineConfig&lt;any, any, any, any, any, any, any, any, any, any, any&gt;) =&gt; {
+  <span class="missing-if-branch" title="if path not taken" >I</span>if (!config<span class="branch-0 cbranch-no" title="branch not covered" >?.s</span>tates) {
 <span class="cstat-no" title="statement not covered" >    return false;</span>
   }
-  const stack: Array&lt;typeof config&gt; = <span class="cstat-no" title="statement not covered" >[config];</span>
-<span class="cstat-no" title="statement not covered" >  while (stack.length) {</span>
-    const currentConfig = <span class="cstat-no" title="statement not covered" >stack.pop();</span>
-<span class="cstat-no" title="statement not covered" >    <span class="missing-if-branch" title="if path not taken" >I</span>if (!currentConfig?.states) <span class="cstat-no" title="statement not covered" >continue;</span></span>
-<span class="cstat-no" title="statement not covered" >    <span class="missing-if-branch" title="if path not taken" >I</span>if (currentConfig.type === 'parallel') <span class="cstat-no" title="statement not covered" >return true;</span></span>
-<span class="cstat-no" title="statement not covered" >    for (const state<span class="cstat-no" title="statement not covered" > of <span class="cstat-no" title="statement not covered" ><span class="cstat-no" title="statement not covered" >O</span>bject.</span>values(currentConfig.states))</span> {</span>
-<span class="cstat-no" title="statement not covered" >      stack.push(state);</span>
+  const stack: Array&lt;typeof config&gt; = [config];
+  while (stack.length) {
+    const currentConfig = stack.pop();
+    if (!currentConfig<span class="branch-0 cbranch-no" title="branch not covered" >?.s</span>tates) continue;
+    if (currentConfig.type === 'parallel') return true;
+    for (const state of Object.values(currentConfig.states)) {
+      stack.push(state);
     }
   }
-<span class="cstat-no" title="statement not covered" >  return false;</span>
+  return false;
 };
 &nbsp;</pre></td></tr></table></pre>
 
@@ -139,7 +139,7 @@ export const detectParallelStates = <span class="fstat-no" title="function not c
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-11-30T01:28:29.099Z
+                at 2025-12-01T13:58:45.235Z
             </div>
         <script src="../../prettify.js"></script>
         <script>
