@@ -29,6 +29,7 @@ import type {
   ToProvidedActor,
 } from './types';
 import { detectParallelStates } from './utils';
+import { NonEmptyArray } from '../types';
 
 /**
  * Establishes the foundation for creating Arvo-compatible state machines.
@@ -267,6 +268,7 @@ export function setupArvoMachine<
       > & {
         __id?: CreateArvoEvent<Record<string, unknown>, string>['id'];
         __executionunits?: CreateArvoEvent<Record<string, unknown>, string>['executionunits'];
+        __domain?: NonEmptyArray<string | null>;
       },
       InferServiceContract<TServiceContracts>['emitted'],
       TMeta

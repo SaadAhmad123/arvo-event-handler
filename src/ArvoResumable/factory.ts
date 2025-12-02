@@ -56,7 +56,7 @@ export const createArvoResumable = <
     handler: param.handler,
     executionunits: param.executionunits ?? 0,
     requiresResourceLocking: param.requiresResourceLocking ?? Object.keys(param.contracts.services).length > 1,
-    systemErrorDomain: param.systemErrorDomain,
+    defaultEventEmissionDomains: param.defaultEventEmissionDomains,
     spanOptions: param.spanOptions,
   });
 };

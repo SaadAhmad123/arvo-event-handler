@@ -10,6 +10,7 @@ import type {
 } from 'arvo-core';
 import type { Invert, IsNever, ParameterizedObject, UnknownActorLogic, Values } from 'xstate';
 import type { z } from 'zod';
+import { NonEmptyArray } from '../types';
 
 /**
  * Represents an extended context for Arvo XState machines, including additional properties
@@ -50,7 +51,7 @@ export type EnqueueArvoEventActionParam<
   /**
    * The domain configuration for multi-domain event broadcasting.
    */
-  domain?: (string | null)[];
+  domain?: NonEmptyArray<string | null>;
 
   /**
    * Custom extensions for the CloudEvent.

@@ -38,7 +38,7 @@ export const createArvoOrchestrator = ({
   executionunits,
   memory,
   machines,
-  systemErrorDomain,
+  defaultEventEmissionDomains,
   spanOptions,
   requiresResourceLocking: _locking,
 }: CreateArvoOrchestratorParam): ArvoOrchestrator => {
@@ -71,7 +71,7 @@ export const createArvoOrchestrator = ({
     registry,
     executionEngine: new MachineExecutionEngine(),
     requiresResourceLocking,
-    systemErrorDomain,
+    defaultEventEmissionDomains,
     spanOptions,
   });
 };

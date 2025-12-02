@@ -76,3 +76,7 @@ All event handlers now return an object instead of an array:
 
 - Finally added a test suite runner for Arvo Event Handlers. I tried to make it a general as possible
 
+## [3.0.25] - 2025-12-03
+
+- Implemented sensible default for domain routing in handlers
+

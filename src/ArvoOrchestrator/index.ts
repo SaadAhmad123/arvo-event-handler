@@ -4,7 +4,6 @@ import {
   type ArvoEvent,
   ArvoExecution,
   ArvoExecutionSpanKind,
-  ArvoOrchestrationSubject,
   OpenInference,
   OpenInferenceSpanKind,
   logToSpan,
@@ -38,8 +37,8 @@ export class ArvoOrchestrator implements IArvoEventHandler {
   readonly executionEngine: IMachineExectionEngine;
   /** Resource manager for state synchronization and memory access */
   readonly syncEventResource: SyncEventResource<MachineMemoryRecord>;
-  /** Optional domains for routing system error events */
-  readonly systemErrorDomain?: (string | null)[] = undefined;
+  /** Domains for routing events */
+  readonly defaultEventEmissionDomains: Required<NonNullable<ArvoOrchestratorParam['defaultEventEmissionDomains']>>;
   /** OpenTelemetry span configuration for observability */
   readonly spanOptions: ArvoEventHandlerOtelSpanOptions;
 
@@ -69,14 +68,19 @@ export class ArvoOrchestrator implements IArvoEventHandler {
     registry,
     executionEngine,
     requiresResourceLocking,
-    systemErrorDomain,
+    defaultEventEmissionDomains,
     spanOptions,
   }: ArvoOrchestratorParam) {
     this.executionunits = executionunits;
     this.registry = registry;
     this.executionEngine = executionEngine;
     this.syncEventResource = new SyncEventResource(memory, requiresResourceLocking);
-    this.systemErrorDomain = systemErrorDomain;
+    this.defaultEventEmissionDomains = {
+      systemError: [ArvoDomain.ORCHESTRATION_CONTEXT],
+      services: [ArvoDomain.LOCAL],
+      complete: [ArvoDomain.ORCHESTRATION_CONTEXT],
+      ...(defaultEventEmissionDomains ?? {}),
+    };
 
     this.spanOptions = {
       kind: SpanKind.PRODUCER,
@@ -129,9 +133,8 @@ export class ArvoOrchestrator implements IArvoEventHandler {
         source: this.source,
         syncEventResource: this.syncEventResource,
         executionunits: this.executionunits,
-        systemErrorDomain: this.systemErrorDomain,
+        systemErrorDomain: this.defaultEventEmissionDomains.systemError,
         selfContract: this.registry.machines[0].contracts.self,
-        domain: this.domain,
       },
       async ({ span, otelHeaders, orchestrationParentSubject, initEventId, parsedEventSubject, state }) => {
         logToSpan(
@@ -182,15 +185,23 @@ export class ArvoOrchestrator implements IArvoEventHandler {
 
         const rawMachineEmittedEvents = executionResult.events;
 
+        // For all the service events (non final output) make sure
+        // that the default domain is this.defaultEventEmissionDomains.services.
+        // This is because the assumption is that all the normal services
+        // the orchestrator usually talks to are in the same local
+        // domain.
+        for (let i = 0; i < rawMachineEmittedEvents.length; i++) {
+          rawMachineEmittedEvents[i].domain =
+            rawMachineEmittedEvents[i].domain ?? this.defaultEventEmissionDomains.services;
+        }
+
         if (executionResult.finalOutput) {
           rawMachineEmittedEvents.push({
             type: machine.contracts.self.metadata.completeEventType,
             id: executionResult.finalOutput.__id,
             data: executionResult.finalOutput,
             to: parsedEventSubject.meta?.redirectto ?? parsedEventSubject.execution.initiator,
-            domain: orchestrationParentSubject
-              ? [ArvoOrchestrationSubject.parse(orchestrationParentSubject).execution.domain]
-              : [ArvoDomain.LOCAL],
+            domain: executionResult.finalOutput.__domain ?? this.defaultEventEmissionDomains.complete,
             executionunits: executionResult.finalOutput.__executionunits,
           });
         }
@@ -247,7 +258,6 @@ export class ArvoOrchestrator implements IArvoEventHandler {
     return {
       type: this.registry.machines[0].contracts.self.systemError.type,
       schema: ArvoErrorSchema,
-      domain: this.systemErrorDomain,
     };
   }
 }

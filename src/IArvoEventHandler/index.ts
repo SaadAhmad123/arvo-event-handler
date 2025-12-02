@@ -48,9 +48,6 @@ export default interface IArvoEventHandler {
    *
    * @property type - The error event type identifier
    * @property schema - Zod schema defining the error event data structure
-   * @property domain - Optional domains for error event routing and distribution
    */
-  systemErrorSchema: ArvoContractRecord & {
-    domain?: (string | null)[];
-  };
+  systemErrorSchema: ArvoContractRecord;
 }

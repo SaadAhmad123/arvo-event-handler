@@ -20,6 +20,7 @@ import { ExecutionViolation } from '../errors';
 import { isError } from '../utils';
 import type { OrchestrationExecutionMemoryRecord } from './orchestrationExecutionState';
 import { ArvoOrchestrationHandlerMap, type ArvoOrchestrationHandlerType } from './types';
+import type { NonEmptyArray } from '../types';
 
 /**
  * Parameters for creating system error events during orchestration failures.
@@ -38,13 +39,11 @@ export type CreateSystemErrorEventsParams = {
   /** Self contract defining error schema */
   selfContract: VersionedArvoContract<ArvoContract, ArvoSemanticVersion>;
   /** Optional domains for error event routing */
-  systemErrorDomain?: (string | null)[];
+  systemErrorDomain: NonEmptyArray<string | null>;
   /** Execution units for error events */
   executionunits: number;
   /** Source identifier */
   source: string;
-  /** Domain for error events */
-  domain: string | null;
   /** Type of handler reporting the error */
   handlerType: ArvoOrchestrationHandlerType;
 };
@@ -69,7 +68,6 @@ export const createSystemErrorEvents = ({
   systemErrorDomain,
   executionunits,
   source,
-  domain,
   handlerType,
 }: CreateSystemErrorEventsParams & { error: Error }): ArvoEvent[] => {
   // In case of none transaction errors like errors from
@@ -92,21 +90,20 @@ export const createSystemErrorEvents = ({
     }
   }
 
-  const domainSets = new Set(
-    systemErrorDomain?.length
-      ? systemErrorDomain.map((item) =>
-          resolveEventDomain({
-            domainToResolve: item,
-            handlerSelfContract: selfContract,
-            eventContract: selfContract,
-            triggeringEvent: event,
-          }),
-        )
-      : [event.domain, domain, null],
+  const domainSets = systemErrorDomain.map((item) =>
+    resolveEventDomain({
+      parentSubject: orchestrationParentSubject,
+      currentSubject: event.subject,
+      domainToResolve: item,
+      handlerSelfContract: selfContract,
+      eventContract: selfContract,
+      triggeringEvent: event,
+    }),
   );
+
   const result: ArvoEvent[] = [];
 
-  for (const _dom of Array.from(domainSets)) {
+  for (const _dom of Array.from(new Set(domainSets))) {
     const factoryBuilder = handlerType === 'handler' ? createArvoEventFactory : createArvoOrchestratorEventFactory;
     result.push(
       factoryBuilder(selfContract).systemError({
@@ -163,7 +160,7 @@ export const handleOrchestrationErrors = async (
     }
 > => {
   const handlerType = ArvoOrchestrationHandlerMap[_handlerType];
-  // If this is not an error this is not exected and must be addressed
+  // If this is not an error this is not expected and must be addressed
   // This is a fundmental unexpected scenario and must be handled as such
   // What this show is the there is a non-error object being throw in the
   // implementation or execution of the machine which is a major NodeJS

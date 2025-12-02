@@ -1,5 +1,5 @@
 import { assign, emit } from 'xstate';
-import { setupArvoMachine } from '../../../../../src';
+import { ArvoDomain, setupArvoMachine } from '../../../../../src';
 import {
   decrementOrchestratorContract,
   incrementOrchestratorContract,
