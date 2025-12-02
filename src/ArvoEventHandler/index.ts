@@ -21,7 +21,7 @@ import { createSystemErrorEvents } from '../ArvoOrchestrationUtils/handlerErrors
 import { returnEventsWithLogging } from '../ArvoOrchestrationUtils/orchestrationExecutionWrapper';
 import type IArvoEventHandler from '../IArvoEventHandler';
 import { ConfigViolation, ContractViolation } from '../errors';
-import type { ArvoEventHandlerOpenTelemetryOptions, ArvoEventHandlerOtelSpanOptions, NonEmptyArray } from '../types';
+import type { ArvoEventHandlerOpenTelemetryOptions, ArvoEventHandlerOtelSpanOptions } from '../types';
 import { coalesce, coalesceOrDefault, createEventHandlerTelemetryConfig } from '../utils';
 import type { ArvoEventHandlerFunction, ArvoEventHandlerFunctionOutput, ArvoEventHandlerParam } from './types';
 
@@ -47,8 +47,10 @@ export default class ArvoEventHandler<TContract extends ArvoContract> implements
     return this.contract.type;
   }
 
-  /** Optional domains for routing system error events */
-  readonly systemErrorDomain: NonEmptyArray<string | null>;
+  /** Domains for routing events */
+  readonly defaultEventEmissionDomains: Required<
+    NonNullable<ArvoEventHandlerParam<TContract>['defaultEventEmissionDomains']>
+  >;
 
   /** The contract-defined domain for the handler */
   get domain(): string | null {
@@ -59,7 +61,11 @@ export default class ArvoEventHandler<TContract extends ArvoContract> implements
     this.contract = param.contract;
     this.executionunits = param.executionunits;
     this.handler = param.handler;
-    this.systemErrorDomain = param.systemErrorDomain ?? [ArvoDomain.LOCAL];
+    this.defaultEventEmissionDomains = {
+      systemError: [ArvoDomain.ORCHESTRATION_CONTEXT],
+      emits: [ArvoDomain.ORCHESTRATION_CONTEXT],
+      ...(param.defaultEventEmissionDomains ?? {}),
+    };
 
     for (const contractVersions of Object.keys(this.contract.versions)) {
       if (!this.handler[contractVersions as ArvoSemanticVersion]) {
@@ -204,7 +210,7 @@ export default class ArvoEventHandler<TContract extends ArvoContract> implements
           for (const item of outputs) {
             try {
               const { __extensions, ...handlerResult } = item;
-              const domains = (handlerResult.domain ?? [ArvoDomain.LOCAL]).map((item) =>
+              const domains = (handlerResult.domain ?? this.defaultEventEmissionDomains.emits).map((item) =>
                 resolveEventDomain({
                   parentSubject: null,
                   currentSubject: event.subject,
@@ -262,10 +268,9 @@ export default class ArvoEventHandler<TContract extends ArvoContract> implements
             orchestrationParentSubject: null,
             initEventId: event.id,
             selfContract: this.contract.version('any'),
-            systemErrorDomain: this.systemErrorDomain,
+            systemErrorDomain: this.defaultEventEmissionDomains.systemError,
             executionunits: this.executionunits,
             source: this.source,
-            domain: this.domain,
             handlerType: 'handler',
           });
 
@@ -292,9 +297,6 @@ export default class ArvoEventHandler<TContract extends ArvoContract> implements
    * Provides access to the system error event schema configuration.
    */
   get systemErrorSchema() {
-    return {
-      ...this.contract.systemError,
-      domain: this.systemErrorDomain,
-    };
+    return this.contract.systemError;
   }
 }

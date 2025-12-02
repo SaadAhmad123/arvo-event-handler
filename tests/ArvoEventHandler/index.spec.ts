@@ -11,9 +11,9 @@ import { z } from 'zod';
 import {
   ArvoDomain,
   type ArvoEventHandlerFunction,
-  ArvoTestSuite,
+  type ArvoTestSuite,
   ExecutionViolation,
-  IArvoTestFramework,
+  type IArvoTestFramework,
   createArvoEventHandler,
   runArvoTestSuites,
 } from '../../src';
@@ -495,7 +495,9 @@ describe('ArvoEventHandler', () => {
         handler: createArvoEventHandler({
           contract: mockContract,
           executionunits: 100,
-          systemErrorDomain: [ArvoDomain.FROM_CURRENT_SUBJECT],
+          defaultEventEmissionDomains: {
+            systemError: [ArvoDomain.FROM_CURRENT_SUBJECT],
+          },
           handler: {
             '0.0.1': async ({ event }) => {
               throw new Error('some error');

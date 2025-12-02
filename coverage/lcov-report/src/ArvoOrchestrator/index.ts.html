@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">97.05% </span>
+                <span class="strong">95.58% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>66/68</span>
+                <span class='fraction'>65/68</span>
             </div>
         
             
@@ -37,16 +37,16 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">81.81% </span>
+                <span class="strong">72.72% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>9/11</span>
+                <span class='fraction'>8/11</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">96.55% </span>
+                <span class="strong">94.82% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>56/58</span>
+                <span class='fraction'>55/58</span>
             </div>
         
             
@@ -323,9 +323,11 @@
 <a name='L258'></a><a href='#L258'>258</a>
 <a name='L259'></a><a href='#L259'>259</a>
 <a name='L260'></a><a href='#L260'>260</a>
-<a name='L261'></a><a href='#L261'>261</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">8x</span>
+<a name='L261'></a><a href='#L261'>261</a>
+<a name='L262'></a><a href='#L262'>262</a>
+<a name='L263'></a><a href='#L263'>263</a>
+<a name='L264'></a><a href='#L264'>264</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-yes">8x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -385,7 +387,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">8x</span>
-<span class="cline-any cline-yes">47x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -402,6 +404,11 @@
 <span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -449,7 +456,6 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">21x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -514,6 +520,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">35x</span>
 <span class="cline-any cline-yes">30x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">35x</span>
@@ -581,7 +588,6 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { SpanKind } from '@opentelemetry/api';
 import {
@@ -589,7 +595,6 @@ import {
   type ArvoEvent,
   ArvoExecution,
   ArvoExecutionSpanKind,
-  ArvoOrchestrationSubject,
   OpenInference,
   OpenInferenceSpanKind,
   logToSpan,
@@ -603,7 +608,7 @@ import type { IMachineMemory } from '../MachineMemory/interface';
 import type { IMachineRegistry } from '../MachineRegistry/interface';
 import { SyncEventResource } from '../SyncEventResource';
 import { ConfigViolation, ContractViolation } from '../errors';
-import type { ArvoEventHandlerOpenTelemetryOptions, ArvoEventHandlerOtelSpanOptions, NonEmptyArray } from '../types';
+import type { ArvoEventHandlerOpenTelemetryOptions, ArvoEventHandlerOtelSpanOptions } from '../types';
 import type { ArvoOrchestratorParam, MachineMemoryRecord } from './types';
 import { ArvoDomain } from '../ArvoDomain';
 &nbsp;
@@ -623,8 +628,8 @@ export class ArvoOrchestrator implements IArvoEventHandler {
   readonly executionEngine: IMachineExectionEngine;
   /** Resource manager for state synchronization and memory access */
   readonly syncEventResource: SyncEventResource&lt;MachineMemoryRecord&gt;;
-  /** Domains for routing system error events */
-  readonly systemErrorDomain: NonEmptyArray&lt;string | null&gt;;
+  /** Domains for routing events */
+  readonly defaultEventEmissionDomains: Required&lt;NonNullable&lt;ArvoOrchestratorParam['defaultEventEmissionDomains']&gt;&gt;;
   /** OpenTelemetry span configuration for observability */
   readonly spanOptions: ArvoEventHandlerOtelSpanOptions;
 &nbsp;
@@ -644,8 +649,8 @@ export class ArvoOrchestrator implements IArvoEventHandler {
   }
 &nbsp;
   /** The contract-defined domain for the handler */
-  get domain(): string | null {
-    return this.registry.machines[0].contracts.self.domain;
+<span class="fstat-no" title="function not covered" >  get d</span>omain(): string | null {
+<span class="cstat-no" title="statement not covered" >    return this.registry.machines[0].contracts.self.domain;</span>
   }
 &nbsp;
   constructor({
@@ -654,14 +659,19 @@ export class ArvoOrchestrator implements IArvoEventHandler {
     registry,
     executionEngine,
     requiresResourceLocking,
-    systemErrorDomain,
+    defaultEventEmissionDomains,
     spanOptions,
   }: ArvoOrchestratorParam) {
     this.executionunits = executionunits;
     this.registry = registry;
     this.executionEngine = executionEngine;
     this.syncEventResource = new SyncEventResource(memory, requiresResourceLocking);
-    this.systemErrorDomain = <span class="branch-0 cbranch-no" title="branch not covered" >systemErrorDomain </span>?? [ArvoDomain.LOCAL];
+    this.defaultEventEmissionDomains = {
+      systemError: [ArvoDomain.ORCHESTRATION_CONTEXT],
+      services: [ArvoDomain.LOCAL],
+      complete: [ArvoDomain.ORCHESTRATION_CONTEXT],
+      ...(<span class="branch-0 cbranch-no" title="branch not covered" >defaultEventEmissionDomains </span>?? {}),
+    };
 &nbsp;
     this.spanOptions = {
       kind: SpanKind.PRODUCER,
@@ -714,9 +724,8 @@ export class ArvoOrchestrator implements IArvoEventHandler {
         source: this.source,
         syncEventResource: this.syncEventResource,
         executionunits: this.executionunits,
-        systemErrorDomain: this.systemErrorDomain,
+        systemErrorDomain: this.defaultEventEmissionDomains.systemError,
         selfContract: this.registry.machines[0].contracts.self,
-        domain: this.domain,
       },
       async ({ span, otelHeaders, orchestrationParentSubject, initEventId, parsedEventSubject, state }) =&gt; {
         logToSpan(
@@ -768,12 +777,13 @@ export class ArvoOrchestrator implements IArvoEventHandler {
         const rawMachineEmittedEvents = executionResult.events;
 &nbsp;
         // For all the service events (non final output) make sure
-        // that the default domain is [ArvoDomain.LOCAL]. This is
-        // because the assumption is that all the normal services
+        // that the default domain is this.defaultEventEmissionDomains.services.
+        // This is because the assumption is that all the normal services
         // the orchestrator usually talks to are in the same local
         // domain.
         for (let i = 0; i &lt; rawMachineEmittedEvents.length; i++) {
-          rawMachineEmittedEvents[i].domain = rawMachineEmittedEvents[i].domain ?? [ArvoDomain.LOCAL];
+          rawMachineEmittedEvents[i].domain =
+            rawMachineEmittedEvents[i].domain ?? this.defaultEventEmissionDomains.services;
         }
 &nbsp;
         if (executionResult.finalOutput) {
@@ -782,7 +792,7 @@ export class ArvoOrchestrator implements IArvoEventHandler {
             id: executionResult.finalOutput.__id,
             data: executionResult.finalOutput,
             to: parsedEventSubject.meta<span class="branch-0 cbranch-no" title="branch not covered" >?.r</span>edirectto ?? parsedEventSubject.execution.initiator,
-            domain: executionResult.finalOutput.__domain<span class="branch-0 cbranch-no" title="branch not covered" > ?? [</span>ArvoDomain.LOCAL],
+            domain: executionResult.finalOutput.__domain<span class="branch-0 cbranch-no" title="branch not covered" > ?? t</span>his.defaultEventEmissionDomains.complete,
             executionunits: executionResult.finalOutput.__executionunits,
           });
         }
@@ -839,7 +849,6 @@ export class ArvoOrchestrator implements IArvoEventHandler {
     return {
       type: this.registry.machines[0].contracts.self.systemError.type,
       schema: ArvoErrorSchema,
-      domain: this.systemErrorDomain,
     };
   }
 }
@@ -850,7 +859,7 @@ export class ArvoOrchestrator implements IArvoEventHandler {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-12-02T07:02:57.298Z
+                at 2025-12-02T14:34:08.509Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

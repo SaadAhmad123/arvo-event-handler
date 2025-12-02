@@ -98,9 +98,9 @@ export const createEmittableEvent = (
   let subject: string = sourceEvent.subject;
   let parentId: string = sourceEvent.id;
   let domain = resolveEventDomain({
+    domainToResolve: _domain,
     parentSubject: orchestrationParentSubject,
     currentSubject: sourceEvent.subject,
-    domainToResolve: _domain,
     handlerSelfContract: selfContract,
     eventContract: null,
     triggeringEvent: sourceEvent,
@@ -119,9 +119,9 @@ export const createEmittableEvent = (
     subject = orchestrationParentSubject ?? sourceEvent.subject;
     parentId = initEventId;
     domain = resolveEventDomain({
+      domainToResolve: _domain,
       parentSubject: orchestrationParentSubject,
       currentSubject: sourceEvent.subject,
-      domainToResolve: _domain,
       handlerSelfContract: selfContract,
       eventContract: selfContract,
       triggeringEvent: sourceEvent,
@@ -137,9 +137,9 @@ export const createEmittableEvent = (
     contract = serviceContractMap[event.type];
     schema = serviceContractMap[event.type].accepts.schema;
     domain = resolveEventDomain({
+      domainToResolve: _domain,
       parentSubject: orchestrationParentSubject,
       currentSubject: sourceEvent.subject,
-      domainToResolve: _domain,
       handlerSelfContract: selfContract,
       eventContract: contract,
       triggeringEvent: sourceEvent,

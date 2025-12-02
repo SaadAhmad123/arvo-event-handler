@@ -40,8 +40,6 @@ export type OrchestrationExecutionContext<TState extends OrchestrationExecutionM
   systemErrorDomain: NonEmptyArray<string | null>;
   /** Self contract defining orchestrator interface */
   selfContract: VersionedArvoContract<ArvoOrchestratorContract, ArvoSemanticVersion>;
-  /** Domain for event routing */
-  domain: string | null;
   /** Type of orchestration handler */
   _handlerType: ArvoOrchestrationHandlerType;
   /** OpenTelemetry span configuration */
@@ -121,7 +119,6 @@ export const executeWithOrchestrationWrapper = async <
     executionunits,
     systemErrorDomain,
     selfContract,
-    domain,
     _handlerType,
   }: OrchestrationExecutionContext<TState>,
   coreExecutionFn: CoreExecutionFn<TState>,
@@ -258,7 +255,6 @@ export const executeWithOrchestrationWrapper = async <
             systemErrorDomain: systemErrorDomain,
             executionunits: executionunits,
             source: source,
-            domain: domain,
             syncEventResource: syncEventResource as any,
             handlerType: _handlerType,
           },

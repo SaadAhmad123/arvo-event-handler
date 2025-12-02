@@ -301,6 +301,42 @@ export type ArvoResumableParam<
 
   /** OpenTelemetry span configuration for distributed tracing */
   spanOptions?: ArvoEventHandlerOtelSpanOptions;
+
+  /**
+   * Optional default domains for the events emitted
+   * by the orchestrator.
+   */
+  defaultEventEmissionDomains?: {
+    /**
+     * Default domains for system error events emitted by this orchestrator.
+     *
+     * System errors are routed through these domains when the handler encounters
+     * unhandled exceptions or critical failures.
+     *
+     * @default [ArvoDomain.ORCHESTRATION_CONTEXT]
+     */
+    systemError?: NonEmptyArray<string | null>;
+
+    /**
+     * Default domains for service events emitted by this orchestrator.
+     *
+     * The service xstate.emit function can over-ride this default.
+     *
+     * @default [ArvoDomain.LOCAL]
+     */
+    services?: NonEmptyArray<string | null>;
+
+    /**
+     * Defauld domain for the final completion event emitted by this orchestrator
+     *
+     * Completion event is routed through these domains when the orchestrator successfully
+     * processes an init event. The machine 'output' transform function implementations can override
+     * this default.
+     *
+     * @default [ArvoDomain.ORCHESTRATION_CONTEXT]
+     */
+    complete?: NonEmptyArray<string | null>;
+  };
 };
 
 /**
@@ -344,9 +380,12 @@ export type CreateArvoResumableParam<
    */
   requiresResourceLocking?: boolean;
 
-  /** Optional domains for system error event routing */
-  systemErrorDomain?: NonEmptyArray<string | null>;
-
   /** OpenTelemetry span configuration for distributed tracing */
   spanOptions?: ArvoEventHandlerOtelSpanOptions;
+
+  defaultEventEmissionDomains?: ArvoResumableParam<
+    TMemory,
+    TSelfContract,
+    TServiceContract
+  >['defaultEventEmissionDomains'];
 };

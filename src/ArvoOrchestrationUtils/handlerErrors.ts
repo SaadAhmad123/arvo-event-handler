@@ -14,13 +14,13 @@ import {
   isViolationError,
   logToSpan,
 } from 'arvo-core';
-import { ArvoDomain, resolveEventDomain } from '../ArvoDomain';
+import { resolveEventDomain } from '../ArvoDomain';
 import type { SyncEventResource } from '../SyncEventResource';
 import { ExecutionViolation } from '../errors';
 import { isError } from '../utils';
 import type { OrchestrationExecutionMemoryRecord } from './orchestrationExecutionState';
 import { ArvoOrchestrationHandlerMap, type ArvoOrchestrationHandlerType } from './types';
-import { NonEmptyArray } from '../types';
+import type { NonEmptyArray } from '../types';
 
 /**
  * Parameters for creating system error events during orchestration failures.
@@ -44,8 +44,6 @@ export type CreateSystemErrorEventsParams = {
   executionunits: number;
   /** Source identifier */
   source: string;
-  /** Domain for error events */
-  domain: string | null;
   /** Type of handler reporting the error */
   handlerType: ArvoOrchestrationHandlerType;
 };
@@ -70,7 +68,6 @@ export const createSystemErrorEvents = ({
   systemErrorDomain,
   executionunits,
   source,
-  domain,
   handlerType,
 }: CreateSystemErrorEventsParams & { error: Error }): ArvoEvent[] => {
   // In case of none transaction errors like errors from
@@ -93,7 +90,7 @@ export const createSystemErrorEvents = ({
     }
   }
 
-  const domainSets = Array.from(new Set(systemErrorDomain ?? [ArvoDomain.FROM_CURRENT_SUBJECT])).map((item) =>
+  const domainSets = systemErrorDomain.map((item) =>
     resolveEventDomain({
       parentSubject: orchestrationParentSubject,
       currentSubject: event.subject,
@@ -106,7 +103,7 @@ export const createSystemErrorEvents = ({
 
   const result: ArvoEvent[] = [];
 
-  for (const _dom of domainSets) {
+  for (const _dom of Array.from(new Set(domainSets))) {
     const factoryBuilder = handlerType === 'handler' ? createArvoEventFactory : createArvoOrchestratorEventFactory;
     result.push(
       factoryBuilder(selfContract).systemError({

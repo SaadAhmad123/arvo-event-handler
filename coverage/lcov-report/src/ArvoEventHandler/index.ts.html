@@ -30,9 +30,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">89.02% </span>
+                <span class="strong">90.24% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>73/82</span>
+                <span class='fraction'>74/82</span>
             </div>
         
             
@@ -363,7 +363,9 @@
 <a name='L298'></a><a href='#L298'>298</a>
 <a name='L299'></a><a href='#L299'>299</a>
 <a name='L300'></a><a href='#L300'>300</a>
-<a name='L301'></a><a href='#L301'>301</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">8x</span>
+<a name='L301'></a><a href='#L301'>301</a>
+<a name='L302'></a><a href='#L302'>302</a>
+<a name='L303'></a><a href='#L303'>303</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -416,8 +418,10 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">8x</span>
-<span class="cline-any cline-yes">54x</span>
+<span class="cline-any cline-yes">48x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -425,6 +429,10 @@
 <span class="cline-any cline-yes">39x</span>
 <span class="cline-any cline-yes">39x</span>
 <span class="cline-any cline-yes">39x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">46x</span>
 <span class="cline-any cline-yes">46x</span>
@@ -633,7 +641,6 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">6x</span>
 <span class="cline-any cline-yes">78x</span>
 <span class="cline-any cline-yes">78x</span>
@@ -659,9 +666,6 @@
 <span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { SpanKind, SpanStatusCode } from '@opentelemetry/api';
 import {
@@ -686,7 +690,7 @@ import { createSystemErrorEvents } from '../ArvoOrchestrationUtils/handlerErrors
 import { returnEventsWithLogging } from '../ArvoOrchestrationUtils/orchestrationExecutionWrapper';
 import type IArvoEventHandler from '../IArvoEventHandler';
 import { ConfigViolation, ContractViolation } from '../errors';
-import type { ArvoEventHandlerOpenTelemetryOptions, ArvoEventHandlerOtelSpanOptions, NonEmptyArray } from '../types';
+import type { ArvoEventHandlerOpenTelemetryOptions, ArvoEventHandlerOtelSpanOptions } from '../types';
 import { coalesce, coalesceOrDefault, createEventHandlerTelemetryConfig } from '../utils';
 import type { ArvoEventHandlerFunction, ArvoEventHandlerFunctionOutput, ArvoEventHandlerParam } from './types';
 &nbsp;
@@ -712,8 +716,10 @@ export default class ArvoEventHandler&lt;TContract extends ArvoContract&gt; impl
     return this.contract.type;
   }
 &nbsp;
-  /** Optional domains for routing system error events */
-  readonly systemErrorDomain: NonEmptyArray&lt;string | null&gt;;
+  /** Domains for routing events */
+  readonly defaultEventEmissionDomains: Required&lt;
+    NonNullable&lt;ArvoEventHandlerParam&lt;TContract&gt;['defaultEventEmissionDomains']&gt;
+  &gt;;
 &nbsp;
   /** The contract-defined domain for the handler */
   get domain(): string | null {
@@ -724,7 +730,11 @@ export default class ArvoEventHandler&lt;TContract extends ArvoContract&gt; impl
     this.contract = param.contract;
     this.executionunits = param.executionunits;
     this.handler = param.handler;
-    this.systemErrorDomain = param.systemErrorDomain ?? [ArvoDomain.LOCAL];
+    this.defaultEventEmissionDomains = {
+      systemError: [ArvoDomain.ORCHESTRATION_CONTEXT],
+      emits: [ArvoDomain.ORCHESTRATION_CONTEXT],
+      ...(param.defaultEventEmissionDomains ?? {}),
+    };
 &nbsp;
     for (const contractVersions of Object.keys(this.contract.versions)) {
       if (!this.handler[contractVersions as ArvoSemanticVersion]) {
@@ -869,7 +879,7 @@ export default class ArvoEventHandler&lt;TContract extends ArvoContract&gt; impl
           for (const item of outputs) {
             try {
               const { __extensions, ...handlerResult } = item;
-              const domains = (handlerResult.domain ?? [ArvoDomain.LOCAL]).map((item) =&gt;
+              const domains = (handlerResult.domain ?? this.defaultEventEmissionDomains.emits).map((item) =&gt;
                 resolveEventDomain({
                   parentSubject: null,
                   currentSubject: event.subject,
@@ -884,7 +894,7 @@ export default class ArvoEventHandler&lt;TContract extends ArvoContract&gt; impl
                   createArvoEventFactory(handlerContract).emits(
                     {
                       ...handlerResult,
-                      traceparent: otelSpanHeaders.traceparent || <span class="branch-1 cbranch-no" title="branch not covered" >undefined,</span>
+                      traceparent: otelSpanHeaders.traceparent || undefined,
                       tracestate: otelSpanHeaders.tracestate || undefined,
                       source: this.source,
                       subject: event.subject,
@@ -927,10 +937,9 @@ export default class ArvoEventHandler&lt;TContract extends ArvoContract&gt; impl
             orchestrationParentSubject: null,
             initEventId: event.id,
             selfContract: this.contract.version('any'),
-            systemErrorDomain: this.systemErrorDomain,
+            systemErrorDomain: this.defaultEventEmissionDomains.systemError,
             executionunits: this.executionunits,
             source: this.source,
-            domain: this.domain,
             handlerType: 'handler',
           });
 &nbsp;
@@ -957,10 +966,7 @@ export default class ArvoEventHandler&lt;TContract extends ArvoContract&gt; impl
    * Provides access to the system error event schema configuration.
    */
   get systemErrorSchema() {
-    return {
-      ...this.contract.systemError,
-      domain: this.systemErrorDomain,
-    };
+    return this.contract.systemError;
   }
 }
 &nbsp;</pre></td></tr></table></pre>
@@ -970,7 +976,7 @@ export default class ArvoEventHandler&lt;TContract extends ArvoContract&gt; impl
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-12-02T07:02:57.298Z
+                at 2025-12-02T14:34:08.509Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

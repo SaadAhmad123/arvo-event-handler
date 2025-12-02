@@ -3,7 +3,6 @@ import {
   type ArvoEvent,
   ArvoExecution,
   ArvoExecutionSpanKind,
-  ArvoOrchestrationSubject,
   type ArvoOrchestratorContract,
   type InferArvoEvent,
   OpenInference,
@@ -18,7 +17,7 @@ import type IArvoEventHandler from '../IArvoEventHandler';
 import type { IMachineMemory } from '../MachineMemory/interface';
 import { SyncEventResource } from '../SyncEventResource/index';
 import { ConfigViolation, ContractViolation } from '../errors';
-import type { ArvoEventHandlerOpenTelemetryOptions, ArvoEventHandlerOtelSpanOptions, NonEmptyArray } from '../types';
+import type { ArvoEventHandlerOpenTelemetryOptions, ArvoEventHandlerOtelSpanOptions } from '../types';
 import type { ArvoResumableHandler, ArvoResumableParam, ArvoResumableState } from './types';
 import { ArvoDomain } from '../ArvoDomain';
 
@@ -47,8 +46,10 @@ export class ArvoResumable<
   readonly syncEventResource: SyncEventResource<ArvoResumableState<TMemory>>;
   /** Versioned handler map for processing workflow events. */
   readonly handler: ArvoResumableHandler<ArvoResumableState<TMemory>, TSelfContract, TServiceContract>;
-  /** Optional domains for routing system error events */
-  readonly systemErrorDomain: NonEmptyArray<string | null>;
+  /** Optional domains for routing events */
+  readonly defaultEventEmissionDomains: Required<
+    NonNullable<ArvoResumableParam<TMemory, TSelfContract, TServiceContract>['defaultEventEmissionDomains']>
+  >;
   /** OpenTelemetry span configuration for observability */
   readonly spanOptions: ArvoEventHandlerOtelSpanOptions;
   /** Source identifier from the first registered machine */
@@ -90,7 +91,12 @@ export class ArvoResumable<
     this.syncEventResource = new SyncEventResource(param.memory, param.requiresResourceLocking ?? true);
     this.contracts = param.contracts;
     this.handler = param.handler;
-    this.systemErrorDomain = param.systemErrorDomain ?? [ArvoDomain.LOCAL];
+    this.defaultEventEmissionDomains = {
+      systemError: [ArvoDomain.ORCHESTRATION_CONTEXT],
+      services: [ArvoDomain.LOCAL],
+      complete: [ArvoDomain.ORCHESTRATION_CONTEXT],
+      ...(param.defaultEventEmissionDomains ?? {}),
+    };
 
     this.spanOptions = {
       kind: SpanKind.PRODUCER,
@@ -160,9 +166,8 @@ export class ArvoResumable<
         source: this.source,
         syncEventResource: this.syncEventResource,
         executionunits: this.executionunits,
-        systemErrorDomain: this.systemErrorDomain,
+        systemErrorDomain: this.defaultEventEmissionDomains.systemError,
         selfContract: this.contracts.self.version('latest'),
-        domain: this.domain,
       },
       async ({ span, otelHeaders, orchestrationParentSubject, initEventId, parsedEventSubject, state }) => {
         logToSpan(
@@ -256,7 +261,7 @@ export class ArvoResumable<
         const rawEvents = executionResult?.services ?? [];
 
         for (let i = 0; i < rawEvents.length; i++) {
-          rawEvents[i].domain = rawEvents[i].domain ?? [ArvoDomain.LOCAL];
+          rawEvents[i].domain = rawEvents[i].domain ?? this.defaultEventEmissionDomains.services;
         }
 
         if (executionResult?.output) {
@@ -265,7 +270,7 @@ export class ArvoResumable<
             data: executionResult.output,
             type: this.contracts.self.metadata.completeEventType,
             to: parsedEventSubject.meta?.redirectto ?? parsedEventSubject.execution.initiator,
-            domain: executionResult.output?.__domain ?? [ArvoDomain.LOCAL],
+            domain: executionResult.output?.__domain ?? this.defaultEventEmissionDomains.complete,
             executionunits: executionResult.output.__executionunits,
           });
         }
@@ -316,9 +321,6 @@ export class ArvoResumable<
   }
 
   get systemErrorSchema() {
-    return {
-      ...this.contracts.self.systemError,
-      domain: this.systemErrorDomain,
-    };
+    return this.contracts.self.systemError;
   }
 }

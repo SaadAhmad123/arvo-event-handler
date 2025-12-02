@@ -30,9 +30,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">77.08% </span>
+                <span class="strong">75% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>37/48</span>
+                <span class='fraction'>33/44</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">95.91% </span>
+                <span class="strong">95.83% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>47/49</span>
+                <span class='fraction'>46/48</span>
             </div>
         
             
@@ -297,10 +297,7 @@
 <a name='L232'></a><a href='#L232'>232</a>
 <a name='L233'></a><a href='#L233'>233</a>
 <a name='L234'></a><a href='#L234'>234</a>
-<a name='L235'></a><a href='#L235'>235</a>
-<a name='L236'></a><a href='#L236'>236</a>
-<a name='L237'></a><a href='#L237'>237</a>
-<a name='L238'></a><a href='#L238'>238</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">8x</span>
+<a name='L235'></a><a href='#L235'>235</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -360,9 +357,6 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-yes">8x</span>
@@ -408,7 +402,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">16x</span>
+<span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -553,13 +547,13 @@ import {
   isViolationError,
   logToSpan,
 } from 'arvo-core';
-import { ArvoDomain, resolveEventDomain } from '../ArvoDomain';
+import { resolveEventDomain } from '../ArvoDomain';
 import type { SyncEventResource } from '../SyncEventResource';
 import { ExecutionViolation } from '../errors';
 import { isError } from '../utils';
 import type { OrchestrationExecutionMemoryRecord } from './orchestrationExecutionState';
 import { ArvoOrchestrationHandlerMap, type ArvoOrchestrationHandlerType } from './types';
-import { NonEmptyArray } from '../types';
+import type { NonEmptyArray } from '../types';
 &nbsp;
 /**
  * Parameters for creating system error events during orchestration failures.
@@ -583,8 +577,6 @@ export type CreateSystemErrorEventsParams = {
   executionunits: number;
   /** Source identifier */
   source: string;
-  /** Domain for error events */
-  domain: string | null;
   /** Type of handler reporting the error */
   handlerType: ArvoOrchestrationHandlerType;
 };
@@ -609,7 +601,6 @@ export const createSystemErrorEvents = ({
   systemErrorDomain,
   executionunits,
   source,
-  domain,
   handlerType,
 }: CreateSystemErrorEventsParams &amp; { error: Error }): ArvoEvent[] =&gt; {
   // In case of none transaction errors like errors from
@@ -632,7 +623,7 @@ export const createSystemErrorEvents = ({
     }
   }
 &nbsp;
-  const domainSets = Array.from(new Set(systemErrorDomain ?? <span class="branch-1 cbranch-no" title="branch not covered" >[ArvoDomain.FROM_CURRENT_SUBJECT])</span>).map((item) =&gt;
+  const domainSets = systemErrorDomain.map((item) =&gt;
     resolveEventDomain({
       parentSubject: orchestrationParentSubject,
       currentSubject: event.subject,
@@ -645,7 +636,7 @@ export const createSystemErrorEvents = ({
 &nbsp;
   const result: ArvoEvent[] = [];
 &nbsp;
-  for (const _dom of domainSets) {
+  for (const _dom of Array.from(new Set(domainSets))) {
     const factoryBuilder = handlerType === 'handler' ? createArvoEventFactory : createArvoOrchestratorEventFactory;
     result.push(
       factoryBuilder(selfContract).systemError({
@@ -659,7 +650,7 @@ export const createSystemErrorEvents = ({
         // the source which initiated it
         to: parsedEventSubject?.execution?.initiator ?? event.source,
         error: error,
-        traceparent: otelHeaders.traceparent ?? <span class="branch-1 cbranch-no" title="branch not covered" >undefined,</span>
+        traceparent: otelHeaders.traceparent<span class="branch-1 cbranch-no" title="branch not covered" ><span class="branch-0 cbranch-no" title="branch not covered" > ?? u</span></span>ndefined,
         tracestate: otelHeaders.tracestate<span class="branch-1 cbranch-no" title="branch not covered" ><span class="branch-0 cbranch-no" title="branch not covered" > ?? u</span></span>ndefined,
         accesscontrol: event.accesscontrol<span class="branch-1 cbranch-no" title="branch not covered" ><span class="branch-0 cbranch-no" title="branch not covered" > ?? u</span></span>ndefined,
         executionunits: executionunits,
@@ -781,7 +772,7 @@ export const handleOrchestrationErrors = async (
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-12-02T07:02:57.298Z
+                at 2025-12-02T14:34:08.509Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

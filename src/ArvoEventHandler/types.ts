@@ -116,17 +116,29 @@ export type ArvoEventHandlerParam<TContract extends ArvoContract> = {
   spanOptions?: ArvoEventHandlerOtelSpanOptions;
 
   /**
-   * Optional configuration to customize where system error events are emitted.
-   *
-   * This overrides the default system error domain fallback of:
-   * `[ArvoDomain.FROM_PARENT_SUBJECT]`
-   *
-   * Use this to precisely control the set of domains that should receive structured
-   * `sys.*.error` events when uncaught exceptions occur in the handler.
-   *
-   * Symbolic constants from {@link ArvoDomain} are supported.
-   *
-   * @default undefined — uses standard fallback broadcast domains
+   * Optional default domains for the events emitted
+   * by the event handler.
    */
-  systemErrorDomain?: NonEmptyArray<string | null>;
+  defaultEventEmissionDomains?: {
+    /**
+     * Default domains for system error events emitted by this handler.
+     *
+     * System errors are routed through these domains when the handler encounters
+     * unhandled exceptions or critical failures.
+     *
+     * @default [ArvoDomain.ORCHESTRATION_CONTEXT]
+     */
+    systemError?: NonEmptyArray<string | null>;
+
+    /**
+     * Default domains for response events emitted by this handler.
+     *
+     * Response events are routed through these domains when the handler successfully
+     * processes an incoming event. Individual handler implementations can override
+     * this default on a per-event basis.
+     *
+     * @default [ArvoDomain.ORCHESTRATION_CONTEXT]
+     */
+    emits?: NonEmptyArray<string | null>;
+  };
 };

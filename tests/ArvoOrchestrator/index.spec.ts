@@ -33,7 +33,7 @@ import { valueWriteHandler } from './handler/value.write';
 import { decrementOrchestrator } from './orchestrators/decrement';
 import { incrementOrchestrator } from './orchestrators/increment';
 import { numberModifierOrchestrator } from './orchestrators/number.modifier';
-import { runArvoTestSuites, ArvoTestSuite } from '../../src';
+import { runArvoTestSuites, type ArvoTestSuite } from '../../src';
 
 const promiseTimeout = (timeout = 10) =>
   new Promise<void>((resolve) => {
@@ -321,6 +321,7 @@ describe('ArvoOrchestrator', () => {
 
     const initEvent = createArvoOrchestratorEventFactory(numberModifierOrchestratorContract.version('0.0.1')).init({
       source: 'com.test.test',
+      domain: 'test.domain',
       data: {
         init: 1,
         modifier: 4,
@@ -336,6 +337,7 @@ describe('ArvoOrchestrator', () => {
     expect(finalEvent!.data.success).toBe(true);
     expect(finalEvent!.data.error.length).toBe(0);
     expect(finalEvent!.data.final).toBe(-3);
+    expect(finalEvent!.domain).toBe(null);
     expect(broker.events.length).toBe(
       1 + // Number modifier orchestrator init event
         1 + // Write event
