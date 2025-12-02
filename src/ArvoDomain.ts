@@ -36,12 +36,19 @@ export const ArvoDomain = {
   FROM_TRIGGERING_EVENT: 'domain.event.inherit',
 
   /**
-   * Inherit the domain encoded in the event subject
+   * Use the domain encoded in the event subject
    *
    * If in any situtation the subject under consideration is not Arvo compliant then the ArvoDomain.LOCAL
    * is used as fallback
    */
   FROM_CURRENT_SUBJECT: 'domain.event.current.subject',
+
+  /**
+   * Use the domain encoded in the orchestration parent subject if available.
+   * If the parent subject is not available (root orchestration or any non-orchestrator event handler)
+   * then defaults to ArvoDomain.FROM_CURRENT_SUBJECT
+   */
+  FROM_PARENT_SUBJECT: 'domain.parent.subject',
 
   /**
    * Keep the event in the current execution context (null domain).
@@ -72,6 +79,7 @@ export const ArvoDomain = {
  */
 export const resolveEventDomain = (param: {
   domainToResolve: string | null;
+  parentSubject: string | null;
   currentSubject: string;
   handlerSelfContract: VersionedArvoContract<any, any>;
   eventContract: VersionedArvoContract<any, any> | null;
@@ -101,6 +109,21 @@ export const resolveEventDomain = (param: {
     let resolvedDomain: string | null = null;
     try {
       const parsedSubject = ArvoOrchestrationSubject.parse(param.currentSubject);
+      resolvedDomain = parsedSubject.execution.domain;
+    } catch (e) {
+      exceptionToSpan(
+        new Error(
+          `Unable to parse the provided parent subject. Falling back to ArvoDomain.LOCAL. Error: ${(e as Error).message}`,
+        ),
+      );
+    }
+    return resolvedDomain;
+  }
+
+  if (param.domainToResolve === ArvoDomain.FROM_PARENT_SUBJECT) {
+    let resolvedDomain: string | null = null;
+    try {
+      const parsedSubject = ArvoOrchestrationSubject.parse(param.parentSubject ?? param.currentSubject);
       resolvedDomain = parsedSubject.execution.domain;
     } catch (e) {
       exceptionToSpan(

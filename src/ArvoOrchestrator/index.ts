@@ -76,7 +76,7 @@ export class ArvoOrchestrator implements IArvoEventHandler {
     this.registry = registry;
     this.executionEngine = executionEngine;
     this.syncEventResource = new SyncEventResource(memory, requiresResourceLocking);
-    this.systemErrorDomain = systemErrorDomain ?? [ArvoDomain.FROM_CURRENT_SUBJECT];
+    this.systemErrorDomain = systemErrorDomain ?? [ArvoDomain.LOCAL];
 
     this.spanOptions = {
       kind: SpanKind.PRODUCER,
@@ -197,7 +197,7 @@ export class ArvoOrchestrator implements IArvoEventHandler {
             id: executionResult.finalOutput.__id,
             data: executionResult.finalOutput,
             to: parsedEventSubject.meta?.redirectto ?? parsedEventSubject.execution.initiator,
-            domain: executionResult.finalOutput.__domain ?? [ArvoDomain.FROM_CURRENT_SUBJECT],
+            domain: executionResult.finalOutput.__domain ?? [ArvoDomain.LOCAL],
             executionunits: executionResult.finalOutput.__executionunits,
           });
         }

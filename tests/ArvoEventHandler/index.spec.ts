@@ -113,7 +113,7 @@ describe('ArvoEventHandler', () => {
           ],
         },
         {
-          name: 'should execute handler successfully with event domain to the same as the triggering event by default',
+          name: 'should execute handler successfully with event domain to the local domain',
           steps: [
             {
               input: () =>
@@ -128,7 +128,7 @@ describe('ArvoEventHandler', () => {
                   },
                 }),
               expectedEvents: (events) => {
-                expect(events[0].domain).toBe('test.test');
+                expect(events[0].domain).toBe(null);
                 return true;
               },
             },
@@ -404,7 +404,7 @@ describe('ArvoEventHandler', () => {
       },
       cases: [
         {
-          name: 'should handle error domains for triggering event',
+          name: 'should handle error domain to be null (LOCAL) by default',
           steps: [
             {
               input: () =>
@@ -420,7 +420,7 @@ describe('ArvoEventHandler', () => {
                 }),
               expectedEvents: (events) => {
                 expect(events.length).toBe(1);
-                expect(events[0].domain).toBe('test.1');
+                expect(events[0].domain).toBe(null);
                 return events.every((e) => e.parentid);
               },
             },
@@ -443,7 +443,7 @@ describe('ArvoEventHandler', () => {
       },
       cases: [
         {
-          name: 'should handle error domains for event and null (with event domain)',
+          name: 'should handle error domains for null (even with event domain)',
           steps: [
             {
               input: () =>
@@ -459,7 +459,7 @@ describe('ArvoEventHandler', () => {
                 }),
               expectedEvents: (events) => {
                 expect(events.length).toBe(1);
-                expect(events[0].domain).toBe('test.1');
+                expect(events[0].domain).toBe(null);
                 return true;
               },
             },
@@ -483,6 +483,45 @@ describe('ArvoEventHandler', () => {
                 expect(events.length).toBe(1);
                 expect(events[0].domain).toBe(null);
                 return events[0].parentid !== undefined;
+              },
+            },
+          ],
+        },
+      ],
+    },
+    {
+      config: {
+        name: 'Domain routing on Error',
+        handler: createArvoEventHandler({
+          contract: mockContract,
+          executionunits: 100,
+          systemErrorDomain: [ArvoDomain.FROM_CURRENT_SUBJECT],
+          handler: {
+            '0.0.1': async ({ event }) => {
+              throw new Error('some error');
+            },
+          },
+        }),
+      },
+      cases: [
+        {
+          name: 'should route to domain of the current subject',
+          steps: [
+            {
+              input: () =>
+                createArvoEventFactory(mockContract.version('0.0.1')).accepts({
+                  to: 'com.hello.world',
+                  source: 'com.test.env',
+                  domain: 'test.1',
+                  data: {
+                    name: 'Saad Ahmad',
+                    age: 26,
+                  },
+                }),
+              expectedEvents: (events) => {
+                expect(events.length).toBe(1);
+                expect(events[0].domain).toBe('test.1');
+                return true;
               },
             },
           ],

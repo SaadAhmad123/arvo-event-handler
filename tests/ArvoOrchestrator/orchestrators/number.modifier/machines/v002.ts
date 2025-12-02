@@ -165,7 +165,6 @@ export const machineV002 = setupArvoMachine({
             modifier: context.modifier,
             trend: context.trend,
           },
-          domain: [ArvoDomain.LOCAL]
         })),
       ],
       on: {

@@ -90,7 +90,7 @@ export class ArvoResumable<
     this.syncEventResource = new SyncEventResource(param.memory, param.requiresResourceLocking ?? true);
     this.contracts = param.contracts;
     this.handler = param.handler;
-    this.systemErrorDomain = param.systemErrorDomain ?? [ArvoDomain.FROM_CURRENT_SUBJECT];
+    this.systemErrorDomain = param.systemErrorDomain ?? [ArvoDomain.LOCAL];
 
     this.spanOptions = {
       kind: SpanKind.PRODUCER,
@@ -265,7 +265,7 @@ export class ArvoResumable<
             data: executionResult.output,
             type: this.contracts.self.metadata.completeEventType,
             to: parsedEventSubject.meta?.redirectto ?? parsedEventSubject.execution.initiator,
-            domain: executionResult.output?.__domain ?? [ArvoDomain.FROM_CURRENT_SUBJECT],
+            domain: executionResult.output?.__domain ?? [ArvoDomain.LOCAL],
             executionunits: executionResult.output.__executionunits,
           });
         }

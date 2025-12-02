@@ -97,9 +97,9 @@ export const createEmittableEvent = (
   let contract: VersionedArvoContract<any, any> | null = null;
   let subject: string = sourceEvent.subject;
   let parentId: string = sourceEvent.id;
-  const subjectForDomainResolution = sourceEvent.subject;
   let domain = resolveEventDomain({
-    currentSubject: subjectForDomainResolution,
+    parentSubject: orchestrationParentSubject,
+    currentSubject: sourceEvent.subject,
     domainToResolve: _domain,
     handlerSelfContract: selfContract,
     eventContract: null,
@@ -119,7 +119,8 @@ export const createEmittableEvent = (
     subject = orchestrationParentSubject ?? sourceEvent.subject;
     parentId = initEventId;
     domain = resolveEventDomain({
-      currentSubject: subjectForDomainResolution,
+      parentSubject: orchestrationParentSubject,
+      currentSubject: sourceEvent.subject,
       domainToResolve: _domain,
       handlerSelfContract: selfContract,
       eventContract: selfContract,
@@ -136,7 +137,8 @@ export const createEmittableEvent = (
     contract = serviceContractMap[event.type];
     schema = serviceContractMap[event.type].accepts.schema;
     domain = resolveEventDomain({
-      currentSubject: subjectForDomainResolution,
+      parentSubject: orchestrationParentSubject,
+      currentSubject: sourceEvent.subject,
       domainToResolve: _domain,
       handlerSelfContract: selfContract,
       eventContract: contract,

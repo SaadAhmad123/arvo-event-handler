@@ -59,7 +59,7 @@ export default class ArvoEventHandler<TContract extends ArvoContract> implements
     this.contract = param.contract;
     this.executionunits = param.executionunits;
     this.handler = param.handler;
-    this.systemErrorDomain = param.systemErrorDomain ?? [ArvoDomain.FROM_TRIGGERING_EVENT];
+    this.systemErrorDomain = param.systemErrorDomain ?? [ArvoDomain.LOCAL];
 
     for (const contractVersions of Object.keys(this.contract.versions)) {
       if (!this.handler[contractVersions as ArvoSemanticVersion]) {
@@ -204,8 +204,9 @@ export default class ArvoEventHandler<TContract extends ArvoContract> implements
           for (const item of outputs) {
             try {
               const { __extensions, ...handlerResult } = item;
-              const domains = (handlerResult.domain ?? [ArvoDomain.FROM_TRIGGERING_EVENT]).map((item) =>
+              const domains = (handlerResult.domain ?? [ArvoDomain.LOCAL]).map((item) =>
                 resolveEventDomain({
+                  parentSubject: null,
                   currentSubject: event.subject,
                   domainToResolve: item,
                   handlerSelfContract: handlerContract,

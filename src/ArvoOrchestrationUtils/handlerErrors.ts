@@ -95,6 +95,7 @@ export const createSystemErrorEvents = ({
 
   const domainSets = Array.from(new Set(systemErrorDomain ?? [ArvoDomain.FROM_CURRENT_SUBJECT])).map((item) =>
     resolveEventDomain({
+      parentSubject: orchestrationParentSubject,
       currentSubject: event.subject,
       domainToResolve: item,
       handlerSelfContract: selfContract,
