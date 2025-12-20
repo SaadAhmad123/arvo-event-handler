@@ -395,7 +395,7 @@ describe('ArvoOrchestrator', () => {
           ...(handlers.decrementAgent as ArvoOrchestrator).registry.machines,
         ],
       });
-    }).toThrow("All the machines in the orchestrator must have type 'arvo.orc.inc'");
+    }).toThrow("All the machines in the orchestrator must have source 'arvo.orc.inc'");
   });
 
   it('should throw error on duplicate mahines', () => {

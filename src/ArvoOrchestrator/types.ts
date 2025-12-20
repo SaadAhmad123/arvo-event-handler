@@ -96,7 +96,7 @@ export type MachineMemoryRecord = OrchestrationExecutionMemoryRecord<{
  */
 export type ArvoOrchestratorParam = {
   /** Computational cost metric assigned to orchestrator operations */
-  executionunits: number;
+  executionunits?: number;
 
   /** Memory interface for state persistence and retrieval */
   memory: IMachineMemory<MachineMemoryRecord>;

@@ -23,7 +23,6 @@ import type { CreateArvoOrchestratorParam } from './types';
  * ```typescript
  * const orchestrator = createArvoOrchestrator({
  *   memory: new SimpleMachineMemory(),
- *   executionunits: 1,
  *   machines: [userOnboardingMachine, paymentMachine]
  * });
  *
@@ -50,19 +49,19 @@ export const createArvoOrchestrator = ({
   const requiresResourceLocking = _locking ?? machines.some((machine) => machine.requiresResourceLocking);
 
   const representativeMachine = registry.machines[0];
-  const lastSeenVersions: ArvoSemanticVersion[] = [];
+  const lastSeenVersions = new Set<ArvoSemanticVersion>();
   for (const machine of registry.machines) {
     if (representativeMachine.source !== machine.source) {
       throw new ConfigViolation(
-        `All the machines in the orchestrator must have type '${representativeMachine.source}'`,
+        `All the machines in the orchestrator must have source '${representativeMachine.source}'. Make sure all machine are implementing versions of the same self contract`,
       );
     }
-    if (lastSeenVersions.includes(machine.version)) {
+    if (lastSeenVersions.has(machine.version)) {
       throw new ConfigViolation(
         `An orchestrator must have unique machine versions. Machine ID:${machine.id} has duplicate version ${machine.version}.`,
       );
     }
-    lastSeenVersions.push(machine.version);
+    lastSeenVersions.add(machine.version);
   }
 
   return new ArvoOrchestrator({

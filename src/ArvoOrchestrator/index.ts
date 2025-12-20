@@ -71,7 +71,7 @@ export class ArvoOrchestrator implements IArvoEventHandler {
     defaultEventEmissionDomains,
     spanOptions,
   }: ArvoOrchestratorParam) {
-    this.executionunits = executionunits;
+    this.executionunits = executionunits ?? 0;
     this.registry = registry;
     this.executionEngine = executionEngine;
     this.syncEventResource = new SyncEventResource(memory, requiresResourceLocking);

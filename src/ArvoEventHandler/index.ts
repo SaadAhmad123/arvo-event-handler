@@ -59,7 +59,7 @@ export default class ArvoEventHandler<TContract extends ArvoContract> implements
 
   constructor(param: ArvoEventHandlerParam<TContract>) {
     this.contract = param.contract;
-    this.executionunits = param.executionunits;
+    this.executionunits = param.executionunits ?? 0;
     this.handler = param.handler;
     this.defaultEventEmissionDomains = {
       systemError: [ArvoDomain.ORCHESTRATION_CONTEXT],

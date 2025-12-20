@@ -101,7 +101,7 @@ export type ArvoEventHandlerParam<TContract extends ArvoContract> = {
    * The default execution cost of the function.
    * This can represent a dollar value or some other number with a rate card.
    */
-  executionunits: number;
+  executionunits?: number;
 
   /**
    * The functional handler of the event which takes the input, performs an action, and returns the result.
