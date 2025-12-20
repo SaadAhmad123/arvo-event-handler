@@ -32,7 +32,6 @@ import type { ArvoResumableState, CreateArvoResumableParam } from './types';
  *       // Handler implementation
  *     }
  *   },
- *   executionunits: 1
  * });
  * ```
  *

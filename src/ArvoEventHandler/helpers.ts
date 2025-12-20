@@ -15,7 +15,6 @@ import type { ArvoEventHandlerParam } from './types';
  * ```ts
  * const handler = createArvoEventHandler({
  *   contract: userContract,
- *   executionunits: 1,
  *   handler: {
  *     '1.0.0': async ({ event, domain, span }) => {
  *       if (domain.event !== domain.self) {

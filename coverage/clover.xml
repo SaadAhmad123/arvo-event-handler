@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<coverage generated="1764686048527" clover="3.2.0">
-  <project timestamp="1764686048527" name="All files">
-    <metrics statements="1046" coveredstatements="976" conditionals="951" coveredconditionals="760" methods="193" coveredmethods="159" elements="2190" coveredelements="1895" complexity="0" loc="1046" ncloc="1046" packages="15" files="34" classes="34"/>
+<coverage generated="1766207473454" clover="3.2.0">
+  <project timestamp="1766207473454" name="All files">
+    <metrics statements="1046" coveredstatements="976" conditionals="959" coveredconditionals="767" methods="193" coveredmethods="159" elements="2198" coveredelements="1902" complexity="0" loc="1046" ncloc="1046" packages="15" files="34" classes="34"/>
     <package name="src">
       <metrics statements="99" coveredstatements="95" conditionals="27" coveredconditionals="19" methods="34" coveredmethods="20"/>
       <file name="ArvoDomain.ts" path="/Users/saadahmad/Documents/Projects/arvo-event-handler/src/ArvoDomain.ts">
@@ -114,15 +114,15 @@
       </file>
     </package>
     <package name="src.ArvoEventHandler">
-      <metrics statements="83" coveredstatements="83" conditionals="82" coveredconditionals="74" methods="10" coveredmethods="10"/>
+      <metrics statements="83" coveredstatements="83" conditionals="86" coveredconditionals="76" methods="10" coveredmethods="10"/>
       <file name="helpers.ts" path="/Users/saadahmad/Documents/Projects/arvo-event-handler/src/ArvoEventHandler/helpers.ts">
         <metrics statements="3" coveredstatements="3" conditionals="0" coveredconditionals="0" methods="1" coveredmethods="1"/>
         <line num="2" count="8" type="stmt"/>
-        <line num="46" count="8" type="stmt"/>
-        <line num="48" count="39" type="stmt"/>
+        <line num="45" count="8" type="stmt"/>
+        <line num="47" count="39" type="stmt"/>
       </file>
       <file name="index.ts" path="/Users/saadahmad/Documents/Projects/arvo-event-handler/src/ArvoEventHandler/index.ts">
-        <metrics statements="80" coveredstatements="80" conditionals="82" coveredconditionals="74" methods="9" coveredmethods="9"/>
+        <metrics statements="80" coveredstatements="80" conditionals="86" coveredconditionals="76" methods="9" coveredmethods="9"/>
         <line num="1" count="8" type="stmt"/>
         <line num="2" count="8" type="stmt"/>
         <line num="19" count="8" type="stmt"/>
@@ -136,7 +136,7 @@
         <line num="56" count="8" type="stmt"/>
         <line num="57" count="48" type="stmt"/>
         <line num="61" count="39" type="stmt"/>
-        <line num="62" count="39" type="stmt"/>
+        <line num="62" count="39" type="cond" truecount="3" falsecount="1"/>
         <line num="63" count="39" type="stmt"/>
         <line num="64" count="39" type="stmt"/>
         <line num="70" count="46" type="stmt"/>
@@ -287,9 +287,9 @@
       </file>
     </package>
     <package name="src.ArvoOrchestrationUtils">
-      <metrics statements="175" coveredstatements="170" conditionals="158" coveredconditionals="119" methods="14" coveredmethods="12"/>
+      <metrics statements="175" coveredstatements="170" conditionals="158" coveredconditionals="121" methods="14" coveredmethods="12"/>
       <file name="createEmitableEvent.ts" path="/Users/saadahmad/Documents/Projects/arvo-event-handler/src/ArvoOrchestrationUtils/createEmitableEvent.ts">
-        <metrics statements="63" coveredstatements="61" conditionals="82" coveredconditionals="61" methods="3" coveredmethods="3"/>
+        <metrics statements="63" coveredstatements="61" conditionals="82" coveredconditionals="62" methods="3" coveredmethods="3"/>
         <line num="2" count="8" type="stmt"/>
         <line num="15" count="8" type="stmt"/>
         <line num="17" count="8" type="stmt"/>
@@ -366,7 +366,7 @@
         <line num="55" count="0" type="stmt"/>
       </file>
       <file name="handlerErrors.ts" path="/Users/saadahmad/Documents/Projects/arvo-event-handler/src/ArvoOrchestrationUtils/handlerErrors.ts">
-        <metrics statements="48" coveredstatements="46" conditionals="44" coveredconditionals="33" methods="5" coveredmethods="4"/>
+        <metrics statements="48" coveredstatements="46" conditionals="44" coveredconditionals="34" methods="5" coveredmethods="4"/>
         <line num="1" count="8" type="stmt"/>
         <line num="2" count="8" type="stmt"/>
         <line num="17" count="8" type="stmt"/>
@@ -583,36 +583,36 @@
       </file>
     </package>
     <package name="src.ArvoOrchestrator">
-      <metrics statements="82" coveredstatements="78" conditionals="91" coveredconditionals="76" methods="13" coveredmethods="10"/>
+      <metrics statements="82" coveredstatements="78" conditionals="95" coveredconditionals="79" methods="13" coveredmethods="10"/>
       <file name="factory.ts" path="/Users/saadahmad/Documents/Projects/arvo-event-handler/src/ArvoOrchestrator/factory.ts">
         <metrics statements="24" coveredstatements="23" conditionals="11" coveredconditionals="8" methods="2" coveredmethods="2"/>
         <line num="2" count="8" type="stmt"/>
         <line num="3" count="8" type="stmt"/>
         <line num="4" count="8" type="stmt"/>
         <line num="5" count="8" type="stmt"/>
-        <line num="37" count="8" type="stmt"/>
+        <line num="36" count="8" type="stmt"/>
+        <line num="37" count="10" type="stmt"/>
         <line num="38" count="10" type="stmt"/>
         <line num="39" count="10" type="stmt"/>
         <line num="40" count="10" type="stmt"/>
         <line num="41" count="10" type="stmt"/>
         <line num="42" count="10" type="stmt"/>
-        <line num="43" count="10" type="stmt"/>
-        <line num="45" count="10" type="cond" truecount="3" falsecount="2"/>
-        <line num="46" count="0" type="stmt"/>
-        <line num="49" count="10" type="stmt"/>
-        <line num="50" count="12" type="cond" truecount="3" falsecount="1"/>
+        <line num="44" count="10" type="cond" truecount="3" falsecount="2"/>
+        <line num="45" count="0" type="stmt"/>
+        <line num="48" count="10" type="stmt"/>
+        <line num="49" count="12" type="cond" truecount="3" falsecount="1"/>
+        <line num="51" count="10" type="stmt"/>
         <line num="52" count="10" type="stmt"/>
-        <line num="53" count="10" type="stmt"/>
-        <line num="54" count="20" type="stmt"/>
-        <line num="55" count="20" type="cond" truecount="1" falsecount="0"/>
-        <line num="56" count="1" type="stmt"/>
-        <line num="60" count="19" type="cond" truecount="1" falsecount="0"/>
-        <line num="61" count="1" type="stmt"/>
-        <line num="65" count="18" type="stmt"/>
-        <line num="68" count="8" type="stmt"/>
+        <line num="53" count="20" type="stmt"/>
+        <line num="54" count="20" type="cond" truecount="1" falsecount="0"/>
+        <line num="55" count="1" type="stmt"/>
+        <line num="59" count="19" type="cond" truecount="1" falsecount="0"/>
+        <line num="60" count="1" type="stmt"/>
+        <line num="64" count="18" type="stmt"/>
+        <line num="67" count="8" type="stmt"/>
       </file>
       <file name="index.ts" path="/Users/saadahmad/Documents/Projects/arvo-event-handler/src/ArvoOrchestrator/index.ts">
-        <metrics statements="58" coveredstatements="55" conditionals="80" coveredconditionals="68" methods="11" coveredmethods="8"/>
+        <metrics statements="58" coveredstatements="55" conditionals="84" coveredconditionals="71" methods="11" coveredmethods="8"/>
         <line num="1" count="8" type="stmt"/>
         <line num="2" count="8" type="stmt"/>
         <line num="12" count="8" type="stmt"/>
@@ -636,7 +636,7 @@
         <line num="70" count="8" type="stmt"/>
         <line num="71" count="8" type="stmt"/>
         <line num="72" count="8" type="stmt"/>
-        <line num="74" count="8" type="stmt"/>
+        <line num="74" count="8" type="cond" truecount="3" falsecount="1"/>
         <line num="75" count="8" type="stmt"/>
         <line num="76" count="8" type="stmt"/>
         <line num="77" count="8" type="stmt"/>
@@ -679,9 +679,9 @@
         <metrics statements="5" coveredstatements="5" conditionals="8" coveredconditionals="6" methods="1" coveredmethods="1"/>
         <line num="2" count="8" type="stmt"/>
         <line num="3" count="8" type="stmt"/>
-        <line num="42" count="8" type="stmt"/>
+        <line num="41" count="8" type="stmt"/>
+        <line num="51" count="2" type="stmt"/>
         <line num="52" count="2" type="stmt"/>
-        <line num="53" count="2" type="stmt"/>
       </file>
       <file name="index.ts" path="/Users/saadahmad/Documents/Projects/arvo-event-handler/src/ArvoResumable/index.ts">
         <metrics statements="67" coveredstatements="62" conditionals="158" coveredconditionals="136" methods="12" coveredmethods="9"/>
