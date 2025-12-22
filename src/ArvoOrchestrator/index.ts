@@ -20,6 +20,7 @@ import { ConfigViolation, ContractViolation } from '../errors';
 import type { ArvoEventHandlerOpenTelemetryOptions, ArvoEventHandlerOtelSpanOptions } from '../types';
 import type { ArvoOrchestratorParam, MachineMemoryRecord } from './types';
 import { ArvoDomain } from '../ArvoDomain';
+import { OrchestrationExecutionStatus } from '../ArvoOrchestrationUtils/orchestrationExecutionState';
 
 /**
  * Orchestrates state machine execution and lifecycle management.
@@ -232,7 +233,10 @@ export class ArvoOrchestrator implements IArvoEventHandler {
 
         // Build new state
         const newState: MachineMemoryRecord = {
-          executionStatus: 'normal',
+          __type: 'OrchestrationExecutionMemoryRecord',
+          executionStatus: executionResult.finalOutput
+            ? OrchestrationExecutionStatus.DONE
+            : OrchestrationExecutionStatus.NORMAL,
           initEventId,
           subject: event.subject,
           parentSubject: orchestrationParentSubject,

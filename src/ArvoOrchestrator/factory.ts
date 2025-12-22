@@ -3,7 +3,8 @@ import { ArvoOrchestrator } from '.';
 import { MachineExecutionEngine } from '../MachineExecutionEngine';
 import { MachineRegistry } from '../MachineRegistry';
 import { ConfigViolation } from '../errors';
-import type { CreateArvoOrchestratorParam } from './types';
+import type { CreateArvoOrchestratorParam, MachineMemoryRecord } from './types';
+import { IMachineMemory } from '../MachineMemory/interface';
 
 /**
  * Creates a new Arvo orchestrator instance with default components.
@@ -66,7 +67,7 @@ export const createArvoOrchestrator = ({
 
   return new ArvoOrchestrator({
     executionunits,
-    memory,
+    memory: memory as IMachineMemory<MachineMemoryRecord>,
     registry,
     executionEngine: new MachineExecutionEngine(),
     requiresResourceLocking,

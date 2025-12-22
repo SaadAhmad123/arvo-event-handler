@@ -80,3 +80,7 @@ All event handlers now return an object instead of an array:
 
 - Implemented sensible default for domain routing in handlers
 
+## [3.0.27] - 2025-12-22
+
+- Enhanced IMachineMemory interface and SimpleMachineMemory implementation
+

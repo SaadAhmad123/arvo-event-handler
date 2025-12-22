@@ -1,22 +1,51 @@
-import type { IMachineMemory } from './interface';
+import { logToSpan } from 'arvo-core';
+import { SimpleEventBroker } from '../utils/SimpleEventBroker';
+import type { IMachineMemory, MachineMemoryMetadata } from './interface';
 
 /**
- * In-memory implementation of machine state storage for single-instance NodeJS apps.
- *
- * Best for: Container apps, request-scoped workflows, testing, demos
- * Not for: Multi-instance deployments, persistent workflows, distributed systems
+ * In-memory implementation of machine state storage for single-instance NodeJS applications.
  *
  * @example
  * const memory = new SimpleMachineMemory();
  * const orchestrator = createArvoOrchestrator({
  *   memory,
- *   executionunits: 1,
  *   machines: [workflow]
  * });
+ *
+ * @warning Concurrency Limitations
+ *
+ * This implementation is NOT concurrency-safe. Lock acquisition is not atomic,
+ * making it unsuitable for parallel event processing where multiple handlers
+ * might process events for the same workflow simultaneously.
+ *
+ * **Safe Usage:**
+ * - {@link SimpleEventBroker} (sequential event processing)
+ * - Isolated handlers without shared durable state requirements
+ *
+ * **Unsafe Usage:**
+ * - In-memory parallel/concurrent event brokers (e.g., p-queue with prefetch > 1)
+ *
+ * For concurrent in-process event processing, use the concurrency-safe memory
+ * backend from the `@arvo-tools/concurrent` package, which provides atomic lock
+ * operations suitable for parallel execution within a single process.
+ *
+ * **Unsuitable For:**
+ * - Multi-instance deployments
+ * - Distributed systems requiring shared state across processes
+ *
+ * For these scenarios, implement or use a database-backed memory backend
+ * (Redis, PostgreSQL, DynamoDB, etc.) that provides distributed state
+ * persistence and atomic locking across instances. You can also explore the
+ * Arvo tool eco-system `@arvo-tools`
  */
 export class SimpleMachineMemory<T extends Record<string, any> = Record<string, any>> implements IMachineMemory<T> {
   private readonly memoryMap: Map<string, T> = new Map();
   private readonly lockMap: Map<string, boolean> = new Map();
+  private readonly enableCleanup: boolean = true;
+
+  constructor(config?: { enableCleanup?: boolean }) {
+    this.enableCleanup = config?.enableCleanup ?? true;
+  }
 
   /**
    * Gets stored state for a machine instance
@@ -78,16 +107,21 @@ export class SimpleMachineMemory<T extends Record<string, any> = Record<string, 
     return !this.lockMap.get(id);
   }
 
-  /**
-   * Clears all stored data and locks
-   */
-  clear(key?: string): void {
-    if (key) {
-      this.memoryMap.delete(key);
-      this.lockMap.delete(key);
+  async cleanup(id: string): Promise<void> {
+    if (!this.enableCleanup) {
+      logToSpan({
+        level: 'INFO',
+        message: 'Skipping cleanup due to config setting',
+      });
       return;
     }
-    this.memoryMap.clear();
+    this.memoryMap.delete(id);
+    this.lockMap.delete(id);
+  }
+
+  // Clears all stored data and locks
+  clear() {
     this.lockMap.clear();
+    this.memoryMap.clear();
   }
 }

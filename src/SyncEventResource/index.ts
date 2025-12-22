@@ -1,7 +1,7 @@
 import type { Span } from '@opentelemetry/api';
 import { type ArvoEvent, ArvoOrchestrationSubject, logToSpan } from 'arvo-core';
 import { TransactionViolation, TransactionViolationCause } from '../ArvoOrchestrationUtils/error';
-import type { IMachineMemory } from '../MachineMemory/interface';
+import type { IMachineMemory, MachineMemoryMetadata } from '../MachineMemory/interface';
 import { ExecutionViolation } from '../errors';
 import type { AcquiredLockStatusType, ReleasedLockStatusType } from './types';
 
@@ -57,7 +57,11 @@ export class SyncEventResource<T extends Record<string, any>> {
    *
    * @throws {TransactionViolation} When lock acquisition fails due to system errors
    */
-  public async acquireLock(event: ArvoEvent, span?: Span): Promise<AcquiredLockStatusType> {
+  public async acquireLock(
+    event: ArvoEvent,
+    metadata: MachineMemoryMetadata,
+    span?: Span,
+  ): Promise<AcquiredLockStatusType> {
     if (!this.requiresResourceLocking) {
       logToSpan(
         {
@@ -74,7 +78,7 @@ export class SyncEventResource<T extends Record<string, any>> {
         level: 'INFO',
         message: 'Acquiring lock for the event',
       });
-      const acquired = await this.memory.lock(event.subject);
+      const acquired = await this.memory.lock(event.subject, metadata);
       return acquired ? 'ACQUIRED' : 'NOT_ACQUIRED';
     } catch (e) {
       throw new TransactionViolation({
@@ -97,7 +101,7 @@ export class SyncEventResource<T extends Record<string, any>> {
    *
    * @throws {TransactionViolation} When the read operation fails due to storage errors
    */
-  public async acquireState(event: ArvoEvent, span?: Span): Promise<T | null> {
+  public async acquireState(event: ArvoEvent, metadata: MachineMemoryMetadata, span?: Span): Promise<T | null> {
     try {
       logToSpan(
         {
@@ -106,7 +110,7 @@ export class SyncEventResource<T extends Record<string, any>> {
         },
         span,
       );
-      return await this.memory.read(event.subject);
+      return await this.memory.read(event.subject, metadata);
     } catch (e) {
       throw new TransactionViolation({
         cause: TransactionViolationCause.READ_FAILURE,
@@ -126,7 +130,13 @@ export class SyncEventResource<T extends Record<string, any>> {
    *
    * @throws {TransactionViolation} When the write operation fails due to storage errors
    */
-  public async persistState(event: ArvoEvent, record: T, prevRecord: T | null, span?: Span) {
+  public async persistState(
+    event: ArvoEvent,
+    record: T,
+    prevRecord: T | null,
+    metadata: MachineMemoryMetadata,
+    span?: Span,
+  ) {
     try {
       logToSpan(
         {
@@ -135,7 +145,7 @@ export class SyncEventResource<T extends Record<string, any>> {
         },
         span,
       );
-      await this.memory.write(event.subject, record, prevRecord);
+      await this.memory.write(event.subject, record, prevRecord, metadata);
     } catch (e) {
       throw new TransactionViolation({
         cause: TransactionViolationCause.WRITE_FAILURE,
@@ -154,8 +164,6 @@ export class SyncEventResource<T extends Record<string, any>> {
    * distributed service architecture.
    *
    * @throws {ExecutionViolation} When the event subject format is invalid
-   *
-   * @protected
    */
   public validateEventSubject(event: ArvoEvent, span?: Span) {
     logToSpan(
@@ -186,12 +194,11 @@ export class SyncEventResource<T extends Record<string, any>> {
    *          - 'NOOP': No lock was acquired, so no operation was performed
    *          - 'RELEASED': Lock was successfully released
    *          - 'ERROR': Lock release failed, potential resource leak
-   *
-   * @protected
    */
   public async releaseLock(
     event: ArvoEvent,
     acquiredLock: AcquiredLockStatusType | null,
+    metadata: MachineMemoryMetadata,
     span?: Span,
   ): Promise<ReleasedLockStatusType> {
     if (acquiredLock !== 'ACQUIRED') {
@@ -205,7 +212,7 @@ export class SyncEventResource<T extends Record<string, any>> {
       return 'NOOP';
     }
     try {
-      await this.memory.unlock(event.subject);
+      await this.memory.unlock(event.subject, metadata);
       logToSpan(
         {
           level: 'INFO',
@@ -223,6 +230,68 @@ export class SyncEventResource<T extends Record<string, any>> {
         span,
       );
       return 'ERROR';
+    }
+  }
+
+  /**
+   * Invokes the optional cleanup hook after successful workflow completion.
+   *
+   * This method calls the memory implementation's cleanup hook if it exists, allowing
+   * implementations to perform custom memory management operations like archiving,
+   * marking for garbage collection, or implementing retention policies.
+   *
+   * Cleanup is a non-critical operation - failures are logged but do not throw exceptions
+   * or disrupt the workflow completion process. The assumption is that cleanup operations
+   * can be retried later or handled through separate maintenance processes.
+   *
+   * @param event - The ArvoEvent that triggered workflow completion
+   * @param record - Final workflow state that was just persisted
+   * @param prevRecord - Previous state before final persistence
+   * @param metadata - Workflow context (subject, parent subject, source)
+   * @param span - Optional OpenTelemetry span for observability
+   */
+  public async cleanup(
+    event: ArvoEvent,
+    record: T,
+    prevRecord: T | null,
+    metadata: MachineMemoryMetadata,
+    span?: Span,
+  ): Promise<void> {
+    if (!this.memory.cleanup) {
+      logToSpan(
+        {
+          level: 'INFO',
+          message: 'Cleanup hook not implemented by memory backend, skipping cleanup operation',
+        },
+        span,
+      );
+      return;
+    }
+
+    try {
+      logToSpan(
+        {
+          level: 'INFO',
+          message: 'Invoking cleanup hook for completed workflow',
+        },
+        span,
+      );
+      await this.memory.cleanup(event.subject, record, prevRecord, metadata);
+      logToSpan(
+        {
+          level: 'INFO',
+          message: 'Cleanup hook completed successfully',
+        },
+        span,
+      );
+    } catch (err) {
+      logToSpan(
+        {
+          level: 'ERROR',
+          message: `Cleanup operation failed (non-critical): ${(err as Error).message}`,
+        },
+        span,
+      );
     }
   }
 }

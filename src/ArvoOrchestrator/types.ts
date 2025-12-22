@@ -158,8 +158,10 @@ export type ArvoOrchestratorParam = {
  */
 export type CreateArvoOrchestratorParam = Pick<
   ArvoOrchestratorParam,
-  'memory' | 'executionunits' | 'spanOptions' | 'defaultEventEmissionDomains'
+  'executionunits' | 'spanOptions' | 'defaultEventEmissionDomains'
 > & {
+  memory: IMachineMemory<Record<string, any>>;
+
   /**
    * Optional override for resource locking requirement.
    *

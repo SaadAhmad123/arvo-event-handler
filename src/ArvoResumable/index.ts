@@ -20,6 +20,7 @@ import { ConfigViolation, ContractViolation } from '../errors';
 import type { ArvoEventHandlerOpenTelemetryOptions, ArvoEventHandlerOtelSpanOptions } from '../types';
 import type { ArvoResumableHandler, ArvoResumableParam, ArvoResumableState } from './types';
 import { ArvoDomain } from '../ArvoDomain';
+import { OrchestrationExecutionStatus } from '../ArvoOrchestrationUtils/orchestrationExecutionState';
 
 /**
  * ArvoResumable complements {@link ArvoOrchestrator} by providing imperative
@@ -306,7 +307,10 @@ export class ArvoResumable<
 
         // Build new state
         const newState: ArvoResumableState<TMemory> = {
-          executionStatus: 'normal',
+          __type: 'OrchestrationExecutionMemoryRecord',
+          executionStatus: executionResult?.output
+            ? OrchestrationExecutionStatus.DONE
+            : OrchestrationExecutionStatus.NORMAL,
           status: executionResult?.output ? 'done' : 'active',
           initEventId,
           parentSubject: orchestrationParentSubject,

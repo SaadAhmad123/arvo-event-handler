@@ -18,9 +18,10 @@ import { resolveEventDomain } from '../ArvoDomain';
 import type { SyncEventResource } from '../SyncEventResource';
 import { ExecutionViolation } from '../errors';
 import { isError } from '../utils';
-import type { OrchestrationExecutionMemoryRecord } from './orchestrationExecutionState';
+import { OrchestrationExecutionStatus, type OrchestrationExecutionMemoryRecord } from './orchestrationExecutionState';
 import { ArvoOrchestrationHandlerMap, type ArvoOrchestrationHandlerType } from './types';
 import type { NonEmptyArray } from '../types';
+import { MachineMemoryMetadata } from '../MachineMemory/interface';
 
 /**
  * Parameters for creating system error events during orchestration failures.
@@ -148,6 +149,7 @@ export const handleOrchestrationErrors = async (
   param: CreateSystemErrorEventsParams & {
     syncEventResource: SyncEventResource<OrchestrationExecutionMemoryRecord<Record<string, any>>>;
   },
+  metadata: MachineMemoryMetadata,
   span: Span,
 ): Promise<
   | {
@@ -200,11 +202,13 @@ export const handleOrchestrationErrors = async (
     .persistState(
       param.event,
       {
-        executionStatus: 'failure',
+        __type: 'OrchestrationExecutionMemoryRecord',
+        executionStatus: OrchestrationExecutionStatus.FAILURE,
         subject: param.event.subject,
         error: param.error as Error,
       },
       null,
+      metadata,
       span,
     )
     .catch((e) => {

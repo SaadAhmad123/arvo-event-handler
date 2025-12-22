@@ -9,6 +9,8 @@ export const OrchestrationExecutionStatus = {
   NORMAL: 'normal',
   /** Orchestration has failed and entered terminal error state */
   FAILURE: 'failure',
+  /** Orchestration is marked as done */
+  DONE: 'done',
 } as const;
 
 /**
@@ -28,9 +30,11 @@ export const OrchestrationExecutionStatus = {
  */
 export type OrchestrationExecutionMemoryRecord<T extends Record<string, unknown>> =
   | (T & {
-      executionStatus: typeof OrchestrationExecutionStatus.NORMAL;
+      __type: 'OrchestrationExecutionMemoryRecord';
+      executionStatus: typeof OrchestrationExecutionStatus.NORMAL | typeof OrchestrationExecutionStatus.DONE;
     })
   | (Partial<T> & {
+      __type: 'OrchestrationExecutionMemoryRecord';
       executionStatus: typeof OrchestrationExecutionStatus.FAILURE;
       error: Error;
       subject: string;

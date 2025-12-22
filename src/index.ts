@@ -28,7 +28,7 @@ import { IMachineExectionEngine } from './MachineExecutionEngine/interface';
 import { ExecuteMachineInput, ExecuteMachineOutput } from './MachineExecutionEngine/types';
 import { SimpleMachineMemory } from './MachineMemory/Simple';
 import { TelemetredSimpleMachineMemory } from './MachineMemory/TelemetredSimple';
-import { IMachineMemory } from './MachineMemory/interface';
+import { IMachineMemory, MachineMemoryMetadata } from './MachineMemory/interface';
 import { MachineRegistry } from './MachineRegistry';
 import { IMachineRegistry } from './MachineRegistry/interface';
 import { ConfigViolation, ContractViolation, ExecutionViolation } from './errors';
@@ -36,6 +36,8 @@ import {
   ArvoEventHandlerOpenTelemetryOptions,
   ArvoEventHandlerOtelSpanOptions,
   EventHandlerFactory,
+  Materializable,
+  Materialized,
   PartialExcept,
 } from './types';
 import { coalesce, coalesceOrDefault, getValueOrDefault, isNullOrUndefined } from './utils';
@@ -111,4 +113,7 @@ export {
   ArvoTestSuite,
   ArvoTestResult,
   IArvoTestFramework,
+  Materializable,
+  Materialized,
+  MachineMemoryMetadata,
 };

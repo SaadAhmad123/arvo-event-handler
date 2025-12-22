@@ -7,6 +7,7 @@ describe('SimpleMachineMemory', () => {
   beforeEach(() => {
     memory = new SimpleMachineMemory();
     validData = {
+      __type: 'OrchestrationExecutionMemoryRecord',
       executionStatus: 'normal',
       initEventId: '',
       subject: 'test',

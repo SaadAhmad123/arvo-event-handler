@@ -3,6 +3,7 @@ import { type ArvoEvent, logToSpan } from 'arvo-core';
 import type { SyncEventResource } from '../../SyncEventResource';
 import type { AcquiredLockStatusType } from '../../SyncEventResource/types';
 import { TransactionViolation, TransactionViolationCause } from '../error';
+import { MachineMemoryMetadata } from '../../MachineMemory/interface';
 
 /**
  * Acquires an exclusive lock for event processing with validation.
@@ -14,9 +15,10 @@ import { TransactionViolation, TransactionViolationCause } from '../error';
 export const acquireLockWithValidation = async (
   syncEventResource: SyncEventResource<Record<string, any>>,
   event: ArvoEvent,
+  metadata: MachineMemoryMetadata,
   span: Span,
 ): Promise<AcquiredLockStatusType> => {
-  const acquiredLock = await syncEventResource.acquireLock(event, span);
+  const acquiredLock = await syncEventResource.acquireLock(event, metadata, span);
 
   if (acquiredLock === 'NOT_ACQUIRED') {
     throw new TransactionViolation({

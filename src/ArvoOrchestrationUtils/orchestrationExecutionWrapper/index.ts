@@ -13,13 +13,19 @@ import {
 import type IArvoEventHandler from '../../IArvoEventHandler';
 import type { SyncEventResource } from '../../SyncEventResource';
 import type { AcquiredLockStatusType } from '../../SyncEventResource/types';
-import type { ArvoEventHandlerOpenTelemetryOptions, ArvoEventHandlerOtelSpanOptions, NonEmptyArray } from '../../types';
+import {
+  Materialized,
+  type ArvoEventHandlerOpenTelemetryOptions,
+  type ArvoEventHandlerOtelSpanOptions,
+  type NonEmptyArray,
+} from '../../types';
 import { createEventHandlerTelemetryConfig } from '../../utils';
 import { handleOrchestrationErrors } from '../handlerErrors';
-import type { OrchestrationExecutionMemoryRecord } from '../orchestrationExecutionState';
+import { OrchestrationExecutionStatus, type OrchestrationExecutionMemoryRecord } from '../orchestrationExecutionState';
 import type { ArvoOrchestrationHandlerType } from '../types';
 import { acquireLockWithValidation } from './acquireLockWithValidation';
 import { validateAndParseSubject } from './validateAndParseSubject';
+import { MachineMemoryMetadata } from '../../MachineMemory/interface';
 
 /**
  * Configuration context for orchestration execution.
@@ -151,6 +157,13 @@ export const executeWithOrchestrationWrapper = async <
       let initEventId: string | null = null;
       let acquiredLock: AcquiredLockStatusType | null = null;
 
+      let machineMemoryMetadata: MachineMemoryMetadata = {
+        subject: event.subject,
+        source: source,
+        initiator: Materialized.pending(),
+        parentSubject: Materialized.pending(),
+      };
+
       try {
         // Subject validation and parsing
         const parsedEventSubject = validateAndParseSubject(event, source, syncEventResource, span, 'orchestrator');
@@ -160,29 +173,39 @@ export const executeWithOrchestrationWrapper = async <
         }
 
         // Lock acquisition
-        acquiredLock = await acquireLockWithValidation(syncEventResource, event, span);
+        acquiredLock = await acquireLockWithValidation(syncEventResource, event, machineMemoryMetadata, span);
 
         // State acquisition
-        const state = await syncEventResource.acquireState(event, span);
+        const state = await syncEventResource.acquireState(event, machineMemoryMetadata, span);
 
-        if (state?.executionStatus === 'failure') {
+        if (
+          state?.executionStatus === OrchestrationExecutionStatus.FAILURE ||
+          state?.executionStatus === OrchestrationExecutionStatus.DONE
+        ) {
           span.setAttribute('arvo.handler.execution.status', state.executionStatus);
           logToSpan(
             {
               level: 'WARNING',
-              message: `The orchestration has failed in a previous event. Ignoring event id: ${event.id} with event subject: ${event.subject}`,
+              message: `The orchestration is in terminal state '${state.executionStatus}'. Ignoring event id: ${event.id} with event subject: ${event.subject}`,
             },
             span,
           );
           span.setStatus({
-            code: SpanStatusCode.ERROR,
-            message: `The orchestration has failed in a previous event. Ignoring event id: ${event.id} with event subject: ${event.subject}`,
+            code:
+              state.executionStatus === OrchestrationExecutionStatus.FAILURE ? SpanStatusCode.ERROR : SpanStatusCode.OK,
+            message: `The orchestration is in terminal state '${state.executionStatus}'. Ignoring event id: ${event.id} with event subject: ${event.subject}`,
           });
           return returnEventsWithLogging({ events: [] }, span);
         }
 
         orchestrationParentSubject = state?.parentSubject ?? null;
         initEventId = state?.initEventId ?? null;
+
+        machineMemoryMetadata = {
+          ...machineMemoryMetadata,
+          initiator: Materialized.resolved(parsedEventSubject.execution.initiator),
+          parentSubject: Materialized.resolved(orchestrationParentSubject),
+        };
 
         if (!state) {
           logToSpan({
@@ -228,7 +251,12 @@ export const executeWithOrchestrationWrapper = async <
         }
 
         // Persist state
-        await syncEventResource.persistState(event, newState, state, span);
+        await syncEventResource.persistState(event, newState, state, machineMemoryMetadata, span);
+
+        // Perform cleanup
+        if (newState.executionStatus === OrchestrationExecutionStatus.DONE) {
+          await syncEventResource.cleanup(event, newState, state, machineMemoryMetadata, span);
+        }
 
         logToSpan({
           level: 'INFO',
@@ -258,6 +286,7 @@ export const executeWithOrchestrationWrapper = async <
             syncEventResource: syncEventResource as any,
             handlerType: _handlerType,
           },
+          machineMemoryMetadata,
           span,
         );
         if (errorToThrow) throw errorToThrow;
@@ -265,7 +294,7 @@ export const executeWithOrchestrationWrapper = async <
           events: errorEvents,
         };
       } finally {
-        await syncEventResource.releaseLock(event, acquiredLock, span);
+        await syncEventResource.releaseLock(event, acquiredLock, machineMemoryMetadata, span);
         span.end();
       }
     },
