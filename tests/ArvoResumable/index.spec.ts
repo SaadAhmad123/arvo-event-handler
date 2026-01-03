@@ -30,7 +30,7 @@ describe('ArvoResumable', () => {
   });
 
   const valueStore: Record<string, number> = {};
-  const machineMemory = new SimpleMachineMemory({enableCleanup: false});
+  const machineMemory = new SimpleMachineMemory({ enableCleanup: false });
 
   const handlers = {
     decrement: decrementNumberHandler(),

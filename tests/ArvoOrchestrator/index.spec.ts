@@ -50,7 +50,7 @@ describe('ArvoOrchestrator', () => {
   });
 
   const valueStore: Record<string, number> = {};
-  const machineMemory = new SimpleMachineMemory({enableCleanup: false});
+  const machineMemory = new SimpleMachineMemory({ enableCleanup: false });
 
   const handlers = {
     increment: incrementNumberHandler(),
