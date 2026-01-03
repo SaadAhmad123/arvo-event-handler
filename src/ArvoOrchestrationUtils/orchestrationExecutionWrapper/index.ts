@@ -7,7 +7,7 @@ import {
   type ArvoSemanticVersion,
   type OpenTelemetryHeaders,
   type VersionedArvoContract,
-  currentOpenTelemetryHeaders,
+  getOtelHeaderFromSpan,
   logToSpan,
 } from 'arvo-core';
 import type IArvoEventHandler from '../../IArvoEventHandler';
@@ -25,7 +25,7 @@ import { OrchestrationExecutionStatus, type OrchestrationExecutionMemoryRecord }
 import type { ArvoOrchestrationHandlerType } from '../types';
 import { acquireLockWithValidation } from './acquireLockWithValidation';
 import { validateAndParseSubject } from './validateAndParseSubject';
-import { MachineMemoryMetadata } from '../../MachineMemory/interface';
+import type { MachineMemoryMetadata } from '../../MachineMemory/interface';
 
 /**
  * Configuration context for orchestration execution.
@@ -152,7 +152,7 @@ export const executeWithOrchestrationWrapper = async <
         span,
       );
 
-      const otelHeaders = currentOpenTelemetryHeaders();
+      const otelHeaders = getOtelHeaderFromSpan(span);
       let orchestrationParentSubject: string | null = null;
       let initEventId: string | null = null;
       let acquiredLock: AcquiredLockStatusType | null = null;
